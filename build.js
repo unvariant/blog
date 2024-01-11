@@ -55,7 +55,7 @@ const yank = async (relativePath, stats) => {
             case ".md":
             case ".mdx":
                 results = await mdxToHtml(blogRelative, {});
-                outFile = path.join(buildDir, relativeParent, `${basename}${extname}`);
+                outFile = path.join(buildDir, relativeParent, `${basename}.html`);
                 break;
             default:
                 results = { rendered: await fs.readFile(absolute) };

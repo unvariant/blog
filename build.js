@@ -6,9 +6,9 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { execSync } from "node:child_process";
 import * as path from "node:path";
-import { register } from "node:module";
+// import { register } from "node:module";
 
-register("./loader.js", import.meta.url);
+// register("./loader.js", import.meta.url);
 
 const cwd = path.resolve("");
 const blogRoot = path.normalize("src/blog");

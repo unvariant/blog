@@ -1,0 +1,43 @@
+import * as path from 'node:path';
+import Page from './page.mdx';
+
+<Page>
+
+<p>
+    <a href="." >📁 .</a>
+</p>
+<p>
+    <a href="..">📁 ..</a>
+</p>
+{ props.meta.fileList
+    .filter(file => file.isDirectory())
+    .map((file) => {
+        return <p key={file.name}>
+            <a href={file.name}>📁 {file.name}</a>
+        </p>;
+    })
+}
+{ props.meta.fileList
+    .filter(file => file.isFile())
+    .map((file) => {
+        let extname = path.extname(file.name);
+        const basename = path.basename(file.name, extname);
+
+        switch (extname.toLowerCase()) {
+            case ".md":
+            case ".mdx":
+                extname = ".html";
+                break;
+        }
+
+        const converted = `${basename}${extname}`;
+        return <p key={converted}>
+            <a href={converted}>🗎 {converted}</a>
+        </p>;
+    })
+}
+<div>
+    { props.meta.readme }
+</div>
+
+</Page>

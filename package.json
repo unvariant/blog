@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build": "node build.js"
+  },
   "type": "module",
   "devDependencies": {
     "@mdx-js/mdx": "^3.0.0",

@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "node build.js"
+    "build": "node --loader=@mdx-js/node-loader build.js"
   },
   "type": "module",
   "devDependencies": {

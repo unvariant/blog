@@ -74,11 +74,14 @@ const getInfo = async (relativePath) => {
     const sourcePath = path.join(blogRoot, relativePath);
     const stats = await fs.lstat(sourcePath);
     let lastModifiedDate;
+    let size;
 
     if (path.relative(blogRoot, sourcePath).startsWith("..")) {
         lastModifiedDate = new Date(0);
+        size = 0;
     } else {
         lastModifiedDate = new Date(execSync(`git log -1 --pretty="format:%cD" ${sourcePath}`, { encoding: "utf8" }).trim());
+        size = stats.size;
     }
 
     return {
@@ -91,7 +94,7 @@ const getInfo = async (relativePath) => {
         buildPath,
         sourcePath,
         lastModifiedDate,
-        size: 0,
+        size,
     };
 };
 
@@ -117,7 +120,6 @@ const yank = async (relativePath, parentInfo) => {
                 results = { rendered: await fs.readFile(info.sourcePath) };
                 break;
         }
-        info.size = results.rendered.length;
     } else if (info.stats.isDirectory()) {
         const fd = execSync(`fd -d 1 . '${info.sourcePath}'`, { encoding: "utf8" }).trim();
         const relativePaths = await Promise.all(
@@ -126,6 +128,7 @@ const yank = async (relativePath, parentInfo) => {
             }) : []
         );
         // const relativePaths = (await fs.readdir(info.sourcePath)).map(name => path.join(info.relativePath, name));
+        info.size = (await Promise.all(relativePaths.map(getInfo))).map(i => i.size).concat([0]).reduce((a, b) => a + b);
 
         let readme;
         const children = await Promise.all(
@@ -145,7 +148,6 @@ const yank = async (relativePath, parentInfo) => {
             })
         );
 
-        info.size = children.map(i => i.size).concat([0]).reduce((a, b) => a + b);
         results = await mdxToHtml("src/index.mdx", {
             fileList: children,
             readme,

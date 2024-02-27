@@ -1,33 +1,15 @@
 import * as path from 'node:path';
+import fileEntry from './fileEntry.js';
 
 export const layout = "./src/page.mdx";
 
 { props.fileList
-    .filter(file => file.isDirectory())
-    .map((file) => {
-        return <p key={file.name} className="file">
-            <a href={file.name}>📁 {file.name}</a>
-        </p>;
-    })
+    .filter(info => info.stats.isDirectory())
+    .map(fileEntry)
 }
 { props.fileList
-    .filter(file => file.isFile())
-    .map((file) => {
-        let extname = path.extname(file.name);
-        const basename = path.basename(file.name, extname);
-        const filename = path.basename(file.name);
-
-        let newExtName = ".html";
-        let converted = `${filename}${newExtName}`;
-
-        if (basename == "index") {
-            converted = "index.html";
-        }
-
-        return <p key={converted} className="file">
-            <a href={converted}>🗎 {filename}</a>
-        </p>;
-    })
+    .filter(info => info.stats.isFile())
+    .map(fileEntry)
 }
 
 <div>

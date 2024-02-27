@@ -1,0 +1,76 @@
+<pre><code class="hljs language-c"><span class="hljs-keyword">typedef</span> <span class="hljs-type">unsigned</span> <span class="hljs-type">long</span> <span class="hljs-type">long</span> u64;
+
+<span class="hljs-type">void</span> <span class="hljs-title function_">putchar</span> <span class="hljs-params">(<span class="hljs-type">char</span> ch)</span> {
+    <span class="hljs-keyword">asm</span> <span class="hljs-title function_">volatile</span><span class="hljs-params">(
+        <span class="hljs-string">&quot;.intel_syntax noprefix\n&quot;</span>
+        <span class="hljs-string">&quot;mov eax, 1\n&quot;</span>
+        <span class="hljs-string">&quot;mov edi, 1\n&quot;</span>
+        <span class="hljs-string">&quot;mov rsi, %[buf]\n&quot;</span>
+        <span class="hljs-string">&quot;mov rdx, 1\n&quot;</span>
+        <span class="hljs-string">&quot;syscall\n&quot;</span>
+        <span class="hljs-string">&quot;.att_syntax prefix\n&quot;</span>
+        :: [buf] <span class="hljs-string">&quot;r&quot;</span> (&amp;ch)
+        : <span class="hljs-string">&quot;rax&quot;</span>, <span class="hljs-string">&quot;rdi&quot;</span>, <span class="hljs-string">&quot;rsi&quot;</span>, <span class="hljs-string">&quot;rdx&quot;</span>, <span class="hljs-string">&quot;rcx&quot;</span>, <span class="hljs-string">&quot;r11&quot;</span>
+    )</span>;
+}
+
+<span class="hljs-type">void</span> <span class="hljs-title function_">puts</span> <span class="hljs-params">(<span class="hljs-type">char</span> * s)</span> {
+    <span class="hljs-keyword">while</span> (*s != <span class="hljs-number">0</span>) {
+        <span class="hljs-built_in">putchar</span>(*s);
+        s++;
+    }
+    <span class="hljs-built_in">putchar</span>(<span class="hljs-string">&#x27;\n&#x27;</span>);
+}
+
+<span class="hljs-type">void</span> <span class="hljs-title function_">exit</span><span class="hljs-params">(<span class="hljs-type">int</span> code)</span> {
+    <span class="hljs-keyword">asm</span> <span class="hljs-title function_">volatile</span><span class="hljs-params">(
+        <span class="hljs-string">&quot;mov $60, %%eax\n&quot;</span>
+        <span class="hljs-string">&quot;syscall\n&quot;</span>
+        :: [code] <span class="hljs-string">&quot;rdi&quot;</span> (code)
+    )</span>;
+}
+
+<span class="hljs-type">int</span> <span class="hljs-title function_">probe</span><span class="hljs-params">(<span class="hljs-type">void</span> * addr)</span> {
+    u64 tic_hi, tic_lo, toc_hi, toc_lo;
+    <span class="hljs-keyword">asm</span> <span class="hljs-title function_">volatile</span><span class="hljs-params">(
+        <span class="hljs-string">&quot;.intel_syntax noprefix\n&quot;</span>
+        <span class="hljs-string">&quot;vpxor ymm0, ymm0, ymm0\n&quot;</span>
+        <span class="hljs-string">&quot;vmaskmovps ymm0, ymm0, ymmword ptr [%[ptr]]\n&quot;</span>
+        <span class="hljs-string">&quot;mfence\n&quot;</span>
+        <span class="hljs-string">&quot;rdtsc\n&quot;</span>
+        <span class="hljs-string">&quot;mov %[hi], rdx\n&quot;</span>
+        <span class="hljs-string">&quot;mov %[lo], rax\n&quot;</span>
+        <span class="hljs-string">&quot;mfence\n&quot;</span>
+        <span class="hljs-string">&quot;vmaskmovps ymm0, ymm0, ymmword ptr [%[ptr]]\n&quot;</span>
+        <span class="hljs-string">&quot;mfence\n&quot;</span>
+        <span class="hljs-string">&quot;rdtsc\n&quot;</span>
+        <span class="hljs-string">&quot;mov %[thi], rdx\n&quot;</span>
+        <span class="hljs-string">&quot;mov %[tlo], rax\n&quot;</span>
+        <span class="hljs-string">&quot;.att_syntax prefix\n&quot;</span>
+        : [hi] <span class="hljs-string">&quot;=r&quot;</span> (tic_hi),
+          [lo] <span class="hljs-string">&quot;=r&quot;</span> (tic_lo),
+          [thi] <span class="hljs-string">&quot;=r&quot;</span> (toc_hi),
+          [tlo] <span class="hljs-string">&quot;=r&quot;</span> (toc_lo)
+        : [ptr] <span class="hljs-string">&quot;r&quot;</span> (addr)
+        : <span class="hljs-string">&quot;ymm0&quot;</span>, <span class="hljs-string">&quot;rdx&quot;</span>, <span class="hljs-string">&quot;rax&quot;</span>
+    )</span>;
+    <span class="hljs-keyword">return</span> ((toc_hi &lt;&lt; <span class="hljs-number">32</span>) + toc_lo) - ((tic_hi &lt;&lt; <span class="hljs-number">32</span>) + tic_lo);
+}
+
+<span class="hljs-comment">// we put the main function into the `.entry` section</span>
+<span class="hljs-comment">// and use custom linker script in order to guarantee</span>
+<span class="hljs-comment">// main is run first in the flat binary</span>
+<span class="hljs-type">void</span> __attribute__((section(<span class="hljs-string">&quot;.entry&quot;</span>))) main () {
+    u64 base = <span class="hljs-number">0x1337000</span>;
+
+    <span class="hljs-keyword">while</span> (base &lt; <span class="hljs-number">0x1337000</span> + <span class="hljs-number">0x100000000</span>) {
+        <span class="hljs-type">int</span> access = probe(base);
+        <span class="hljs-keyword">if</span> (access &lt; <span class="hljs-number">140</span>) {
+            <span class="hljs-built_in">puts</span>(<span class="hljs-string">&quot;FOUND&quot;</span>);
+            <span class="hljs-built_in">puts</span>((<span class="hljs-type">char</span> *)base);
+            <span class="hljs-built_in">putchar</span>(<span class="hljs-string">&#x27;\n&#x27;</span>);
+        }
+        base += <span class="hljs-number">0x1000</span>;
+    }
+}
+</code></pre>

@@ -1,0 +1,11 @@
+{
+    "restartable": "rs",
+    "ignore": [
+        ".git",
+        "node_modules/**/node_modules",
+        "build"
+    ],
+    "verbose": true,
+    "exec": "npm run build",
+    "ext": "js json mdx md css"
+}

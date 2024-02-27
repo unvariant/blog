@@ -1,43 +1,35 @@
 import * as path from 'node:path';
-import Page from './page.mdx';
 
-<Page>
+export const layout = "./src/page.mdx";
 
-<p>
-    <a href="." >📁 .</a>
-</p>
-<p>
-    <a href="..">📁 ..</a>
-</p>
-{ props.meta.fileList
+{ props.fileList
     .filter(file => file.isDirectory())
     .map((file) => {
-        return <p key={file.name}>
+        return <p key={file.name} className="file">
             <a href={file.name}>📁 {file.name}</a>
         </p>;
     })
 }
-{ props.meta.fileList
+{ props.fileList
     .filter(file => file.isFile())
     .map((file) => {
         let extname = path.extname(file.name);
         const basename = path.basename(file.name, extname);
+        const filename = path.basename(file.name);
 
-        switch (extname.toLowerCase()) {
-            case ".md":
-            case ".mdx":
-                extname = ".html";
-                break;
+        let newExtName = ".html";
+        let converted = `${filename}${newExtName}`;
+
+        if (basename == "index") {
+            converted = "index.html";
         }
 
-        const converted = `${basename}${extname}`;
-        return <p key={converted}>
-            <a href={converted}>🗎 {converted}</a>
+        return <p key={converted} className="file">
+            <a href={converted}>🗎 {filename}</a>
         </p>;
     })
 }
-<div>
-    { props.meta.readme }
-</div>
 
-</Page>
+<div>
+    { props.readme }
+</div>

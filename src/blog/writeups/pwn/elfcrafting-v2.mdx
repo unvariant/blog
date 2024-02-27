@@ -1,0 +1,104 @@
+export const layout = "./src/page.mdx";
+export const title = "ELFcrafting-v2";
+
+# Provided Files
+- chal
+- Dockerfile
+
+### chal decompilation
+```c noheader
+00001289  int32_t main(int32_t argc, char** argv, char** envp)
+
+00001298      int32_t var_7c = argc
+000012a6      void* fsbase
+000012a6      int64_t rax = *(fsbase + 0x28)
+000012c4      setbuf(fp: stdout, buf: nullptr)
+000012d8      setbuf(fp: stderr, buf: nullptr)
+000012e7      puts(str: "I'm sure you all enjoy doing she…")
+000012f6      puts(str: "But have you ever tried ELF golf…")
+00001305      puts(str: "Have fun!")
+0000130a      int32_t var_6c
+0000130a      __builtin_strncpy(dest: var_6c, src: "\x7fELF", n: 4)
+00001320      int32_t rax_1 = memfd_create("golf", 0)
+0000132c      if (rax_1 s< 0) {
+00001338          perror(s: "failed to execute fd = memfd_cre…")
+00001342          exit(status: 1)
+00001342          noreturn
+00001342      }
+00001358      void var_68
+00001358      int32_t rax_2 = read(fd: 0, buf: &var_68, nbytes: 0x4f)
+00001364      if (rax_2 s< 0) {
+00001370          perror(s: "failed to execute ok = read(0, b…")
+0000137a          exit(status: 1)
+0000137a          noreturn
+0000137a      }
+00001393      printf(format: "read %d bytes from stdin\n", zx.q(rax_2))
+000013b2      if (memcmp(&var_6c, &var_68, 4) != 0) {
+000013be          puts(str: "not an ELF file :/")
+000013c8          exit(status: 1)
+000013c8          noreturn
+000013c8      }
+000013df      int32_t rax_8 = write(fd: rax_1, buf: &var_68, nbytes: sx.q(rax_2))
+000013eb      if (rax_8 s< 0) {
+000013f7          perror(s: "failed to execute ok = write(fd,…")
+00001401          exit(status: 1)
+00001401          noreturn
+00001401      }
+0000141a      printf(format: "wrote %d bytes to file\n", zx.q(rax_8))
+00001439      if (fexecve(fd: rax_1, argv, envp) s< 0) {
+00001445          perror(s: "failed to execute fexecve(fd, ar…")
+0000144f          exit(status: 1)
+0000144f          noreturn
+0000144f      }
+0000145d      *(fsbase + 0x28)
+00001466      if (rax == *(fsbase + 0x28)) {
+0000146e          return 0
+0000146e      }
+00001468      __stack_chk_fail()
+00001468      noreturn
+```
+
+# Intended
+This challenge uses the same setup as ELFcrafting-v1, except it only allows a maximum of 79 bytes instead of 32. The smallest possible 64 bit binary is 80 bytes, and it should be impossible to go lower unless `binfmt.c` changes and becomes more permissive. This time the remote actually verifies the ELF signature, so no more shebangs. However the remote does not verify that the binary is actually a 64 bit binary. 32 bit binaries can be as small as 45 bytes, and gives up ample room for our own shellcode to pop a shell.
+
+## Solution
+**taken from [https://www.muppetlabs.com/~breadbox/software/tiny/teensy.html](https://www.muppetlabs.com/~breadbox/software/tiny/teensy.html)**
+
+```x86asm noheader
+		BITS 32
+  
+		org	0x00010000
+  
+		db	0x7F, "ELF"
+		dd	1
+		dd	0
+		dd	$$
+		dw	2
+		dw	3
+		dd	_start
+		dd	_start
+		dd	4
+_start:	mov	al,	11
+        jmp	next
+		nop
+		nop
+		nop
+		db	0
+		dw	0x34
+		dw	0x20
+		dd	1
+next:	mov	ebx,	bin_sh
+        int	0x80
+bin_sh:	db	"/bin/sh", 0
+  
+filesize	equ	$ - $$
+```
+
+### sidenote:
+You could golf this down further by replacing the `_start` code with `/bin/sh\x00` and relocating `_start`.
+
+### sidenote:
+Some people had problems with their solutions because they attempted to load their programs at an address lower than ubuntu's default vm.mmap_min_addr of `0x10000` which caused their programs to crash.
+
+# Unintendeds
+Zero unintendeds (-^-)

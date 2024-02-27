@@ -1,0 +1,70 @@
+export const layout = "./src/page.mdx";
+export const title = "ELFcrafting-v1";
+
+# Provided Files
+- chal
+- Dockerfile
+
+### chal decompilation
+```c noheader
+00001269  int32_t main(int32_t argc, char** argv, char** envp)
+00001275      int32_t var_4c = argc
+00001280      void* fsbase
+00001280      int64_t rax = *(fsbase + 0x28)
+0000129e      setbuf(fp: stdout, buf: nullptr)
+000012b2      setbuf(fp: stderr, buf: nullptr)
+000012c1      puts(str: "I'm sure you all enjoy doing she…")
+000012d0      puts(str: "But have you ever tried ELF golf…")
+000012df      puts(str: "Have fun!")
+000012f3      int32_t rax_1 = memfd_create("golf", 0)
+000012ff      if (rax_1 s< 0) {
+0000130b          perror(s: "failed to execute fd = memfd_cre…")
+00001315          exit(status: 1)
+00001315          noreturn
+00001315      }
+0000132b      void var_38
+0000132b      int32_t rax_2 = read(fd: 0, buf: &var_38, nbytes: 0x20)
+00001337      if (rax_2 s< 0) {
+00001343          perror(s: "failed to execute ok = read(0, b…")
+0000134d          exit(status: 1)
+0000134d          noreturn
+0000134d      }
+00001366      printf(format: "read %d bytes from stdin\n", zx.q(rax_2))
+0000137d      int32_t rax_7 = write(fd: rax_1, buf: &var_38, nbytes: sx.q(rax_2))
+00001389      if (rax_7 s< 0) {
+00001395          perror(s: "failed to execute ok = write(fd,…")
+0000139f          exit(status: 1)
+0000139f          noreturn
+0000139f      }
+000013b8      printf(format: "wrote %d bytes to file\n", zx.q(rax_7))
+000013d4      if (fexecve(fd: rax_1, argv, envp) s< 0) {
+000013e0          perror(s: "failed to execute fexecve(fd, ar…")
+000013ea          exit(status: 1)
+000013ea          noreturn
+000013ea      }
+000013f8      *(fsbase + 0x28)
+00001401      if (rax == *(fsbase + 0x28)) {
+00001409          return 0
+00001409      }
+00001403      __stack_chk_fail()
+00001403      noreturn
+```
+
+# Intended
+In the decompilation, the binary is reading and executing a file using
+`memfd_create` and `fexecve`. This is a method of executing binaries without making
+a file on the filesystem, it exists only in memory. The challenge only allows
+binaries of maxiumum size of 32 and making a valid ELF this small should be
+impossible. The problem is that remote does not validate that the given file is
+actually an ELF file (it should start with at least `b'\x7FELF'`) and you can put a
+shebang instead to get a shell.
+
+## Solution
+```sh noheader
+#!/bin/sh
+
+cat flag.txt
+```
+
+# Unintendeds
+No unintendeds to see here!

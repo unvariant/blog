@@ -54,7 +54,7 @@ export default function(info, options) {
     ) : <></>;
 
     const icon = grabIcon(info.stats);
-    const linkpath = `/${info.relativePath}`;
+    const linkpath = `/${info.relativePath}/`;
     const filename = options.filename || info.filename;
 
     return (

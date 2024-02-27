@@ -13,7 +13,7 @@ import { $ } from "zx";
 
 const cwd = path.resolve("");
 const blogRoot = path.normalize("src/blog");
-const buildDir = path.resolve("build");
+const builddir = path.resolve("build");
 
 const feed = new Feed({
     title: "feeed title",
@@ -56,6 +56,7 @@ const mdxToHtml = async (file, options) => {
         element = React.createElement(layout, {
             children: element,
             childFrontMatter: frontMatter,
+            childOptions: options,
             // ...layoutFrontMatter,
         });
     }
@@ -69,10 +70,16 @@ const getInfo = async (relativePath) => {
     const filename = path.basename(relativePath);
     const basename = path.basename(relativePath, extname);
     const relativeParent = path.dirname(relativePath);
-    const buildPath = path.join(buildDir, relativePath);
+    const buildPath = path.join(builddir, relativePath);
     const sourcePath = path.join(blogRoot, relativePath);
     const stats = await fs.lstat(sourcePath);
-    const lastModifiedDate = new Date(await $`git log -1 --pretty="format:%cD" ${sourcePath}`);
+    let lastModifiedDate;
+
+    if (path.relative(blogRoot, sourcePath).startsWith("..")) {
+        lastModifiedDate = new Date(0);
+    } else {
+        lastModifiedDate = new Date(execSync(`git log -1 --pretty="format:%cD" ${sourcePath}`, { encoding: "utf8" }).trim());
+    }
 
     return {
         stats,
@@ -84,36 +91,30 @@ const getInfo = async (relativePath) => {
         buildPath,
         sourcePath,
         lastModifiedDate,
+        size: 0,
     };
 };
 
-const yank = async (relativePath) => {
-    const absolute = path.join(cwd, blogRoot, relativePath);
-    const blogRelative = path.join(blogRoot, relativePath);
-    const extname = path.extname(relativePath);
-    const basename = path.basename(relativePath, extname);
-    const filename = path.basename(relativePath);
-    const relativeParent = path.dirname(relativePath);
-
+const yank = async (relativePath, parentInfo) => {
     const info = await getInfo(relativePath);
 
     let results;
-    let outFile;
     if (info.stats.isFile()) {
         switch (info.extname.toLowerCase()) {
             case ".md":
             case ".mdx":
-                results = await mdxToHtml(info.sourcePath);
-                outFile = path.join(buildDir, info.relativeParent, `${info.filename}.html`);
+                results = await mdxToHtml(info.sourcePath, {
+                    info,
+                    parentInfo,
+                });
                 addFeedItem({
                     title: info.basename,
-                    url: outFile,
+                    url: info.relativePath,
                     content: results.rendered,
                 });
                 break;
             default:
                 results = { rendered: await fs.readFile(info.sourcePath) };
-                outFile = path.join(buildDir, info.relativePath);
                 break;
         }
         info.size = results.rendered.length;
@@ -129,7 +130,7 @@ const yank = async (relativePath) => {
         let readme;
         const children = await Promise.all(
             relativePaths.map(async (relativePath) => {
-                const results = await yank(relativePath);
+                const results = await yank(relativePath, info);
                 if (results.info.basename.toLowerCase().startsWith("readme")) {
                     let { props, ...stuff } = results.element;
                     readme = {
@@ -144,28 +145,30 @@ const yank = async (relativePath) => {
             })
         );
 
+        info.size = children.map(i => i.size).concat([0]).reduce((a, b) => a + b);
         results = await mdxToHtml("src/index.mdx", {
             fileList: children,
-            readme: readme,
+            readme,
+            info,
+            parentInfo,
         });
-        outFile = path.join(buildDir, info.relativePath, "index.html");
-        info.size = children.map(i => i.size).concat([0]).reduce((a, b) => a + b);
     } else {
         return;
     }
 
     console.log(`relativePath: ${info.relativePath}`);
 
-    const outdir = path.dirname(outFile);
+    const outfile = path.join(builddir, relativePath, "index.html");
+    const outdir = path.dirname(outfile);
     await fs.mkdir(outdir, { recursive: true });
-    await fs.writeFile(outFile, results.rendered);
+    await fs.writeFile(outfile, results.rendered);
     return { info, ...results };
 };
 
 const buildSteps = [
-    yank(".", await fs.lstat(".")),
-    fs.cp("static", path.join(buildDir), { recursive: true }),
+    yank(".", await getInfo("..")),
+    fs.cp("static", path.join(builddir), { recursive: true }),
 ];
 await Promise.all(buildSteps);
 
-await fs.writeFile(path.join(buildDir, "feed.xml"), feed.rss2());
+await fs.writeFile(path.join(builddir, "feed.xml"), feed.rss2());

@@ -25,6 +25,17 @@ function formatSize(size) {
     }
 }
 
+function grabIcon(stats) {
+    if (stats.isFile()) {
+        return "/icons/text.png";
+    } else if (stats.isDirectory()) {
+        return "/icons/dir.png";
+    } else {
+        // TODO: get a dont know icon
+        return "/icons/text.png";
+    }
+}
+
 export default function(info, options) {
     const wantsMeta = options.hasOwnProperty("meta") ? options.meta : true;
 
@@ -42,32 +53,17 @@ export default function(info, options) {
         </div>
     ) : <></>;
 
-    if (info.stats.isFile()) {
-        let newExtName = ".html";
-        let converted = `${info.filename}${newExtName}`;
+    const icon = grabIcon(info.stats);
+    const linkpath = `/${info.relativePath}`;
+    const filename = options.filename || info.filename;
 
-        if (info.basename == "index") {
-            converted = "index.html";
-        }
-
-        return (
-            <div key={converted} className="file" style={ style }>
-                <a href={converted} style={{ display: "inline-flex", "alignItems": "center" }}>
-                    <img src="/icons/text.png" style={{ paddingRight: "1rem" }}></img>
-                    {info.filename}
-                </a>
-                { meta }
-            </div>
-        );
-    } else if (info.stats.isDirectory()) {
-        return (
-            <div key={info.basename} className="file" style={ style }>
-                <a href={info.basename} style={{ display: "inline-flex", "alignItems": "center" }}>
-                    <img src="/icons/dir.png" style={{ paddingRight: "1rem" }}></img>
-                    <span>{info.basename}</span>
-                </a>
-                { meta }
-            </div>
-        );
-    }
+    return (
+        <div key={linkpath} className="file" style={ style }>
+            <a href={linkpath} style={{ display: "inline-flex", "alignItems": "center" }}>
+                <img src={icon} style={{ paddingRight: "1rem" }}></img>
+                <span>{filename}</span>
+            </a>
+            { meta }
+        </div>
+    );
 }

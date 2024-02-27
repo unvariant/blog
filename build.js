@@ -65,37 +65,59 @@ const mdxToHtml = async (file, options) => {
     return { rendered, element };
 };
 
+const infoMemo = new Map();
+
 const getInfo = async (relativePath) => {
-    const extname = path.extname(relativePath);
-    const filename = path.basename(relativePath);
-    const basename = path.basename(relativePath, extname);
-    const relativeParent = path.dirname(relativePath);
-    const buildPath = path.join(builddir, relativePath);
     const sourcePath = path.join(blogRoot, relativePath);
-    const stats = await fs.lstat(sourcePath);
-    let lastModifiedDate;
-    let size;
+    const normalized = path.normalize(path.relative(blogRoot, sourcePath));
 
-    if (path.relative(blogRoot, sourcePath).startsWith("..")) {
-        lastModifiedDate = new Date(0);
-        size = 0;
+    if (infoMemo.has(normalized)) {
+        return infoMemo.get(normalized);
     } else {
-        lastModifiedDate = new Date(execSync(`git log -1 --pretty="format:%cD" ${sourcePath}`, { encoding: "utf8" }).trim());
-        size = stats.size;
-    }
+        const extname = path.extname(relativePath);
+        const filename = path.basename(relativePath);
+        const basename = path.basename(relativePath, extname);
+        const relativeParent = path.dirname(relativePath);
+        const buildPath = path.join(builddir, relativePath);
+        const stats = await fs.lstat(sourcePath);
+        let lastModifiedDate;
+        let size;
+        let children = [];
 
-    return {
-        stats,
-        extname,
-        filename,
-        basename,
-        relativePath,
-        relativeParent,
-        buildPath,
-        sourcePath,
-        lastModifiedDate,
-        size,
-    };
+        if (normalized.startsWith("..")) {
+            lastModifiedDate = new Date(0);
+            size = 0;
+        } else {
+            lastModifiedDate = new Date(execSync(`git log -1 --pretty="format:%cD" ${sourcePath}`, { encoding: "utf8" }).trim());
+            if (stats.isDirectory()) {
+                const fd = execSync(`fd -d 1 . '${sourcePath}'`, { encoding: "utf8" }).trim();
+                children = await Promise.all(
+                    fd.length > 0 ? fd.split("\n").map(file => {
+                        return getInfo(path.relative(blogRoot, file))
+                    }) : []
+                );
+                size = children.map(i => i.size).concat([0, 0]).reduce((a, b) => a + b);
+            } else {
+                size = stats.size;
+            }
+        }
+
+        const info =  {
+            stats,
+            extname,
+            filename,
+            basename,
+            relativePath,
+            relativeParent,
+            buildPath,
+            sourcePath,
+            lastModifiedDate,
+            size,
+            children,
+        };
+        infoMemo.set(normalized, info);
+        return info;
+    }
 };
 
 const yank = async (relativePath, parentInfo) => {
@@ -121,35 +143,40 @@ const yank = async (relativePath, parentInfo) => {
                 break;
         }
     } else if (info.stats.isDirectory()) {
-        const fd = execSync(`fd -d 1 . '${info.sourcePath}'`, { encoding: "utf8" }).trim();
-        const relativePaths = await Promise.all(
-            fd.length > 0 ? fd.split("\n").map((file) => {
-                return path.relative(blogRoot, file);
-            }) : []
-        );
-        // const relativePaths = (await fs.readdir(info.sourcePath)).map(name => path.join(info.relativePath, name));
-        info.size = (await Promise.all(relativePaths.map(getInfo))).map(i => i.size).concat([0]).reduce((a, b) => a + b);
-
         let readme;
-        const children = await Promise.all(
-            relativePaths.map(async (relativePath) => {
-                const results = await yank(relativePath, info);
-                if (results.info.basename.toLowerCase().startsWith("readme")) {
-                    let { props, ...stuff } = results.element;
-                    readme = {
-                        ...stuff,
-                        props: {
-                            ...props,
-                            noDefaultFolders: true,
-                        }
-                    };
-                }
-                return results.info;
-            })
-        );
+        await Promise.all(info.children.map(async childInfo => {
+            const results = await yank(childInfo.relativePath, info);
+            if (childInfo.basename.toLowerCase().startsWith("readme")) {
+                let { props, ...stuff } = results.element;
+                readme = {
+                    ...stuff,
+                    props: {
+                        ...props,
+                        noDefaultFolders: true,
+                    }
+                };
+            }
+        }));
+
+        // const children = await Promise.all(
+        //     info.children.map(async (relativePath) => {
+        //         const results = await yank(relativePath, info);
+        //         if (results.info.basename.toLowerCase().startsWith("readme")) {
+        //             let { props, ...stuff } = results.element;
+        //             readme = {
+        //                 ...stuff,
+        //                 props: {
+        //                     ...props,
+        //                     noDefaultFolders: true,
+        //                 }
+        //             };
+        //         }
+        //         return results.info;
+        //     })
+        // );
 
         results = await mdxToHtml("src/index.mdx", {
-            fileList: children,
+            fileList: info.children,
             readme,
             info,
             parentInfo,

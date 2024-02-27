@@ -47,7 +47,8 @@ export default function(info, options) {
     };
 
     const meta = wantsMeta ? (
-        <div style={{ display: "flex-inline", justifyContent: "space-evenly" }}>
+        <div style={{ display: "flex-inline", justifyContent: "space-evenly", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", direction: "rtl", textAlign: "left" }}>
+            <span>{ "\u200E" }</span>
             <span>{ formatSize(info.size) }</span>
             <span style={{ marginLeft: "1rem" }}>{ apacheDate(info.lastModifiedDate) }</span>
         </div>

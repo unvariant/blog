@@ -46,7 +46,7 @@ export default {
             if (wantsHeader) {
                 codeBlock = (
                     <details open={defaultOpen} style={{ transition: "height 0.3s ease-in-out" }}>
-                        <summary style={{ display: "inline-flex", flexDirection: "row", width: "100%", justifyContent: "space-between", borderBottom: "solid black 1px", cursor: "pointer", position: "sticky", top: "0", zIndex: "1", backgroundColor: "white", paddingBottom: "0.5rem" }}>
+                        <summary style={{ display: "inline-flex", flexDirection: "row", width: "100%", justifyContent: "space-between", borderBottom: "solid black 1px", cursor: "pointer", position: "sticky", top: "0", zIndex: "1", backgroundColor: "white", paddingBottom: "0.5rem", paddingTop: "0.5rem" }}>
                             <div>
                                 <b>{filename}</b>
                             </div>

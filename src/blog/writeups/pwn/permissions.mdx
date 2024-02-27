@@ -17,8 +17,6 @@ export const title = "permissions";
 #include <stdlib.h>
 
 void setup_seccomp () {
-    return;
-}
     scmp_filter_ctx ctx;
     ctx = seccomp_init(SCMP_ACT_KILL);
     int ret = 0;

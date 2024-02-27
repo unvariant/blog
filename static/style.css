@@ -20,6 +20,10 @@ body {
     font-size: 1rem;
 }
 
+pre {
+  font-size: 1rem;
+}
+
 h1 a:link,
 h2 a:link,
 h3 a:link,

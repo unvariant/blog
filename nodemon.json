@@ -3,7 +3,8 @@
     "ignore": [
         ".git",
         "node_modules/**/node_modules",
-        "build"
+        "build",
+        "testing"
     ],
     "verbose": true,
     "exec": "npm run build",

@@ -10,7 +10,19 @@ function apacheDate(date) {
 }
 
 function formatSize(size) {
-
+    let suffixList = ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+    let threshold = 1024;
+    if (size < threshold) {
+        return `${size} bytes`;
+    } else {
+        for (let i = 0; i < suffixList.length; i++) {
+            const div = size / threshold;
+            if (div < threshold) {
+                return `${div.toFixed(0)} ${suffixList[i]}`;
+            }
+            threshold *= 1024;
+        }
+    }
 }
 
 export default function(info) {
@@ -31,8 +43,8 @@ export default function(info) {
             <div key={converted} className="file" style={ style }>
                 <a href={converted}>🗎 {info.filename}</a>
                 <div style={{ display: "flex-inline", justifyContent: "space-evenly" }}>
-                    <span>{ apacheDate(info.lastModifiedDate) }</span>
-                    <span>{ info.size }</span>
+                    <span>{ formatSize(info.size) }</span>
+                    <span style={{ marginLeft: "1rem" }}>{ apacheDate(info.lastModifiedDate) }</span>
                 </div>
             </div>
         );
@@ -41,8 +53,8 @@ export default function(info) {
             <div key={info.basename} className="file" style={ style }>
                 <a href={info.basename}>📁 {info.basename}</a>
                 <div style={{ display: "flex-inline", justifyContent: "space-evenly" }}>
-                    <span>{ apacheDate(info.lastModifiedDate) }</span>
-                    <span>{ info.size }</span>
+                    <span>{ formatSize(info.size) }</span>
+                    <span style={{ marginLeft: "1rem" }}>{ apacheDate(info.lastModifiedDate) }</span>
                 </div>
             </div>
         );

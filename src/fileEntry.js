@@ -25,12 +25,23 @@ function formatSize(size) {
     }
 }
 
-export default function(info) {
+export default function(info, options) {
+    const wantsMeta = options.hasOwnProperty("meta") ? options.meta : true;
+
     const style = {
         display: "flex",
         justifyContent: "space-between",
         fontFamily: "JetBrains Mono, monospace",
+        marginBottom: "0.5rem",
     };
+
+    const meta = wantsMeta ? (
+        <div style={{ display: "flex-inline", justifyContent: "space-evenly" }}>
+            <span>{ formatSize(info.size) }</span>
+            <span style={{ marginLeft: "1rem" }}>{ apacheDate(info.lastModifiedDate) }</span>
+        </div>
+    ) : <></>;
+
     if (info.stats.isFile()) {
         let newExtName = ".html";
         let converted = `${info.filename}${newExtName}`;
@@ -41,21 +52,21 @@ export default function(info) {
 
         return (
             <div key={converted} className="file" style={ style }>
-                <a href={converted}>🗎 {info.filename}</a>
-                <div style={{ display: "flex-inline", justifyContent: "space-evenly" }}>
-                    <span>{ formatSize(info.size) }</span>
-                    <span style={{ marginLeft: "1rem" }}>{ apacheDate(info.lastModifiedDate) }</span>
-                </div>
+                <a href={converted} style={{ display: "inline-flex", "alignItems": "center" }}>
+                    <img src="/icons/text.png" style={{ paddingRight: "1rem" }}></img>
+                    {info.filename}
+                </a>
+                { meta }
             </div>
         );
     } else if (info.stats.isDirectory()) {
         return (
             <div key={info.basename} className="file" style={ style }>
-                <a href={info.basename}>📁 {info.basename}</a>
-                <div style={{ display: "flex-inline", justifyContent: "space-evenly" }}>
-                    <span>{ formatSize(info.size) }</span>
-                    <span style={{ marginLeft: "1rem" }}>{ apacheDate(info.lastModifiedDate) }</span>
-                </div>
+                <a href={info.basename} style={{ display: "inline-flex", "alignItems": "center" }}>
+                    <img src="/icons/dir.png" style={{ paddingRight: "1rem" }}></img>
+                    <span>{info.basename}</span>
+                </a>
+                { meta }
             </div>
         );
     }

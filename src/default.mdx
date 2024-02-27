@@ -1,6 +1,23 @@
-<p>
-    <a href="." >📁 .</a>
-</p>
-<p>
-    <a href="..">📁 ..</a>
-</p>
+<div className="file" style={{
+    display: "flex",
+    justifyContent: "space-between",
+    fontFamily: "JetBrains Mono, monospace",
+    marginBottom: "0.5rem",
+}}>
+    <a href="." style={{ display: "inline-flex", "alignItems": "center" }}>
+        <img src="/icons/dir.png" style={{ paddingRight: "1rem" }}></img>
+        <span>{ "." }</span>
+    </a>
+</div>
+
+<div className="file" style={{
+    display: "flex",
+    justifyContent: "space-between",
+    fontFamily: "JetBrains Mono, monospace",
+    marginBottom: "0.5rem",
+}}>
+    <a href=".." style={{ display: "inline-flex", "alignItems": "center" }}>
+        <img src="/icons/dir.png" style={{ paddingRight: "1rem" }}></img>
+        <span>{ ".." }</span>
+    </a>
+</div>

@@ -1,6 +1,5 @@
 export default {
     pre: function (props) {
-        console.log(props.filename);
         if (!Array.isArray(props.children) && props.children.type === "code") {
             function count(haystack, needle) {
                 return haystack.split("").map(ch => ch == needle ? 1 : 0).reduce((a, b) => a + b);
@@ -37,8 +36,6 @@ export default {
             const wantsOpen = props.hasOwnProperty("open");
             const wantsAlwaysOpen = props.hasOwnProperty("always");
             const defaultOpen = (wantsHeader ? false : true) || wantsOpen || wantsAlwaysOpen;
-
-            console.log(`processing language ${lang} for ${filename}`);
 
             let codeBlock = (
                 <div className="code-block">

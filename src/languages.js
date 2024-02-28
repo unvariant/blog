@@ -12,7 +12,9 @@ import bash from 'highlight.js/lib/languages/bash';
 import cpp from 'highlight.js/lib/languages/cpp';
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
 
-export default {
+import hljs from 'highlight.js/lib/core';
+
+export const languages = {
     c, cpp,
     rs,
     makefile,
@@ -23,3 +25,9 @@ export default {
     diff,
     dockerfile,
 };
+
+for (const [langname, langdef] of Object.entries(languages)) {
+    hljs.registerLanguage(langname, langdef);
+}
+
+export default hljs;

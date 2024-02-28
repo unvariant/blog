@@ -7,55 +7,54 @@ export const title = "ELFcrafting-v2";
 
 ### chal decompilation
 ```c noheader
-00001289  int32_t main(int32_t argc, char** argv, char** envp)
-
-00001298      int32_t var_7c = argc
-000012a6      void* fsbase
-000012a6      int64_t rax = *(fsbase + 0x28)
-000012c4      setbuf(fp: stdout, buf: nullptr)
-000012d8      setbuf(fp: stderr, buf: nullptr)
-000012e7      puts(str: "I'm sure you all enjoy doing she…")
-000012f6      puts(str: "But have you ever tried ELF golf…")
-00001305      puts(str: "Have fun!")
-0000130a      int32_t var_6c
-0000130a      __builtin_strncpy(dest: var_6c, src: "\x7fELF", n: 4)
-00001320      int32_t rax_1 = memfd_create("golf", 0)
-0000132c      if (rax_1 s< 0) {
-00001338          perror(s: "failed to execute fd = memfd_cre…")
-00001342          exit(status: 1)
-00001342          noreturn
-00001342      }
-00001358      void var_68
-00001358      int32_t rax_2 = read(fd: 0, buf: &var_68, nbytes: 0x4f)
-00001364      if (rax_2 s< 0) {
-00001370          perror(s: "failed to execute ok = read(0, b…")
-0000137a          exit(status: 1)
-0000137a          noreturn
-0000137a      }
-00001393      printf(format: "read %d bytes from stdin\n", zx.q(rax_2))
-000013b2      if (memcmp(&var_6c, &var_68, 4) != 0) {
-000013be          puts(str: "not an ELF file :/")
-000013c8          exit(status: 1)
-000013c8          noreturn
-000013c8      }
-000013df      int32_t rax_8 = write(fd: rax_1, buf: &var_68, nbytes: sx.q(rax_2))
-000013eb      if (rax_8 s< 0) {
-000013f7          perror(s: "failed to execute ok = write(fd,…")
-00001401          exit(status: 1)
-00001401          noreturn
-00001401      }
-0000141a      printf(format: "wrote %d bytes to file\n", zx.q(rax_8))
-00001439      if (fexecve(fd: rax_1, argv, envp) s< 0) {
-00001445          perror(s: "failed to execute fexecve(fd, ar…")
-0000144f          exit(status: 1)
-0000144f          noreturn
-0000144f      }
-0000145d      *(fsbase + 0x28)
-00001466      if (rax == *(fsbase + 0x28)) {
-0000146e          return 0
-0000146e      }
-00001468      __stack_chk_fail()
-00001468      noreturn
+int32_t main(int32_t argc, char** argv, char** envp)
+    int32_t var_7c = argc
+    void* fsbase
+    int64_t rax = *(fsbase + 0x28)
+    setbuf(fp: stdout, buf: nullptr)
+    setbuf(fp: stderr, buf: nullptr)
+    puts(str: "I'm sure you all enjoy doing she…")
+    puts(str: "But have you ever tried ELF golf…")
+    puts(str: "Have fun!")
+    int32_t var_6c
+    __builtin_strncpy(dest: var_6c, src: "\x7fELF", n: 4)
+    int32_t rax_1 = memfd_create("golf", 0)
+    if (rax_1 s< 0) {
+        perror(s: "failed to execute fd = memfd_cre…")
+        exit(status: 1)
+        noreturn
+    }
+    void var_68
+    int32_t rax_2 = read(fd: 0, buf: &var_68, nbytes: 0x4f)
+    if (rax_2 s< 0) {
+        perror(s: "failed to execute ok = read(0, b…")
+        exit(status: 1)
+        noreturn
+    }
+    printf(format: "read %d bytes from stdin\n", zx.q(rax_2))
+    if (memcmp(&var_6c, &var_68, 4) != 0) {
+        puts(str: "not an ELF file :/")
+        exit(status: 1)
+        noreturn
+    }
+    int32_t rax_8 = write(fd: rax_1, buf: &var_68, nbytes: sx.q(rax_2))
+    if (rax_8 s< 0) {
+        perror(s: "failed to execute ok = write(fd,…")
+        exit(status: 1)
+        noreturn
+    }
+    printf(format: "wrote %d bytes to file\n", zx.q(rax_8))
+    if (fexecve(fd: rax_1, argv, envp) s< 0) {
+        perror(s: "failed to execute fexecve(fd, ar…")
+        exit(status: 1)
+        noreturn
+    }
+    *(fsbase + 0x28)
+    if (rax == *(fsbase + 0x28)) {
+        return 0
+    }
+    __stack_chk_fail()
+    noreturn
 ```
 
 # Intended

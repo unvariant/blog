@@ -4,10 +4,12 @@ import { renderToString } from "react-dom/server";
 import { execSync } from "node:child_process";
 import * as path from "node:path";
 import { Feed } from "feed";
-import components from "./components.js"
 import { $ } from "zx";
-import hljs from 'highlight.js/lib/core';
-import languages from "./languages.js";
+import { fileTypeFromBuffer } from "file-type";
+import components from "./src/components.js"
+import hljs from "./src/languages.js";
+import Highlight from "./src/Highlight.js";
+import Page from "./src/page.mdx";
 
 // for building on cf pages, they do a shallow clone by default which
 // breaks the git log dates, so set build command to git fetch --unshallow && npm run build
@@ -44,21 +46,18 @@ const addFeedItem = (post) => {
 
 const mdxToHtml = async (sourcePath, options) => {
     const result = await import(`file:///${cwd}/${sourcePath}`);
-    const { default: Content, ...frontMatter } = result;
+    const { default: Content, ...props } = result;
 
     let element = React.createElement(Content, {
         ...options,
-        ...frontMatter,
+        ...props,
         components,
     });
-    if (typeof frontMatter.layout === "string") {
+    if (typeof props.layout === "string") {
         // console.log(`frontMatter: ${JSON.stringify(frontMatter)}`);
-        const { default: layout, ...layoutFrontMatter } = await import(`file:///${cwd}/${frontMatter.layout}`);
+        const { default: layout } = await import(`file:///${cwd}/${props.layout}`);
         element = React.createElement(layout, {
             children: element,
-            childFrontMatter: frontMatter,
-            childOptions: options,
-            // ...layoutFrontMatter,
         });
     }
 
@@ -66,35 +65,14 @@ const mdxToHtml = async (sourcePath, options) => {
     return { rendered, element };
 };
 
-for (const [langname, langdef] of Object.entries(languages)) {
-    hljs.registerLanguage(langname, langdef);
-}
-const highlight = async (info, parentInfo, lang) => {
-    const source = (await fs.readFile(info.sourcePath)).toString();
-    let html;
-    if (languages.hasOwnProperty(lang)) {
-        html = hljs.highlight(source, { language: lang }).value;
-    } else {
-        html = source;
-        lang = "text";
-    }
-    let element = React.createElement(components.pre, {
-        always: true,
-        filename: info.filename,
-        children: (
-            <code className={ `hljs language-${lang}` } dangerouslySetInnerHTML={{ __html: html }}>
-            </code>
-        ),
-    });
-    const { default: layout } = await import(`file:///${cwd}/src/page.mdx`);
-    element = React.createElement(layout, {
-        children: element,
-        childFrontMatter: {},
-        childOptions: {
-            info,
-            parentInfo,
-        },
-    });
+const highlight = async (info, lang) => {
+    const element = (
+        <Page>
+            <Highlight lang={ lang } info={ info } always="true">
+            </Highlight>
+        </Page>
+    );
+    
     const rendered = renderToString(element);
     return { rendered, element };
 };
@@ -102,39 +80,44 @@ const highlight = async (info, parentInfo, lang) => {
 const infoMemo = new Map();
 
 const getInfo = async (relativePath) => {
+    relativePath = path.normalize(relativePath);
     const sourcePath = path.join(blogRoot, relativePath);
-    const normalized = path.normalize(path.relative(blogRoot, sourcePath));
+    const relativeParent = path.normalize(path.relative(blogRoot, path.join(relativePath, "..")));
 
-    if (infoMemo.has(normalized)) {
-        return infoMemo.get(normalized);
+    // console.log(relativePath, sourcePath);
+
+    if (infoMemo.has(relativePath)) {
+        return infoMemo.get(relativePath);
     } else {
         const extname = path.extname(relativePath);
         const filename = path.basename(relativePath);
         const basename = path.basename(relativePath, extname);
-        const relativeParent = path.dirname(relativePath);
         const buildPath = path.join(builddir, relativePath);
         const stats = await fs.lstat(sourcePath);
         let lastModifiedDate;
         let size;
         let children = [];
 
-        if (normalized.startsWith("..")) {
+        const log = await $`git log -1 --pretty="format:%cD" ${sourcePath}`;
+        lastModifiedDate = new Date(log.stdout.trim());
+        if (stats.isDirectory()) {
+            console.log(`sourcePath: ${sourcePath}`);
+            const fd = (await $`fd -d 1 . '${sourcePath}'`).stdout.trim();
+            children = await Promise.all(
+                fd.length > 0 ? fd.split("\n").map(file => {
+                    const relativePath = path.relative(blogRoot, file);
+                    console.log(`file: ${relativePath}`);
+                    return getInfo(relativePath);
+                }) : []
+            );
+            size = children.map(i => i.size).concat([0, 0]).reduce((a, b) => a + b);
+        } else {
+            size = stats.size;
+        }
+
+        if (relativePath.startsWith("..")) {
             lastModifiedDate = new Date(0);
             size = 0;
-        } else {
-            const log = await $`git log -1 --pretty="format:%cD" ${sourcePath}`;
-            lastModifiedDate = new Date(log.stdout.trim());
-            if (stats.isDirectory()) {
-                const fd = (await $`fd -d 1 . '${sourcePath}'`).stdout.trim();
-                children = await Promise.all(
-                    fd.length > 0 ? fd.split("\n").map(file => {
-                        return getInfo(path.relative(blogRoot, file))
-                    }) : []
-                );
-                size = children.map(i => i.size).concat([0, 0]).reduce((a, b) => a + b);
-            } else {
-                size = stats.size;
-            }
         }
 
         if (isNaN(lastModifiedDate)) {
@@ -154,22 +137,29 @@ const getInfo = async (relativePath) => {
             size,
             children,
         };
-        infoMemo.set(normalized, info);
+
+        for (const child of children) {
+            child.parentInfo = info;
+        }
+
+        infoMemo.set(relativePath, info);
+
         return info;
     }
 };
 
-const yank = async (relativePath, parentInfo) => {
+const yank = async (relativePath) => {
     const info = await getInfo(relativePath);
 
     let results;
     if (info.stats.isFile()) {
-        switch (info.extname.toLowerCase()) {
+        const extname = info.extname.toLowerCase();
+        const basename = info.basename.toLowerCase();
+        switch (extname) {
             case ".md":
             case ".mdx":
                 results = await mdxToHtml(info.sourcePath, {
                     info,
-                    parentInfo,
                 });
                 addFeedItem({
                     title: info.basename,
@@ -178,21 +168,48 @@ const yank = async (relativePath, parentInfo) => {
                 });
                 break;
             case ".c":
-                results = await highlight(info, parentInfo, "c");
+                results = await highlight(info, "c");
+                break;
+            case ".cpp":
+                results = await highlight(info, "cpp");
                 break;
             case ".txt":
-                results = await highlight(info, parentInfo, "text");
+                results = await highlight(info, "text");
+                break;
+            case ".rs":
+                results = await highlight(info, "rs");
                 break;
             default:
                 switch (info.basename.toLowerCase()) {
                     case "makefile":
-                        results = await highlight(info, parentInfo, "makefile");
+                        results = await highlight(info, "makefile");
                         break;
                     case "dockerfile":
-                        results = await highlight(info, parentInfo, "dockerfile");
+                        results = await highlight(info, "dockerfile");
                         break;
                     default:
-                        results = { rendered: await fs.readFile(info.sourcePath) };
+                        const source = await fs.readFile(info.sourcePath);
+                        const type = await fileTypeFromBuffer(source);
+                        results = { rendered: source };
+                        if (type) switch (type.ext) {
+                            case "elf":
+                                let readelf = (await $`readelf -hldS ${info.sourcePath}`).stdout.trim();
+                                let checksec = (await $`pwn checksec ${info.sourcePath}`).stderr.trim();
+
+                                checksec = checksec.substring(checksec.indexOf("\n") + 1);
+                                const element = (
+                                    <Page>
+                                        <div info={ info }>
+                                            <Highlight lang="text" source={ checksec } filename="checksec" open="true">
+                                            </Highlight>
+                                            <Highlight lang="text" source={ readelf } filename="readelf" open="true">
+                                            </Highlight>
+                                        </div>
+                                    </Page>
+                                );
+                                results = { rendered: renderToString(element), element };
+                                break;
+                        }
                         break;
                 }
                 break;
@@ -234,7 +251,6 @@ const yank = async (relativePath, parentInfo) => {
             fileList: info.children,
             readme,
             info,
-            parentInfo,
         });
     } else {
         return;
@@ -242,15 +258,21 @@ const yank = async (relativePath, parentInfo) => {
 
     console.log(`relativePath: ${info.relativePath}`);
 
-    const outfile = path.join(builddir, relativePath, "index.html");
+    const outfile = path.join(builddir, info.relativePath, "index.html");
     const outdir = path.dirname(outfile);
     await fs.mkdir(outdir, { recursive: true });
     await fs.writeFile(outfile, results.rendered);
+    if (info.stats.isFile()) {
+        const outraw = path.join(builddir, info.relativePath, "raw");
+        await fs.copyFile(info.sourcePath, outraw);
+    }
     return { info, ...results };
 };
 
+await getInfo("..");
+
 const buildSteps = [
-    yank(".", await getInfo("..")),
+    yank("."),
     fs.cp("static", path.join(builddir), { recursive: true }),
 ];
 await Promise.all(buildSteps);

@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "node --no-warnings --loader=./mdx.js --loader=import-jsx build.js",
+    "build": "node --no-warnings --loader=./src/loaders/mdx.js --loader=./src/loaders/test.js --loader=import-jsx build.js",
     "dev": "npx nodemon"
   },
   "type": "module",
@@ -19,5 +19,8 @@
     "remark-gfm": "^4.0.0",
     "slugify": "^1.6.6",
     "zx": "^7.2.3"
+  },
+  "dependencies": {
+    "file-type": "^19.0.0"
   }
 }

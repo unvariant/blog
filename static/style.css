@@ -43,10 +43,6 @@ td {
   padding: 10px;
 }
 
-pre {
-  font-size: 1rem;
-}
-
 h1 a:link,
 h2 a:link,
 h3 a:link,
@@ -66,6 +62,53 @@ h4 a:hover,
 h5 a:hover,
 h6 a:hover {
   color: black;
+}
+
+.code-block-summary {
+  display: -webkit-inline-flex;
+  display: -ms-inline-flexbox;
+  display: inline-flex;
+  flex-direction: row;
+  width: 100%;
+  justify-content: space-between;
+  border-bottom: solid black 1px;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: white;
+  padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.code-block {
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  flex-direction: row;
+  font-family: JetBrains Mono, monospace;
+}
+
+.code-block-code {
+  overflow-x: scroll;
+}
+
+.code-block-code pre {
+  margin-top: 0;
+  padding-top: 0.5rem;
+  font-size: 1rem;
+}
+
+.code-block-lines {
+  margin-right: 1rem;
+}
+
+.code-block-lines pre {
+  border-right: solid black 1px;
+  margin-top: 0;
+  padding-top: 0.5rem;
+  user-select: none;
+  font-size: 1rem;
 }
 
 .hljs {

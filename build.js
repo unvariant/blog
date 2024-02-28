@@ -122,6 +122,7 @@ const getInfo = async (relativePath) => {
 };
 
 await $`git --no-pager log`;
+await $`git --no-pager branch -a`;
 
 const yank = async (relativePath, parentInfo) => {
     const info = await getInfo(relativePath);

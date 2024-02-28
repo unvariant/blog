@@ -14,12 +14,12 @@ body {
   /* color: #d5c4a1;
     background: #32302f; */
   font-family: "Inter";
-  max-width: 90ch;
+  max-width: 100ch;
   margin: auto;
   padding-left: 12px;
   padding-right: 12px;
-  margin-top: 4rem;
-  font-size: 1rem;
+  margin-top: 2rem;
+  font-size: 1.1rem;
 }
 
 @media screen and (max-width:480px) {
@@ -64,6 +64,10 @@ h6 a:hover {
   color: black;
 }
 
+.always-open[open] summary {
+  pointer-events: none;
+}
+
 details > summary {
   list-style: none;
 }
@@ -100,9 +104,16 @@ details > summary::-webkit-details-marker {
   overflow-x: scroll;
 }
 
+details .code-block-code pre {
+  padding-top: 0.5rem;
+}
+
+details .code-block-lines pre {
+  padding-top: 0.5rem;
+}
+
 .code-block-code pre {
   margin-top: 0;
-  padding-top: 0.5rem;
   font-size: 1rem;
 }
 
@@ -113,7 +124,6 @@ details > summary::-webkit-details-marker {
 .code-block-lines pre {
   border-right: solid black 1px;
   margin-top: 0;
-  padding-top: 0.5rem;
   user-select: none;
   font-size: 1rem;
 }

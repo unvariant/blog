@@ -8,5 +8,5 @@
     ],
     "verbose": true,
     "exec": "npm run build",
-    "ext": "js json mdx md css so bin elf png"
+    "ext": "js json mdx md css so bin elf png c txt"
 }

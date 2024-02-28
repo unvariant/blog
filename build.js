@@ -6,6 +6,8 @@ import * as path from "node:path";
 import { Feed } from "feed";
 import components from "./components.js"
 import { $ } from "zx";
+import hljs from 'highlight.js/lib/core';
+import languages from "./languages.js";
 
 // for building on cf pages, they do a shallow clone by default which
 // breaks the git log dates, so set build command to git fetch --unshallow && npm run build
@@ -40,8 +42,8 @@ const addFeedItem = (post) => {
     });
 };
 
-const mdxToHtml = async (file, options) => {
-    const result = await import(`file:///${cwd}/${file}`);
+const mdxToHtml = async (sourcePath, options) => {
+    const result = await import(`file:///${cwd}/${sourcePath}`);
     const { default: Content, ...frontMatter } = result;
 
     let element = React.createElement(Content, {
@@ -60,6 +62,39 @@ const mdxToHtml = async (file, options) => {
         });
     }
 
+    const rendered = renderToString(element);
+    return { rendered, element };
+};
+
+for (const [langname, langdef] of Object.entries(languages)) {
+    hljs.registerLanguage(langname, langdef);
+}
+const highlight = async (info, parentInfo, lang) => {
+    const source = (await fs.readFile(info.sourcePath)).toString();
+    let html;
+    if (languages.hasOwnProperty(lang)) {
+        html = hljs.highlight(source, { language: lang }).value;
+    } else {
+        html = source;
+        lang = "text";
+    }
+    let element = React.createElement(components.pre, {
+        always: true,
+        filename: info.filename,
+        children: (
+            <code className={ `hljs language-${lang}` } dangerouslySetInnerHTML={{ __html: html }}>
+            </code>
+        ),
+    });
+    const { default: layout } = await import(`file:///${cwd}/src/page.mdx`);
+    element = React.createElement(layout, {
+        children: element,
+        childFrontMatter: {},
+        childOptions: {
+            info,
+            parentInfo,
+        },
+    });
     const rendered = renderToString(element);
     return { rendered, element };
 };
@@ -142,8 +177,24 @@ const yank = async (relativePath, parentInfo) => {
                     content: results.rendered,
                 });
                 break;
+            case ".c":
+                results = await highlight(info, parentInfo, "c");
+                break;
+            case ".txt":
+                results = await highlight(info, parentInfo, "text");
+                break;
             default:
-                results = { rendered: await fs.readFile(info.sourcePath) };
+                switch (info.basename.toLowerCase()) {
+                    case "makefile":
+                        results = await highlight(info, parentInfo, "makefile");
+                        break;
+                    case "dockerfile":
+                        results = await highlight(info, parentInfo, "dockerfile");
+                        break;
+                    default:
+                        results = { rendered: await fs.readFile(info.sourcePath) };
+                        break;
+                }
                 break;
         }
     } else if (info.stats.isDirectory()) {

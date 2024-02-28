@@ -5,6 +5,7 @@ import rehypeMdxCodeProps from 'rehype-mdx-code-props'
 import remarkGfm from "remark-gfm"
 import links from './plugins/links.js';
 import headers from './plugins/headers.js';
+import languages from './languages.js';
 
 export const load = await createLoader({
     remarkPlugins: [
@@ -24,22 +25,7 @@ export const load = await createLoader({
     rehypePlugins: [
         [
             rehypeHighlight, {
-                languages: {
-                    // mipsasm, avrasm
-                    armasm: all["armasm"],
-                    x86asm: all["x86asm"],
-                    c: all["c"],
-                    python: all["python"],
-                    rust: all["rust"],
-                    shell: all["shell"],
-                    plaintext: all["plaintext"],
-                    makefile: all["makefile"],
-                    json: all["json"],
-                    diff: all["diff"],
-                    bash: all["bash"],
-                    dockerfile: all["dockerfile"],
-                    cpp: all["cpp"],
-                }
+                languages,
             }
         ],
         rehypeMdxCodeProps,

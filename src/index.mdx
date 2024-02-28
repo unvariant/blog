@@ -5,10 +5,12 @@ export const layout = "./src/page.mdx";
 
 { props.fileList
     .filter(info => info.stats.isDirectory())
+    .sort((a, b) => a.filename.localeCompare(b.filename))
     .map(fileEntry)
 }
 { props.fileList
     .filter(info => info.stats.isFile())
+    .sort((a, b) => a.filename.localeCompare(b.filename))
     .map(fileEntry)
 }
 

@@ -1,5 +1,6 @@
 export default {
     pre: function (props) {
+        console.log(props.filename);
         if (!Array.isArray(props.children) && props.children.type === "code") {
             function count(haystack, needle) {
                 return haystack.split("").map(ch => ch == needle ? 1 : 0).reduce((a, b) => a + b);
@@ -14,11 +15,19 @@ export default {
                     } else {
                         return collect(node.props.children);
                     }
+                } else {
+                    throw new Error("something went wrong collecting code text");
                 }
             }
 
+            let rawcode;
             const code = props.children;
-            const numLines = count(collect(code), "\n");
+            if (props.children.props.hasOwnProperty("children")) {
+                rawcode = collect(code);
+            } else if (props.children.props.hasOwnProperty("dangerouslySetInnerHTML")) {
+                rawcode = code.props.dangerouslySetInnerHTML.__html;
+            }
+            const numLines = count(rawcode, "\n") + (rawcode.endsWith("\n") ? 0 : 1);
             const maxLength = Math.max(4, numLines.toString().length);
             const lines = Array.from(Array(numLines).keys()).map(i => `${i + 1}`.padStart(maxLength)).map(num => `${num} `).join("\n");
 
@@ -26,7 +35,10 @@ export default {
             const filename = props.filename || "";
             const wantsHeader = !props.hasOwnProperty("noheader");
             const wantsOpen = props.hasOwnProperty("open");
-            const defaultOpen = (wantsHeader ? false : true) || wantsOpen;
+            const wantsAlwaysOpen = props.hasOwnProperty("always");
+            const defaultOpen = (wantsHeader ? false : true) || wantsOpen || wantsAlwaysOpen;
+
+            console.log(`processing language ${lang} for ${filename}`);
 
             let codeBlock = (
                 <div className="code-block">
@@ -45,7 +57,7 @@ export default {
 
             if (wantsHeader) {
                 codeBlock = (
-                    <details open={defaultOpen}>
+                    <details open={defaultOpen} className={ `${ wantsAlwaysOpen ? "always-open" : "" }` }>
                         <summary className="code-block-summary">
                             <div>
                                 <b>{filename}</b>

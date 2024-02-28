@@ -14,12 +14,13 @@ body {
   /* color: #d5c4a1;
     background: #32302f; */
   font-family: "Inter";
-  max-width: 100ch;
+  max-width: 75ch;
   margin: auto;
   padding-left: 12px;
   padding-right: 12px;
   margin-top: 2rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  overflow: wrap;
 }
 
 @media screen and (max-width:480px) {
@@ -101,7 +102,7 @@ details > summary::-webkit-details-marker {
 }
 
 .code-block-code {
-  overflow-x: scroll;
+  overflow-x: auto;
 }
 
 details .code-block-code pre {
@@ -127,6 +128,8 @@ details .code-block-lines pre {
   user-select: none;
   font-size: 1rem;
 }
+
+/* github theme */
 
 .hljs {
   color: #24292e;

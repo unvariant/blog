@@ -28,6 +28,21 @@ body {
   }
 }
 
+table {
+  border: 1px solid gray;
+  border-collapse: collapse;
+}
+
+th {
+  font-weight: bolder;
+}
+
+th,
+td {
+  border: 1px solid gray;
+  padding: 10px;
+}
+
 pre {
   font-size: 1rem;
 }

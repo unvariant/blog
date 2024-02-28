@@ -35,8 +35,8 @@ export default {
                             {lines}
                         </pre>
                     </div>
-                    <div className="code-block">
-                        <pre style={{ marginTop: "0", paddingTop: "0.5rem", overflow: "scroll" }}>
+                    <div className="code-block" style={{ overflowX: "scroll" }}>
+                        <pre style={{ marginTop: "0", paddingTop: "0.5rem"}}>
                             {code}
                         </pre>
                     </div>

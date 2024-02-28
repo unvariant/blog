@@ -7,9 +7,8 @@ import { Feed } from "feed";
 import components from "./components.js"
 import { $ } from "zx";
 
-// import { register } from "node:module";
-
-// register("./loader.js", import.meta.url);
+// for building on cf pages, they do a shallow clone by default which
+// breaks the git log dates, so set build command to git fetch --unshallow && npm run build
 
 const cwd = path.resolve("");
 const blogRoot = path.normalize("src/blog");
@@ -101,6 +100,10 @@ const getInfo = async (relativePath) => {
             } else {
                 size = stats.size;
             }
+        }
+
+        if (isNaN(lastModifiedDate)) {
+            lastModifiedDate = new Date(0);
         }
 
         const info =  {

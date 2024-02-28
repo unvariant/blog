@@ -88,7 +88,7 @@ const getInfo = async (relativePath) => {
             lastModifiedDate = new Date(0);
             size = 0;
         } else {
-            const log = await $`git log main -1 --pretty="format:%cD" ${sourcePath}`;
+            const log = await $`git log -1 --pretty="format:%cD" ${sourcePath}`;
             lastModifiedDate = new Date(log.stdout.trim());
             if (stats.isDirectory()) {
                 const fd = (await $`fd -d 1 . '${sourcePath}'`).stdout.trim();
@@ -120,9 +120,6 @@ const getInfo = async (relativePath) => {
         return info;
     }
 };
-
-await $`git --no-pager log`;
-await $`git --no-pager branch -a`;
 
 const yank = async (relativePath, parentInfo) => {
     const info = await getInfo(relativePath);

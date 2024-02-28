@@ -88,7 +88,7 @@ const getInfo = async (relativePath) => {
             lastModifiedDate = new Date(0);
             size = 0;
         } else {
-            lastModifiedDate = new Date(execSync(`git log -1 --pretty="format:%cD" ${sourcePath}`, { encoding: "utf8" }).trim());
+            lastModifiedDate = new Date(execSync(`git log main -1 --pretty="format:%cD" ${sourcePath}`, { encoding: "utf8" }).trim());
             if (stats.isDirectory()) {
                 const fd = execSync(`fd -d 1 . '${sourcePath}'`, { encoding: "utf8" }).trim();
                 children = await Promise.all(

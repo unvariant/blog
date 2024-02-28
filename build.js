@@ -88,9 +88,10 @@ const getInfo = async (relativePath) => {
             lastModifiedDate = new Date(0);
             size = 0;
         } else {
-            lastModifiedDate = new Date(execSync(`git log main -1 --pretty="format:%cD" ${sourcePath}`, { encoding: "utf8" }).trim());
+            const log = await $`git log main -1 --pretty="format:%cD" ${sourcePath}`;
+            lastModifiedDate = new Date(log.stdout.trim());
             if (stats.isDirectory()) {
-                const fd = execSync(`fd -d 1 . '${sourcePath}'`, { encoding: "utf8" }).trim();
+                const fd = (await $`fd -d 1 . '${sourcePath}'`).stdout.trim();
                 children = await Promise.all(
                     fd.length > 0 ? fd.split("\n").map(file => {
                         return getInfo(path.relative(blogRoot, file))
@@ -119,6 +120,8 @@ const getInfo = async (relativePath) => {
         return info;
     }
 };
+
+await $`git --no-pager log`;
 
 const yank = async (relativePath, parentInfo) => {
     const info = await getInfo(relativePath);

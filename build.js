@@ -194,7 +194,7 @@ const yank = async (relativePath) => {
                 results = await highlight(info, "ini");
                 break;
             case ".ko":
-                let modinfo = (await $`modinfo ${info.sourcePath}`).stdout.trim();
+                let modinfo = (await $`readelf -p .modinfo ${info.sourcePath}`).stdout.trim();
                 const element = (
                     <Page>
                         <div info={ info }>

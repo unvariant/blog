@@ -39,18 +39,11 @@ function grabIcon(stats) {
 export default function(info, options) {
     const wantsMeta = options.hasOwnProperty("meta") ? options.meta : true;
 
-    const style = {
-        display: "flex",
-        justifyContent: "space-between",
-        fontFamily: "JetBrains Mono, monospace",
-        marginBottom: "0.5rem",
-    };
-
     const meta = wantsMeta ? (
-        <div className="file-meta" style={{ display: "flex-inline", justifyContent: "space-evenly" }}>
+        <div className="file-meta">
             <span>{ "\u200E" }</span>
             <span>{ formatSize(info.size) }</span>
-            <span style={{ marginLeft: "1rem" }}>{ apacheDate(info.lastModifiedDate) }</span>
+            <span className="file-meta-date">{ apacheDate(info.lastModifiedDate) }</span>
         </div>
     ) : <></>;
 
@@ -59,9 +52,9 @@ export default function(info, options) {
     const filename = options.filename || info.filename;
 
     return (
-        <div key={linkpath} className="file" style={ style }>
-            <a href={linkpath} style={{ display: "inline-flex", "alignItems": "center" }}>
-                <img src={icon} style={{ paddingRight: "1rem" }}></img>
+        <div key={linkpath} className="file">
+            <a href={linkpath} className="file-link">
+                <img src={icon}></img>
                 <span>{filename}</span>
             </a>
             { meta }

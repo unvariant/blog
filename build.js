@@ -6,10 +6,13 @@ import * as path from "node:path";
 import { Feed } from "feed";
 import { $ } from "zx";
 import { fileTypeFromBuffer } from "file-type";
+import NodeBuffer from "node:buffer";
 import components from "./src/components.js"
 import hljs from "./src/languages.js";
-import Highlight from "./src/Highlight.js";
+import Highlight from "./src/components/Highlight.js";
 import Page from "./src/page.mdx";
+
+$.verbose = false;
 
 // for building on cf pages, they do a shallow clone by default which
 // breaks the git log dates, so set build command to git fetch --unshallow && npm run build
@@ -167,17 +170,46 @@ const yank = async (relativePath) => {
                     content: results.rendered,
                 });
                 break;
+            case ".h":
             case ".c":
                 results = await highlight(info, "c");
                 break;
+            case ".hpp":
             case ".cpp":
                 results = await highlight(info, "cpp");
                 break;
             case ".txt":
                 results = await highlight(info, "text");
                 break;
+            case ".zig":
             case ".rs":
                 results = await highlight(info, "rs");
+                break;
+            case ".yml":
+            case ".yaml":
+                results = await highlight(info, "yaml");
+                break;
+            case ".ini":
+            case ".toml":
+                results = await highlight(info, "ini");
+                break;
+            case ".ko":
+                let modinfo = (await $`modinfo ${info.sourcePath}`).stdout.trim();
+                const element = (
+                    <Page>
+                        <div info={ info }>
+                            <Highlight lang="text" source={ modinfo } filename="modinfo" open="true">
+                            </Highlight>
+                        </div>
+                    </Page>
+                );
+                results = { rendered: renderToString(element), element };
+                break;
+            case ".sh":
+                results = await highlight(info, "shell");
+                break;
+            case ".py":
+                results = await highlight(info, "python");
                 break;
             default:
                 switch (info.basename.toLowerCase()) {
@@ -191,24 +223,37 @@ const yank = async (relativePath) => {
                         const source = await fs.readFile(info.sourcePath);
                         const type = await fileTypeFromBuffer(source);
                         results = { rendered: source };
-                        if (type) switch (type.ext) {
-                            case "elf":
-                                let readelf = (await $`readelf -hldS ${info.sourcePath}`).stdout.trim();
-                                let checksec = (await $`pwn checksec ${info.sourcePath}`).stderr.trim();
-
-                                checksec = checksec.substring(checksec.indexOf("\n") + 1);
-                                const element = (
-                                    <Page>
-                                        <div info={ info }>
-                                            <Highlight lang="text" source={ checksec } filename="checksec" open="true">
-                                            </Highlight>
-                                            <Highlight lang="text" source={ readelf } filename="readelf" open="true">
-                                            </Highlight>
-                                        </div>
-                                    </Page>
-                                );
-                                results = { rendered: renderToString(element), element };
-                                break;
+                        if (type) {
+                            switch (type.ext) {
+                                case "elf":
+                                    let readelf = (await $`readelf -hldS ${info.sourcePath}`).stdout.trim();
+                                    // let checksec = (await $`pwn checksec ${info.sourcePath}`).stderr.trim();
+                                    // checksec = checksec.substring(checksec.indexOf("\n") + 1);
+                                    let checksec = "not currently available";
+                                    
+                                    const element = (
+                                        <Page>
+                                            <div info={ info }>
+                                                <Highlight lang="text" source={ checksec } filename="checksec" open="true">
+                                                </Highlight>
+                                                <Highlight lang="text" source={ readelf } filename="readelf" open="true">
+                                                </Highlight>
+                                            </div>
+                                        </Page>
+                                    );
+                                    results = { rendered: renderToString(element), element };
+                                    break;
+                            } 
+                        } else if (NodeBuffer.isUtf8(source)) {
+                            const element = (
+                                <Page>
+                                    <div info={ info }>
+                                        <Highlight lang="text" source={ source.toString() } filename={ info.filename } always>
+                                        </Highlight>
+                                    </div>
+                                </Page>
+                            );
+                            results = { rendered: renderToString(element), element };
                         }
                         break;
                 }
@@ -224,7 +269,7 @@ const yank = async (relativePath) => {
                     ...stuff,
                     props: {
                         ...props,
-                        noDefaultFolders: true,
+                        embed: true,
                     }
                 };
             }

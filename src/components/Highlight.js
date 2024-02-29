@@ -1,6 +1,6 @@
-import CodeBlock from './components/CodeBlock.js';
+import CodeBlock from './CodeBlock.js';
 import * as fs from 'node:fs';
-import hljs from './languages.js';
+import hljs from '../languages.js';
 
 export default function ({ lang, ...props }) {
     let source;

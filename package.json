@@ -11,6 +11,7 @@
     "@types/node": "^20.10.7",
     "fd-find": "^1.2.0",
     "feed": "^4.2.2",
+    "file-type": "^19.0.0",
     "highlight.js": "^11.9.0",
     "import-jsx": "^5.0.0",
     "react-dom": "^18.2.0",
@@ -19,8 +20,5 @@
     "remark-gfm": "^4.0.0",
     "slugify": "^1.6.6",
     "zx": "^7.2.3"
-  },
-  "dependencies": {
-    "file-type": "^19.0.0"
   }
 }

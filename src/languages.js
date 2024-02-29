@@ -11,6 +11,8 @@ import diff from 'highlight.js/lib/languages/diff';
 import bash from 'highlight.js/lib/languages/bash';
 import cpp from 'highlight.js/lib/languages/cpp';
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
+import yaml from 'highlight.js/lib/languages/yaml';
+import ini from 'highlight.js/lib/languages/ini';
 
 import hljs from 'highlight.js/lib/core';
 
@@ -21,9 +23,9 @@ export const languages = {
     armasm, x86asm, mipsasm,
     shell, bash,
     python,
-    json,
     diff,
     dockerfile,
+    json, yaml, ini,
 };
 
 for (const [langname, langdef] of Object.entries(languages)) {

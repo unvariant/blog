@@ -1,7 +1,9 @@
+import * as path from "node:path";
+
 export default function (props) {
     if (!Array.isArray(props.children) && props.children.type === "code") {
         function count(haystack, needle) {
-            return haystack.split("").map(ch => ch == needle ? 1 : 0).reduce((a, b) => a + b);
+            return haystack.split("").map(ch => ch == needle ? 1 : 0).concat([0, 0]).reduce((a, b) => a + b);
         }
 
         function collect(node) {
@@ -20,10 +22,14 @@ export default function (props) {
 
         let rawcode;
         const code = props.children;
-        if (props.children.props.hasOwnProperty("children")) {
+        if (props.hasOwnProperty("path")) {
+            throw new Error("TODO: figure out how to do this properly");
+        } else if (code.props.hasOwnProperty("children")) {
             rawcode = collect(code);
-        } else if (props.children.props.hasOwnProperty("dangerouslySetInnerHTML")) {
+        } else if (code.props.hasOwnProperty("dangerouslySetInnerHTML")) {
             rawcode = code.props.dangerouslySetInnerHTML.__html;
+        } else {
+            rawcode = "";
         }
         const numLines = count(rawcode, "\n") + (rawcode.endsWith("\n") ? 0 : 1);
         const maxLength = Math.max(4, numLines.toString().length);

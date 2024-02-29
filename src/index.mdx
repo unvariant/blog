@@ -1,17 +1,17 @@
 import * as path from 'node:path';
-import fileEntry from './fileEntry.js';
+import FileEntry from './components/FileEntry.js';
 
 export const layout = "./src/page.mdx";
 
 { props.fileList
     .filter(info => info.stats.isDirectory())
     .sort((a, b) => a.filename.localeCompare(b.filename))
-    .map(fileEntry)
+    .map(FileEntry)
 }
 { props.fileList
     .filter(info => info.stats.isFile())
     .sort((a, b) => a.filename.localeCompare(b.filename))
-    .map(fileEntry)
+    .map(FileEntry)
 }
 
 <div>

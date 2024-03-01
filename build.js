@@ -66,7 +66,7 @@ async function mdxToHtml(info, options) {
 
 async function highlight(info, lang) {
     const element = (
-        <Highlight lang={ lang } info={ info } always="true">
+        <Highlight lang={ lang } info={ info } always>
         </Highlight>
     );
     

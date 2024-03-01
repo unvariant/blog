@@ -5,9 +5,9 @@ import hljs from '../languages.js';
 export default function ({ lang, ...props }) {
     let source;
     let filename;
-    
+
     if (props.info) {
-        source = fs.readFileSync(props.info.absolutePath).toString();
+        source = props.info.source.toString();
         filename = props.info.filename;
     } else if (props.source) {
         source = props.source;

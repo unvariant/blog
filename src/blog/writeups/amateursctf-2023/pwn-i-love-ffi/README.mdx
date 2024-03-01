@@ -8,81 +8,10 @@ export const title = "i-love-ffi";
 - libi_love_ffi.so
 - Dockerfile
 
-```c filename="chal.c"
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
-struct MmapArgs {
-    uint64_t * addr;
-    uint64_t length;
-    int protection;
-    int flags;
-    int fd;
-    uint64_t offset;
-};
-
-extern struct MmapArgs mmap_args();
-
-int main () {
-    setbuf(stdout, NULL);
-    setbuf(stderr, NULL);
-
-    struct MmapArgs args = mmap_args();
-    char * buf = mmap(args.addr, args.length, args.protection, MAP_PRIVATE | MAP_ANON, args.fd, args.offset);
-    if (buf < 0) {
-        perror("failed to mmap");
-    }
-
-    read(0, buf, 0x1000);
-
-    printf("> ");
-    int op;
-    if (scanf("%d", &op) == 1) {
-        switch (op) {
-            case 0:
-                ((void (*)(void))buf)();
-                break;
-            case 1:
-                puts(buf);
-                break;
-        }
-    }
-}
+```c path="chal.c"
 ```
 
-```rs filename="lib.rs"
-#![allow(warnings)]
-
-pub struct MmapArgs {
-    addr: u64,
-    length: u64,
-    protection: u32,
-    flags: u32,
-    fd: u32,
-    offset: u64,
-}
-
-#[no_mangle]
-pub extern "C" fn mmap_args() -> MmapArgs {
-    let args = MmapArgs {
-        addr: read::<u64>(),
-        length: read::<u64>(),
-        protection: read::<u32>(),
-        flags: read::<u32>(),
-        fd: read::<u32>(),
-        offset: read::<u64>(),
-    };
-
-    if args.protection & 4 != 0 {
-        panic!("PROT_EXEC not allowed");
-    }
-
-    args
-}
+```rs path="src/lib.rs"
 ```
 
 ## Intended

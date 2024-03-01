@@ -5,6 +5,7 @@ import rehypeMdxCodeProps from 'rehype-mdx-code-props'
 import remarkGfm from "remark-gfm"
 import links from '../plugins/links.js';
 import headers from '../plugins/headers.js';
+import inlineCode from "../plugins/inlineCode.js";
 import { languages } from '../languages.js';
 
 export const load = await createLoader({
@@ -13,6 +14,7 @@ export const load = await createLoader({
         remarkGfm,
         links,
         headers,
+        inlineCode,
         // remarkFrontmatter,
         // remarkMdxFrontmatter,
         // [

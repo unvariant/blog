@@ -2,8 +2,6 @@ export const layout = "./src/page.mdx";
 
 # palindromatic
 
-## first look
-
 The author kindly provides source for the kernel module:
 
 ```c path="src/palindromatic.c"
@@ -13,4 +11,65 @@ The author kindly provides source for the kernel module:
 ```c path="src/palindromatic_util.c"
 ```
 
-At first glance, `palindromatic.c` defines a kernel module that allows for communication through ioctl. `palindromatic_util.c` provides the definition for a fixed size ring queue that can hold up to 256 elements. The interface creates a iso
+## first look
+
+At first glance, `palindromatic.c` defines a kernel module that allows for communication through ioctl. `palindromatic_util.c` provides the definition for a fixed size ring queue that can hold up to 256 elements. The interface creates a isolated cache of size 0x400 used to allocate `request_t`:
+```c path="src/palindromatic.c" range="213,+3" open
+```
+```c path="src/palindromatic.h" range="40,49" open
+```
+
+Caches are used to allocate a single type of item (in this case `request_t`), and any free'd items are usually held by the cache and cannot be used to serve other kind of general purpose kernel allocation. This makes heap uaf exploitation a bit more difficult than normal.
+
+## request uaf
+
+Looking deeper at `palindromatic.c` we notice an off by one null byte bug in `pm_sanitize_request`:
+```c path="src/palindromatic.c" range="32,68" open
+```
+
+By sanitizing a request that is exactly `STRING_SZ` bytes long a null byte is written out of bounds past the end of the `sanstr` field. The `sanstr` field is at the very end of `request_t`, which allows modification of the `type` field of any request that is immediately after the sanitized request in memory. The oob null byte corrupts the next request and makes the type invalid, which is not handled correctly in `pm_process_request`.
+```c path="src/palindromatic.c" range="93,136" open
+```
+
+In `pm_process_request` if the type is not one that it expects the request is left on the `incoming_queue` as well as the `outgoing_queue`. Now we can free one reference to the victim chunk from one queue, while keeping a reference to the victim chunk in the other queue, giving a request uaf!
+
+## cross cache
+
+However uaf is not enough, since the requests were allocated from an isolated cache extra work is needed to be done to free the backing pages and return them to the page allocator. This is known as a cross cache attack and [this](https://ruia-ruia.github.io/2022/08/05/CVE-2022-29582-io-uring/#crossing-the-cache-boundary) writeup has an amazing explanation of cross cache that was invaluable while solving this challenge. You should definitely read the section about the cross cache attack before continuing.
+
+The cross cache described in the writeup boils down to:
+1. allocate `objs_per_slab * (cpu_partial + 1)` items
+2. allocate `objs_per_slab - 1` items
+3. uaf your victim `file`
+4. allocate `objs_per_slab + 1` items to get a new active page
+5. free all the files in the victim page to release the victim page to the cpu partial list
+6. free a single file from the `cpu_partial + 1` pages allocated in step 1
+
+The last step overflows the cpu partial list, and since our victim page is empty it is released back to the page allocator. But in this challenge we know that the cache is always empty when we start, so we can simplify the cross cache quite a bit.
+
+1. allocate `objs_per_slab * cpu_partial` items
+2. allocate `objs_per_slab` items as the victim page
+3. uaf a request in the victim page
+4. free all requests in the victim page
+5. free all requests allocated in step 1
+
+Once the victim page is released to the page allocator, we can use the technique described in [this](https://chovid99.github.io/posts/hitcon-ctf-2023/#solution) writeup where they cross cache into `filp` and abuse [dirty cred](https://i.blackhat.com/USA-22/Thursday/US-22-Lin-Cautious-A-New-Exploitation-Method.pdf) to achieve write access to privileged read only files. Using this we can gain access to `/etc/passwd` and pop a root shell.
+
+## solve script
+```c path="exploit.c" open
+```
+One small thing is that the `file` state gets corrupted by our exploit, and executing `system("su")` from the exploit process crashes the kernel when it attempts to load shared libraries. Instead we just execute the exploit script in the background and launch su on the terminal once it is finished.
+```text open
+/ # id
+id
+uid=0(root) gid=0(root) groups=0(root)
+/ # cat /root/flag
+cat /root/flag
+bi0sctf{p4l1ndr0me5_4r3_pr0bl3m4t1c_frfr_b851ea94}
+/ # 
+```
+
+## other small things
+Usually when writing kernel exploits, statically linking against musl is common because it generates much smaller binaries. `zig` makes this easy as a drop in replacement for gcc and only requiring a single extra commandline switch!
+```make path="Makefile" open
+```

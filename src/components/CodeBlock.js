@@ -2,30 +2,37 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import hljs from "../languages.js";
 import { useInfo } from "./InfoContext.js";
+import { getInfo } from "../utils/info.js";
+import config from "../utils/config.js";
+
+function count(haystack, needle) {
+    return (
+        haystack.split("").map(ch => ch == needle ? 1 : 0).concat([0, 0]).reduce((a, b) => a + b) +
+        (haystack.endsWith(needle) ? 0 : 1)
+    );
+}
+
+function collect(node) {
+    if (typeof node === "string") {
+        return node;
+    } else if (typeof node === "object") {
+        if (Array.isArray(node)) {
+            return node.map(collect).join("");
+        } else {
+            return collect(node.props.children);
+        }
+    } else {
+        throw new Error("something went wrong collecting code text");
+    }
+}
 
 export default function (props) {
     const info = useInfo();
 
     if (!Array.isArray(props.children) && props.children.type === "code") {
-        function count(haystack, needle) {
-            return haystack.split("").map(ch => ch == needle ? 1 : 0).concat([0, 0]).reduce((a, b) => a + b);
-        }
-
-        function collect(node) {
-            if (typeof node === "string") {
-                return node;
-            } else if (typeof node === "object") {
-                if (Array.isArray(node)) {
-                    return node.map(collect).join("");
-                } else {
-                    return collect(node.props.children);
-                }
-            } else {
-                throw new Error("something went wrong collecting code text");
-            }
-        }
-
         let rawcode;
+        let startLine;
+        let endLine;
         let code = props.children;
 
         const lang = /.*language\-([^\s]*)/.exec(code.props.className)[1].toUpperCase();
@@ -33,11 +40,23 @@ export default function (props) {
         const wantsHeader = !props.hasOwnProperty("noheader");
         const wantsOpen = props.hasOwnProperty("open");
         const wantsAlwaysOpen = props.hasOwnProperty("always");
+        const wantsNoSticky = props.hasOwnProperty("nosticky");
         const defaultOpen = (wantsHeader ? false : true) || wantsOpen || wantsAlwaysOpen;
 
         if (props.hasOwnProperty("path")) {
-            const filepath = path.join(path.dirname(info.absolutePath), props.path);
-            rawcode = fs.readFileSync(filepath).toString();
+            const target = getInfo(path.resolve(path.dirname(info.absolutePath), props.path));
+            rawcode = target.source.toString();
+            if (props.hasOwnProperty("range")) {
+                const range = props.range.split(",");
+                const start = parseInt(range[0], 10) || 1;
+                let end = parseInt(range[1], 10) || count(rawcode, "\n");
+                if (typeof range[1] === "string" && range[1].startsWith("+")) {
+                    end = end + start - 1;
+                }
+                rawcode = rawcode.split("\n").slice(start - 1, end).join("\n");
+                startLine = start;
+                endLine = end;
+            }
             const html = hljs.highlight(rawcode, { language: lang }).value;
             code = (
                 <code className={ code.className } dangerouslySetInnerHTML={{ __html: html }}>
@@ -48,12 +67,33 @@ export default function (props) {
         } else if (code.props.hasOwnProperty("dangerouslySetInnerHTML")) {
             rawcode = code.props.dangerouslySetInnerHTML.__html;
         } else {
-            rawcode = "";
+            throw new Error("cannot determine code source");
         }
 
-        const numLines = count(rawcode, "\n") + (rawcode.endsWith("\n") ? 0 : 1);
-        const maxLength = Math.max(4, numLines.toString().length);
-        const lines = Array.from(Array(numLines).keys()).map(i => `${i + 1}`.padStart(maxLength)).map(num => `${num} `).join("\n");
+        const maxLines = count(rawcode, "\n");
+        startLine = startLine || 1;
+        endLine = endLine || maxLines;
+
+        const maxLength = Math.max(4, endLine.toString().length);
+        const lines = [];
+        const relativeFilePath = path.join(path.dirname(info.relativePath), filename);
+        const linkPath = path.normalize(path.join("/", relativeFilePath, "/"));
+        const linkLine = fs.existsSync(path.resolve(config.blogRoot, relativeFilePath));
+
+        for (let i = startLine; i <= endLine; i++) {
+            const num = `${i}`.padStart(maxLength) + " ";
+            if (linkLine) {
+                const id = `L${i}`;
+                const line = linkPath + `#${id}`;
+                lines.push((
+                    /* target="_blank" rel="noopener" */
+                    <a key={ id } id={ id } href={ line }>{ num }</a>
+                ));
+                lines.push("\n");
+            } else {
+                lines.push(num + "\n");
+            }
+        }
 
         let codeBlock = (
             <div className="code-block">
@@ -73,7 +113,7 @@ export default function (props) {
         if (wantsHeader) {
             codeBlock = (
                 <details open={defaultOpen} className={ `${ wantsAlwaysOpen ? "always-open" : "" }` }>
-                    <summary>
+                    <summary className={ `${wantsNoSticky ? "" : "sticky"}` }>
                         <div>
                             <b>{filename}</b>
                         </div>

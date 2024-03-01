@@ -69,7 +69,7 @@ h6 a:hover {
 .file {
   display: flex;
   justify-content: space-between;
-  font-family: JetBrains Mono, monospace;
+  font-family: "JetBrains Mono", monospace;
   margin-bottom: 0.5rem;
 }
 
@@ -110,7 +110,7 @@ details>summary::-webkit-details-marker {
   display: none;
 }
 
-.code-block-summary {
+summary {
   display: -webkit-inline-flex;
   display: -ms-inline-flexbox;
   display: inline-flex;
@@ -132,7 +132,7 @@ details>summary::-webkit-details-marker {
   display: -ms-flexbox;
   display: flex;
   flex-direction: row;
-  font-family: JetBrains Mono, monospace;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .code-block-code {

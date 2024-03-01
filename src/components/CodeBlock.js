@@ -1,6 +1,11 @@
 import * as path from "node:path";
+import * as fs from "node:fs";
+import hljs from "../languages.js";
+import { useInfo } from "./InfoContext.js";
 
 export default function (props) {
+    const info = useInfo();
+
     if (!Array.isArray(props.children) && props.children.type === "code") {
         function count(haystack, needle) {
             return haystack.split("").map(ch => ch == needle ? 1 : 0).concat([0, 0]).reduce((a, b) => a + b);
@@ -21,9 +26,23 @@ export default function (props) {
         }
 
         let rawcode;
-        const code = props.children;
+        let code = props.children;
+
+        const lang = /.*language\-([^\s]*)/.exec(code.props.className)[1].toUpperCase();
+        const filename = props.filename || props.path || "";
+        const wantsHeader = !props.hasOwnProperty("noheader");
+        const wantsOpen = props.hasOwnProperty("open");
+        const wantsAlwaysOpen = props.hasOwnProperty("always");
+        const defaultOpen = (wantsHeader ? false : true) || wantsOpen || wantsAlwaysOpen;
+
         if (props.hasOwnProperty("path")) {
-            throw new Error("TODO: figure out how to do this properly");
+            const filepath = path.join(path.dirname(info.absolutePath), props.path);
+            rawcode = fs.readFileSync(filepath).toString();
+            const html = hljs.highlight(rawcode, { language: lang }).value;
+            code = (
+                <code className={ code.className } dangerouslySetInnerHTML={{ __html: html }}>
+                </code>
+            );
         } else if (code.props.hasOwnProperty("children")) {
             rawcode = collect(code);
         } else if (code.props.hasOwnProperty("dangerouslySetInnerHTML")) {
@@ -31,16 +50,10 @@ export default function (props) {
         } else {
             rawcode = "";
         }
+
         const numLines = count(rawcode, "\n") + (rawcode.endsWith("\n") ? 0 : 1);
         const maxLength = Math.max(4, numLines.toString().length);
         const lines = Array.from(Array(numLines).keys()).map(i => `${i + 1}`.padStart(maxLength)).map(num => `${num} `).join("\n");
-
-        const lang = /.*language\-([^\s]*)/.exec(code.props.className)[1].toUpperCase();
-        const filename = props.filename || "";
-        const wantsHeader = !props.hasOwnProperty("noheader");
-        const wantsOpen = props.hasOwnProperty("open");
-        const wantsAlwaysOpen = props.hasOwnProperty("always");
-        const defaultOpen = (wantsHeader ? false : true) || wantsOpen || wantsAlwaysOpen;
 
         let codeBlock = (
             <div className="code-block">
@@ -60,7 +73,7 @@ export default function (props) {
         if (wantsHeader) {
             codeBlock = (
                 <details open={defaultOpen} className={ `${ wantsAlwaysOpen ? "always-open" : "" }` }>
-                    <summary className="code-block-summary">
+                    <summary>
                         <div>
                             <b>{filename}</b>
                         </div>

@@ -41,14 +41,13 @@ export default function(info, options) {
 
     const meta = wantsMeta ? (
         <div className="file-meta">
-            <span>{ "\u200E" }</span>
             <span>{ formatSize(info.size) }</span>
             <span className="file-meta-date">{ apacheDate(info.lastModifiedDate) }</span>
         </div>
     ) : <></>;
 
     const icon = grabIcon(info.stats);
-    const linkpath = `/${info.relativePath}/`;
+    const linkpath = path.normalize(`/${info.relativePath}/`);
     const filename = options.filename || info.filename;
 
     return (

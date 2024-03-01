@@ -1,14 +1,15 @@
 import * as path from 'node:path';
 import FileEntry from './components/FileEntry.js';
+import { useInfo } from "./components/InfoContext.js";
 
 export const layout = "./src/page.mdx";
 
-{ props.fileList
+{ useInfo().children
     .filter(info => info.stats.isDirectory())
     .sort((a, b) => a.filename.localeCompare(b.filename))
     .map(FileEntry)
 }
-{ props.fileList
+{ useInfo().children
     .filter(info => info.stats.isFile())
     .sort((a, b) => a.filename.localeCompare(b.filename))
     .map(FileEntry)

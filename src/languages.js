@@ -13,6 +13,7 @@ import cpp from 'highlight.js/lib/languages/cpp';
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
 import yaml from 'highlight.js/lib/languages/yaml';
 import ini from 'highlight.js/lib/languages/ini';
+import js from 'highlight.js/lib/languages/javascript';
 
 import hljs from 'highlight.js/lib/core';
 
@@ -26,6 +27,7 @@ export const languages = {
     diff,
     dockerfile,
     json, yaml, ini,
+    js,
 };
 
 for (const [langname, langdef] of Object.entries(languages)) {

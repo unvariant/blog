@@ -10,10 +10,11 @@ export default function() {
             const props = data.hProperties || (data.hProperties = {});
             const slug = slugify(collect(node)).toLowerCase();
 
-            const children = [{
-                type: "text",
-                value: "# ",
-            }].concat(node.children);
+            const children = [
+            {
+                type: "inlineCode",
+                value: "#",
+            },].concat(node.children);
 
             data.id = slug;
             props.id = slug;

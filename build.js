@@ -183,8 +183,9 @@ async function yank(info) {
     if (element === undefined) {
         element = (
             <div>
-                <Highlight lang="text" info={ info } always>
-                </Highlight>
+                <p>
+                    { "cannot view binary file. go to raw/ to download instead" }
+                </p>
             </div>
         );
     }
@@ -205,7 +206,26 @@ async function yank(info) {
     await fs.writeFile(outfile, rendered);
     if (info.stats.isFile()) {
         const outraw = path.join(config.buildRoot, info.relativePath, "raw");
-        await fs.copyFile(info.absolutePath, outraw);
+        if (info.stats.size < 20 * 1024 * 1024) {
+            await fs.copyFile(info.absolutePath, outraw);
+        } else {
+            const repoRelativePath = path.relative(config.cwd, info.absolutePath);
+            const route = path.normalize(path.join("unvariant/blog/main/", repoRelativePath));
+            const redirect = (
+                <html>
+                    <head>
+                        <meta httpEquiv="refresh" content={ `0; url=https://raw.githubusercontent.com/${route}` } />
+                    </head>
+                    <body>
+                        <p>
+                            { "sorry this file too large for cloudflare pages, redirecting to github instead." }
+                        </p>
+                    </body>
+                </html>
+            );
+            const html = renderToString(redirect);
+            await fs.writeFile(outraw, html);
+        }
     }
     return element;
 };

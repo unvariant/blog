@@ -13,16 +13,22 @@ function count(haystack, needle) {
 }
 
 function collect(node) {
-    if (typeof node === "string") {
+    if (node === undefined) {
+        throw new Error("undefined node");
+    } else if (typeof node === "string") {
         return node;
     } else if (typeof node === "object") {
         if (Array.isArray(node)) {
             return node.map(collect).join("");
         } else {
-            return collect(node.props.children);
+            if (node.props.hasOwnProperty("children")) {
+                return collect(node.props.children);
+            } else {
+                return "";
+            }
         }
     } else {
-        throw new Error("something went wrong collecting code text");
+        throw new Error("something went wrong collecting code text: " + typeof node);
     }
 }
 
@@ -87,7 +93,11 @@ export default function (props) {
                 const line = linkPath + `#${id}`;
                 lines.push((
                     /* target="_blank" rel="noopener" */
-                    <a key={ id } id={ id } href={ line }>{ num }</a>
+                    <a key={ id } id={ id } href={ line }>{ num }
+                        <div className="highlight">
+                            <pre>{ " " }</pre>
+                        </div>
+                    </a>
                 ));
                 lines.push("\n");
             } else {

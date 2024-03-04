@@ -15,6 +15,11 @@ body {
   padding-right: var(--right-padding);
 }
 
+p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 body * {
   max-width: var(--max-blog-width);
 }
@@ -68,6 +73,16 @@ h4 a:hover,
 h5 a:hover,
 h6 a:hover {
   color: black;
+  text-decoration: none;
+}
+
+h1 a code,
+h2 a code,
+h3 a code,
+h4 a code,
+h5 a code,
+h6 a code {
+  margin-right: 1rem;
 }
 
 .file {
@@ -104,6 +119,10 @@ h6 a:hover {
 
 .always-open[open] summary {
   pointer-events: none;
+}
+
+details:not([open]) {
+  margin-bottom: 0.5rem;
 }
 
 details > summary {
@@ -161,23 +180,40 @@ details .code-block-lines pre {
   margin-right: 1rem;
 }
 
-.code-block-lines pre {
+.code-block-lines > pre {
   border-right: solid black 1px;
   margin-top: 0;
   user-select: none;
   font-size: 1rem;
+  width: 3rem;
 }
 
-.code-block-lines pre a:link,
-.code-block-lines pre a:visited,
-.code-block-lines pre a:hover {
+.code-block-lines > pre a,
+.code-block-lines > pre a:link,
+.code-block-lines > pre a:visited,
+.code-block-lines > pre a:hover {
   color: black;
   text-decoration: none;
   scroll-margin-top: 50vh;
 }
 
-.code-block-lines pre a:target {
-  background-color: #ffa;
+.code-block-lines > pre a .highlight {
+  display: none;
+}
+
+.code-block-lines > pre a:target .highlight {
+  background-color: rgba(255, 255, 170, 0.3);
+  position: relative;
+  width: 100vw;
+  overflow-x: visible;
+  z-index: 1;
+  display: inline-block;
+  left: -3rem;
+  top: 0;
+
+  pre {
+    display: inline;
+  }
 }
 
 /* github theme */

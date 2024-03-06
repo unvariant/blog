@@ -1,5 +1,6 @@
 import * as path from "node:path";
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
+import { lstatSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import config from "./config.js";
 
@@ -9,9 +10,9 @@ const infoMemo = new Map();
  * @param {string} absolutePath 
  * @returns {Info}
  */
-export function getInfo(absolutePath) {
-    absolutePath = path.normalize(absolutePath);
-    if (infoMemo.has(absolutePath)) {
+export function getInfo(absolutePath, useCached = true) {
+    absolutePath = path.resolve(absolutePath);
+    if (infoMemo.has(absolutePath) && useCached) {
         return infoMemo.get(absolutePath);
     } else {
         const info = new Info(absolutePath);
@@ -29,7 +30,7 @@ class Info {
         const extname = path.extname(absolutePath);
         const basename = path.basename(absolutePath, extname);
         const filename = path.basename(absolutePath);
-        const stats = fs.lstatSync(absolutePath);
+        const stats = lstatSync(absolutePath);
         let lastModifiedDate = new Date(0);
         if (relativePath.startsWith("..")) {
             lastModifiedDate = new Date(0);
@@ -48,10 +49,15 @@ class Info {
         this.filename = filename;
         this.lastModifiedDate = lastModifiedDate;
         this.element = (<></>);
+        if (infoMemo.has(absolutePath)) {
+            this.reloadCount = infoMemo.get(absolutePath).reloadCount + 1;
+        } else {
+            this.reloadCount = 0;
+        }
 
         Object.defineProperty(this, "parent", {
-            get() {
-                const resolvedParent = getInfo(path.resolve(absolutePath, ".."));
+            get: function() {
+                const resolvedParent = (absolutePath === config.cwd) ? undefined : getInfo(path.resolve(absolutePath, ".."));
 
                 Object.defineProperty(this, "parent", {
                     value: resolvedParent,
@@ -66,8 +72,8 @@ class Info {
         });
 
         Object.defineProperty(this, "source", {
-            get() {
-                const resolvedSource = fs.readFileSync(this.absolutePath);
+            get: function() {
+                const resolvedSource = readFileSync(this.absolutePath);
 
                 Object.defineProperty(this, "source", {
                     value: resolvedSource,
@@ -82,7 +88,7 @@ class Info {
         });
 
         Object.defineProperty(this, "children", {
-            get() {
+            get: function() {
                 let resolvedChilren = [];
                 if (this.stats.isDirectory()) {
                     const files = execSync(`fd -d 1 . '${this.absolutePath}'`, { encoding: "utf-8" }).trim().split("\n");
@@ -102,7 +108,7 @@ class Info {
         });
 
         Object.defineProperty(this, "size", {
-            get() {
+            get: function() {
                 let resolvedSize = this.stats.size;
                 if (this.stats.isDirectory()) {
                     resolvedSize = this.children.map(i => i.size).concat([0, 0]).reduce((a, b) => a + b);

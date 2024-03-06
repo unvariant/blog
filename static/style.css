@@ -15,11 +15,6 @@ body {
   padding-right: var(--right-padding);
 }
 
-p {
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
 body * {
   max-width: var(--max-blog-width);
 }
@@ -76,12 +71,12 @@ h6 a:hover {
   text-decoration: none;
 }
 
-h1 a code,
-h2 a code,
-h3 a code,
-h4 a code,
-h5 a code,
-h6 a code {
+h1 > a #_hash,
+h2 > a #_hash,
+h3 > a #_hash,
+h4 > a #_hash,
+h5 > a #_hash,
+h6 > a #_hash {
   margin-right: 1rem;
 }
 
@@ -121,9 +116,9 @@ h6 a code {
   pointer-events: none;
 }
 
-details:not([open]) {
+/* details:not([open]) {
   margin-bottom: 0.5rem;
-}
+} */
 
 details > summary {
   list-style: none;

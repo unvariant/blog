@@ -1,0 +1,57 @@
+set unwindonsignal on
+source ../build/v8/tools/gdbinit
+source ../build/v8/tools/gdb-v8-support.py
+c
+
+python
+import gdb
+import struct
+
+class f2u(gdb.Command):
+  def __init__ (self):
+    super(f2u, self).__init__ ("f2u", gdb.COMMAND_DATA)
+
+  def invoke (self, arg, from_tty):
+    argv = gdb.string_to_argv(arg)
+    if len(argv) != 1:
+      raise gdb.GdbError("f2u takes exactly one argument.")
+    value = float(argv[0])
+    num = struct.unpack("<Q", struct.pack("<d", value))[0]
+    gdb.execute(f"p {num}")
+
+f2u()
+
+class base(gdb.Command):
+  def __init__ (self):
+    super(base, self).__init__ ("base", gdb.COMMAND_DATA)
+
+  def invoke (self, arg, from_tty):
+    value = int(gdb.parse_and_eval(arg))
+    gdb.execute(f"p {value >> 32 << 32}")
+
+base()
+
+class lo(gdb.Command):
+  def __init__ (self):
+    super(lo, self).__init__ ("lo", gdb.COMMAND_DATA)
+
+  def invoke (self, arg, from_tty):
+    value = int(gdb.parse_and_eval(arg))
+    gdb.execute(f"p {value % (1 << 32)}")
+
+lo()
+
+class jele(gdb.Command):
+  def __init__ (self):
+    super(jele, self).__init__ ("jele", gdb.COMMAND_DATA)
+
+  def invoke (self, arg, from_tty):
+    value = gdb.parse_and_eval(arg)
+    command = f"job {value}"
+    print(f"command: {command}")
+    obj = gdb.execute(command, to_string=True)
+    print(f"obj: {obj}")
+
+jele()
+
+end

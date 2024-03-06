@@ -14,6 +14,11 @@ export default function() {
             {
                 type: "inlineCode",
                 value: "#",
+                data: {
+                    hProperties: {
+                        id: "_hash"
+                    }
+                }
             },].concat(node.children);
 
             data.id = slug;

@@ -7,7 +7,7 @@
         "testing"
     ],
     "verbose": true,
-    "exec": "npm run build",
+    "exec": "",
     "ext": "*",
     "watch": ["./src", "./static", "build.js"]
 }

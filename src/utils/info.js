@@ -21,6 +21,13 @@ export function getInfo(absolutePath, useCached = true) {
     }
 }
 
+export function removeInfo(absolutePath) {
+    absolutePath = path.resolve(absolutePath);
+    if (infoMemo.has(absolutePath)) {
+        infoMemo.delete(absolutePath);
+    }
+}
+
 class Info {
     /**
      * @param {string} absolutePath

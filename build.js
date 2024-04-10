@@ -97,12 +97,14 @@ export class Builder {
     async renderAll() {
         while (this.queue.length > 0) {
             const info = this.queue.shift();
+            // console.log(`looking at ${info.relativePath}`);
             if (info.pushChildren) {
                 info.pushChildren = false;
                 for (const child of info.children) {
                     this.queue.push(child);
                 }
             }
+            console.log(`${info.relativePath} has ${info.resolved} needs ${info.children.length}`);
             if (info.resolved == info.children.length) {
                 await this.render(info);
             } else {
@@ -227,9 +229,9 @@ export class Builder {
     }
 }
 
-const builder = new Builder();
-const buildSteps = [
-    builder.renderAll(),
-    fs.cp("static", path.join(config.buildRoot), { recursive: true }),
-];
-await Promise.all(buildSteps);
+// const builder = new Builder();
+// const buildSteps = [
+//     builder.renderAll(),
+//     fs.cp("static", path.join(config.buildRoot), { recursive: true }),
+// ];
+// await Promise.all(buildSteps);

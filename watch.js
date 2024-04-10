@@ -1,7 +1,7 @@
 import nodemon from "nodemon";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { yank } from "./yank.js";
+import { Builder } from "./build.js";
 import { getInfo } from "./src/utils/info.js";
 import config from "./src/utils/config.js";
 
@@ -40,4 +40,4 @@ await Promise.all([
 ]);
 console.log(`rebuilt blog`);
 
-import.meta.hot?.accept(["./yank.js"]);
+import.meta.hot?.accept(["./build.js"]);

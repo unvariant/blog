@@ -1,0 +1,23 @@
+import { ChallengeInfo } from "../../../../components/ChallengeInfo.js"
+
+# linker-as-a-service
+
+<ChallengeInfo items={{
+    points: 500,
+    solves: 1,
+    difficulty: "hard"
+}}>
+Turing complete relocations are fun and all, but you can use them to pop a shell?
+
+`nc chal.amt.rs 1342`
+</ChallengeInfo>
+
+## solution
+
+1. add `/proc/self/exe` as a dynamic dependency
+    - allows the binary to be loaded at a relative offset to linker
+2. use relocations to modify linker state to get rce
+
+## unintended
+
+none :D

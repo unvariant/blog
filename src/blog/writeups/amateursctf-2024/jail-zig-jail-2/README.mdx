@@ -1,0 +1,113 @@
+import { ChallengeInfo } from '../../../../components/ChallengeInfo.js';
+
+# zig-jail-2
+
+<ChallengeInfo items={{
+    category: "jail",
+    points: 481,
+    solves: 5,
+    difficulty: "hard",
+}}>
+What compiler limits?
+
+`nc chal.amt.rs 1516`
+</ChallengeInfo>
+
+The challenge was to sort a list of 1337 + n (0 {'<='} n {'<='} 255) bytes and emit the sorted list as hex.
+
+```py path="chal.py" range="43,44" open
+```
+
+`zig` has limits on the number of backwards branches that can occur during comptime execution, the default limit is 1000. The length was set higher than the default limit to force players to find a way to bypass the backwards branch limit. The `@setEvalBranchQuota` macro was also banned to prevent raising the limit.
+
+## solution
+
+Trying to loop more than 1000 times in comptime:
+```zig open
+const Args = struct {
+    idx: usize,
+};
+
+fn print(args: *Args) usize {
+    comptime for (0..999) |i| {
+        @compileLog(i + args.idx);
+    };
+    args.idx += 999;
+    return 0;
+}
+
+pub fn main() void {
+    comptime {
+        var args = Args{ .idx = 0 };
+        _ = print(&args);
+        _ = print(&args);
+    }
+}
+```
+```text open
+test.zig:17:18: error: evaluation exceeded 1000 backwards branches
+        _ = print(&args);
+            ~~~~~^~~~~~~
+test.zig:17:18: note: use @setEvalBranchQuota() to raise the branch limit from 1000
+referenced by:
+    main: test.zig:17:13
+    callMain: zig/lib/std/start.zig:564:17
+    remaining reference traces hidden; use '-freference-trace' to see all reference traces
+
+Compile Log Output:
+@as(usize, 0)
+// --- snip ---
+@as(usize, 998)
+```
+
+However if you do computation inside a structure defined at comptime:
+```zig open
+const Args = struct {
+    idx: usize,
+};
+
+fn print(args: *Args) usize {
+    comptime for (0..999) |i| {
+        @compileLog(i + args.idx);
+    };
+    args.idx += 999;
+    return 0;
+}
+
+fn NewStruct(args: *Args) usize {
+    return struct {
+        const A = print(args);
+    }.A;
+}
+
+pub fn main() void {
+    comptime {
+        var args = Args{ .idx = 0 };
+        _ = NewStruct(&args);
+        _ = NewStruct(&args);
+
+        @compileLog("done");
+    }
+}
+```
+```text open
+test.zig:7:9: error: found compile log statement
+        @compileLog(i + args.idx);
+        ^~~~~~~~~~~~~~~~~~~~~~~~~
+test.zig:25:9: note: also here
+        @compileLog("done");
+        ^~~~~~~~~~~~~~~~~~~
+
+Compile Log Output:
+@as(usize, 0)
+@as(usize, 1)
+// --- snip ---
+@as(usize, 1997)
+@as(*const [4:0]u8, "done")
+```
+
+No more error about branch limits being exceeded! The branch limits still exist, but when doing computation inside a struct the branch count is reset to zero. This allows for the comptime limits to be bypassed as long as the program does not branch more than 1000 times in each new struct definition.
+
+## unintendeds
+
+None of the players who solved this challenge actually found the bypass, instead they all implemented an unrolled sorting algorithm that is able to pass under the default branch limit because the given list is so short.

@@ -1,0 +1,29 @@
+import { ChallengeInfo } from "../../../../components/ChallengeInfo.js"
+
+# baby-sandbox
+
+<ChallengeInfo items={{
+    points: 394,
+    solves: 33,
+    difficulty: "easy",
+}}>
+How many different ways are there to make a syscall?
+
+`nc chal.amt.rs 1341`
+</ChallengeInfo>
+
+## solution
+
+Use `sysenter` which is an alternate legacy method of performing a syscall. The biggest issue that most players ran into was not setting a proper `rbp` value, `sysenter` only completes successfully if `rbp` is set to a readable address along with the other arguments.
+
+## unintendeds
+
+### vector registers
+I remembered to clear `fs` and `gs` registers this time but forgot to clear the vector registers...
+
+### side channel
+I was aware that my solution to `perfect-sandbox` from `amateursctf-2023` would also work on this challenge but I was too lazy to patch lol.
+
+## issues
+
+`sysenter` only works in 64 bit mode on intel processors, which caused some debugging issues for some players.

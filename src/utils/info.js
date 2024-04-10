@@ -41,6 +41,8 @@ class Info {
             }
         }
 
+        this.resolved = 0;
+        this.pushChildren = true;
         this.absolutePath = absolutePath;
         this.relativePath = relativePath;
         this.stats = stats;
@@ -53,6 +55,11 @@ class Info {
             this.reloadCount = infoMemo.get(absolutePath).reloadCount + 1;
         } else {
             this.reloadCount = 0;
+        }
+        if (stats.isFile()) {
+            this.size = stats.size;
+        } else {
+            this.size = 0;
         }
 
         Object.defineProperty(this, "parent", {
@@ -91,7 +98,7 @@ class Info {
             get: function() {
                 let resolvedChilren = [];
                 if (this.stats.isDirectory()) {
-                    const files = execSync(`fd -d 1 . '${this.absolutePath}'`, { encoding: "utf-8" }).trim().split("\n");
+                    const files = execSync(`fd -d 1 --hidden . '${this.absolutePath}'`, { encoding: "utf-8" }).trim().split("\n").filter(s => s.length > 0);
                     resolvedChilren = files.map(file => getInfo(file));
                 }
 
@@ -107,23 +114,23 @@ class Info {
             enumerable: true
         });
 
-        Object.defineProperty(this, "size", {
-            get: function() {
-                let resolvedSize = this.stats.size;
-                if (this.stats.isDirectory()) {
-                    resolvedSize = this.children.map(i => i.size).concat([0, 0]).reduce((a, b) => a + b);
-                }
+        // Object.defineProperty(this, "size", {
+        //     get: function() {
+        //         let resolvedSize = this.stats.size;
+        //         if (this.stats.isDirectory()) {
+        //             resolvedSize = this.children.map(i => i.size).concat([0, 0]).reduce((a, b) => a + b);
+        //         }
 
-                Object.defineProperty(this, "size", {
-                    value: resolvedSize,
-                    writable: false,
-                    configurable: false
-                });
+        //         Object.defineProperty(this, "size", {
+        //             value: resolvedSize,
+        //             writable: false,
+        //             configurable: false
+        //         });
 
-                return resolvedSize;
-            },
-            configurable: true,
-            enumerable: true
-        });
+        //         return resolvedSize;
+        //     },
+        //     configurable: true,
+        //     enumerable: true
+        // });
     }
 }

@@ -1,0 +1,24 @@
+import { ChallengeInfo } from "../../../../components/ChallengeInfo.js";
+
+# baby-bear-blockchain
+
+<ChallengeInfo items={{
+    points: 495,
+    solves: 2,
+    difficulty: "hard"
+}}>
+Don't you love it when people take perfectly functional rust projects and rewrite them in c?
+
+`nc chal.amt.rs 1340`
+</ChallengeInfo>
+
+## solution
+
+Relies on a few bugs I found in the firedancer flamenco vm:
+1. address checks can be bypassed using a negative length
+2. out of bounds access of the registers array into the log buffer
+3. out of bounds jump using the `CALL_REG` instruction
+
+## unintendeds
+
+Nobody solved using an unintended yay.

@@ -1,0 +1,21 @@
+import { ChallengeInfo } from "../../../../components/ChallengeInfo.js"
+
+# buffer-overflow
+
+<ChallengeInfo items={{
+    points: 401,
+    solves: 30,
+    difficulty: "easy",
+}}>
+I just want to uppercase a string... why does unicode make this so hard.
+
+`nc chal.amt.rs 1337`
+</ChallengeInfo>
+
+## solution
+
+When uppercasing some unicode characters, they expand to be more bytes than the original character.
+
+## unintendeds
+
+none

@@ -10,7 +10,7 @@ export const layout = "./src/page.mdx";
     .map(FileEntry)
 }
 { useInfo().children
-    .filter(info => info.stats.isFile())
+    .filter(info => info.stats.isFile() || info.stats.isSymbolicLink())
     .sort((a, b) => a.filename.localeCompare(b.filename))
     .map(FileEntry)
 }

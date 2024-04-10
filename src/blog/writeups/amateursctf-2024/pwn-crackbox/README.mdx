@@ -1,0 +1,23 @@
+import { ChallengeInfo } from "../../../../components/ChallengeInfo.js"
+
+# crackbox
+
+<ChallengeInfo items={{
+    points: 505,
+    solves: 0,
+    difficulty: "hard",
+}}>
+Just another restricted qemu-user sandbox.
+
+`nc chal.amt.rs 1339`
+</ChallengeInfo>
+
+## solution
+
+`qemu` does not properly sanitize `mmap` flags, use `mmap` with `MAP_FIXED_NOREPLACE` to oracle the host mappings, then modify the `qemu` RWX JIT state with shellcode to print the flag.
+
+Solve script works 100% on local, around 1/32 on remote.
+
+## unintendeds
+
+none

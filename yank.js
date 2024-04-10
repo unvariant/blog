@@ -122,6 +122,9 @@ export async function yank(info) {
             case ".py":
                 element = await highlight(info, "python");
                 break;
+            case ".js":
+                element = await highlight(info, "js");
+                break;
             default:
                 switch (info.basename.toLowerCase()) {
                     case "makefile":

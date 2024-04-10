@@ -1,0 +1,74 @@
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/style.css"/><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="true"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet"/></head><body><div class="file"><a href="/plugins/links.js/" class="file-link"><img src="/icons/text.png"/><span>.</span></a><div class="file-meta"><span>1 KiB</span><span class="file-meta-date">1969-12-31 16:00</span></div></div><div class="file"><a href="/plugins/" class="file-link"><img src="/icons/dir.png"/><span>..</span></a><div class="file-meta"><span>3 KiB</span><span class="file-meta-date">1969-12-31 16:00</span></div></div><details open="" class="always-open"><summary class="sticky"><div><b>links.js</b></div><div><b>JS</b></div></summary><div class="code-block"><div class="code-block-lines"><pre><a id="L1" href="/plugins/links.js/#L1">   1 <div class="highlight"><pre> </pre></div></a>
+<a id="L2" href="/plugins/links.js/#L2">   2 <div class="highlight"><pre> </pre></div></a>
+<a id="L3" href="/plugins/links.js/#L3">   3 <div class="highlight"><pre> </pre></div></a>
+<a id="L4" href="/plugins/links.js/#L4">   4 <div class="highlight"><pre> </pre></div></a>
+<a id="L5" href="/plugins/links.js/#L5">   5 <div class="highlight"><pre> </pre></div></a>
+<a id="L6" href="/plugins/links.js/#L6">   6 <div class="highlight"><pre> </pre></div></a>
+<a id="L7" href="/plugins/links.js/#L7">   7 <div class="highlight"><pre> </pre></div></a>
+<a id="L8" href="/plugins/links.js/#L8">   8 <div class="highlight"><pre> </pre></div></a>
+<a id="L9" href="/plugins/links.js/#L9">   9 <div class="highlight"><pre> </pre></div></a>
+<a id="L10" href="/plugins/links.js/#L10">  10 <div class="highlight"><pre> </pre></div></a>
+<a id="L11" href="/plugins/links.js/#L11">  11 <div class="highlight"><pre> </pre></div></a>
+<a id="L12" href="/plugins/links.js/#L12">  12 <div class="highlight"><pre> </pre></div></a>
+<a id="L13" href="/plugins/links.js/#L13">  13 <div class="highlight"><pre> </pre></div></a>
+<a id="L14" href="/plugins/links.js/#L14">  14 <div class="highlight"><pre> </pre></div></a>
+<a id="L15" href="/plugins/links.js/#L15">  15 <div class="highlight"><pre> </pre></div></a>
+<a id="L16" href="/plugins/links.js/#L16">  16 <div class="highlight"><pre> </pre></div></a>
+<a id="L17" href="/plugins/links.js/#L17">  17 <div class="highlight"><pre> </pre></div></a>
+<a id="L18" href="/plugins/links.js/#L18">  18 <div class="highlight"><pre> </pre></div></a>
+<a id="L19" href="/plugins/links.js/#L19">  19 <div class="highlight"><pre> </pre></div></a>
+<a id="L20" href="/plugins/links.js/#L20">  20 <div class="highlight"><pre> </pre></div></a>
+<a id="L21" href="/plugins/links.js/#L21">  21 <div class="highlight"><pre> </pre></div></a>
+<a id="L22" href="/plugins/links.js/#L22">  22 <div class="highlight"><pre> </pre></div></a>
+<a id="L23" href="/plugins/links.js/#L23">  23 <div class="highlight"><pre> </pre></div></a>
+<a id="L24" href="/plugins/links.js/#L24">  24 <div class="highlight"><pre> </pre></div></a>
+<a id="L25" href="/plugins/links.js/#L25">  25 <div class="highlight"><pre> </pre></div></a>
+<a id="L26" href="/plugins/links.js/#L26">  26 <div class="highlight"><pre> </pre></div></a>
+<a id="L27" href="/plugins/links.js/#L27">  27 <div class="highlight"><pre> </pre></div></a>
+<a id="L28" href="/plugins/links.js/#L28">  28 <div class="highlight"><pre> </pre></div></a>
+<a id="L29" href="/plugins/links.js/#L29">  29 <div class="highlight"><pre> </pre></div></a>
+<a id="L30" href="/plugins/links.js/#L30">  30 <div class="highlight"><pre> </pre></div></a>
+<a id="L31" href="/plugins/links.js/#L31">  31 <div class="highlight"><pre> </pre></div></a>
+<a id="L32" href="/plugins/links.js/#L32">  32 <div class="highlight"><pre> </pre></div></a>
+<a id="L33" href="/plugins/links.js/#L33">  33 <div class="highlight"><pre> </pre></div></a>
+<a id="L34" href="/plugins/links.js/#L34">  34 <div class="highlight"><pre> </pre></div></a>
+<a id="L35" href="/plugins/links.js/#L35">  35 <div class="highlight"><pre> </pre></div></a>
+<a id="L36" href="/plugins/links.js/#L36">  36 <div class="highlight"><pre> </pre></div></a>
+<a id="L37" href="/plugins/links.js/#L37">  37 <div class="highlight"><pre> </pre></div></a>
+</pre></div><div class="code-block-code"><pre><code class="hljs language-js"><span class="hljs-keyword">import</span> { visit } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;unist-util-visit&quot;</span>;
+
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-keyword">function</span>(<span class="hljs-params"></span>) {
+    <span class="hljs-keyword">return</span> <span class="hljs-keyword">function</span>(<span class="hljs-params">tree</span>) {
+        <span class="hljs-title function_">visit</span>(tree, <span class="hljs-string">&quot;link&quot;</span>, visitor);
+
+        <span class="hljs-keyword">function</span> <span class="hljs-title function_">visitor</span>(<span class="hljs-params">node</span>) {
+            <span class="hljs-keyword">const</span> data = node.<span class="hljs-property">data</span> || (node.<span class="hljs-property">data</span> = {});
+            <span class="hljs-keyword">const</span> props = data.<span class="hljs-property">hProperties</span> || (data.<span class="hljs-property">hProperties</span> = {});
+            <span class="hljs-keyword">const</span> url = node.<span class="hljs-property">url</span>;
+
+            <span class="hljs-keyword">function</span> <span class="hljs-title function_">getLinkType</span>(<span class="hljs-params">url</span>) {
+                <span class="hljs-comment">// any string that starts with #</span>
+                <span class="hljs-keyword">if</span> (<span class="hljs-regexp">/^#(.*)/</span>.<span class="hljs-title function_">exec</span>(url)) {
+                    <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;hash&quot;</span>;
+                <span class="hljs-comment">// any string that starts with /</span>
+                } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (<span class="hljs-regexp">/^\/(.*)/</span>.<span class="hljs-title function_">exec</span>(url)) {
+                    <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;relative&quot;</span>;
+                <span class="hljs-comment">// any string with ://</span>
+                } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (url.<span class="hljs-title function_">indexOf</span>(<span class="hljs-string">&quot;://&quot;</span>) == -<span class="hljs-number">1</span>) {
+                    <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;relative&quot;</span>;
+                } <span class="hljs-keyword">else</span> {
+                    <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;external&quot;</span>;
+                }
+            };
+
+            <span class="hljs-keyword">const</span> linkType = <span class="hljs-title function_">getLinkType</span>(url);
+
+            props.<span class="hljs-property">title</span> = node.<span class="hljs-property">url</span>;
+
+            <span class="hljs-keyword">if</span> (linkType === <span class="hljs-string">&quot;external&quot;</span>) {
+                props.<span class="hljs-property">target</span> = <span class="hljs-string">&quot;_blank&quot;</span>;
+                props.<span class="hljs-property">rel</span> = <span class="hljs-string">&quot;noopener&quot;</span>;
+            }
+        }
+    }
+}</code></pre></div></div></details></body></html>

@@ -21,5 +21,10 @@
     "rehype-mdx-code-props": "^2.0.0",
     "remark-gfm": "^4.0.0",
     "slugify": "^1.6.6"
+  },
+  "dependencies": {
+    "@swc/core": "^1.4.13",
+    "0x": "^5.7.0",
+    "workerpool": "^9.1.1"
   }
 }

@@ -20,9 +20,9 @@ export default function(props) {
 
             <body>
                 { [
-                    FileEntry(info, {
-                        filename: "."
-                    }),
+                    // FileEntry(info, {
+                    //     filename: "."
+                    // }),
                     FileEntry(info.parent, {
                         filename: ".."
                     }),

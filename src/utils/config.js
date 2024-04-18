@@ -9,9 +9,11 @@ export function getAbsolutePath(file) {
 
 export async function getCachedDates() {
     if (existsSync(cached_date_file)) {
+        console.log(`[+] using cached dates ${cached_date_file}`);
         const dates = JSON.parse(await fs.readFile(cached_date_file, { encoding: "utf-8" }));
         return dates;
     } else {
+        console.log(`[+] regenerating cached dates`);
         const dates = {};
         for (const file of files) {
             const absolutePath = getAbsolutePath(file);
@@ -22,6 +24,7 @@ export async function getCachedDates() {
             );
             dates[absolutePath] = lastModifiedDate;
         }
+        await setCachedDates(dates);
         return dates;
     }
 }
@@ -39,6 +42,7 @@ const files = execSync(`fd --hidden . '${blogRoot}'`, { encoding: "utf-8" })
     .trim()
     .split("\n")
     .filter((s) => s.length > 0)
+    .concat([blogRoot])
     .map((file) => path.parse(file));
 const dates = await getCachedDates();
 

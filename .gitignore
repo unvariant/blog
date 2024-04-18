@@ -1,4 +1,6 @@
 node_modules/
-build/
+_build/
+_cache/
 package-lock.json
 testing/
+**/zig-cache/

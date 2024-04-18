@@ -42,11 +42,7 @@ class Info {
         if (relativePath.startsWith("..")) {
             lastModifiedDate = new Date(0);
         } else {
-            lastModifiedDate = new Date(
-                execSync(`git log -1 --pretty="format:%cD" ${absolutePath}`, {
-                    encoding: "utf-8",
-                })
-            );
+            lastModifiedDate = new Date(config.dates[absolutePath]);
             if (isNaN(lastModifiedDate)) {
                 lastModifiedDate = new Date(0);
             }
@@ -61,7 +57,7 @@ class Info {
         this.basename = basename;
         this.filename = filename;
         this.lastModifiedDate = lastModifiedDate;
-        this.element = (<></>);
+        this.element = undefined;
         if (stats.isFile()) {
             this.size = stats.size;
         } else {

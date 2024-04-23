@@ -12,7 +12,7 @@ export function getAbsolutePath(file) {
 }
 
 export async function getCachedDates() {
-    if (isDevelopmentMode) {
+    if (isDevelopmentMode()) {
         return {};
     }
 

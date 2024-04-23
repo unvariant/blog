@@ -20,8 +20,8 @@ export async function process(shortcode, info, defaultProcessor) {
     shortcode = normalizeShortcode(shortcode);
 
     if (processors.has(shortcode)) {
-        return await processors.get(shortcode)(info);
+        return processors.get(shortcode)(info);
     }
 
-    return await defaultProcessor(info);
+    return defaultProcessor(info);
 }

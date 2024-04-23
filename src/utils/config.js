@@ -3,14 +3,22 @@ import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 
+export function isDevelopmentMode() {
+    return /(--dev)/.test(process.execArgv.join(' '));
+}
+
 export function getAbsolutePath(file) {
     return path.join(file.dir, file.base);
 }
 
 export async function getCachedDates() {
-    if (existsSync(cached_date_file)) {
-        console.log(`[+] using cached dates ${cached_date_file}`);
-        const dates = JSON.parse(await fs.readFile(cached_date_file, { encoding: "utf-8" }));
+    if (isDevelopmentMode) {
+        return {};
+    }
+
+    if (existsSync(cachedDateFile)) {
+        console.log(`[+] using cached dates ${cachedDateFile}`);
+        const dates = JSON.parse(await fs.readFile(cachedDateFile, { encoding: "utf-8" }));
         return dates;
     } else {
         console.log(`[+] regenerating cached dates`);
@@ -30,14 +38,15 @@ export async function getCachedDates() {
 }
 
 export async function setCachedDates(dates) {
-    await fs.writeFile(cached_date_file, JSON.stringify(dates));
+    await fs.writeFile(cachedDateFile, JSON.stringify(dates));
 }
 
 const cwd = path.resolve("");
 const blogRoot = path.resolve(cwd, "src/blog");
 const buildRoot = path.resolve(cwd, "_build");
-const cached_date_file = path.join("_cache", "cached_dates.json");
-await fs.mkdir(path.dirname(cached_date_file), { recursive: true });
+const cacheRoot = path.resolve("_cache"); 
+const cachedDateFile = path.join(cacheRoot, "cached_dates.json");
+await fs.mkdir(path.dirname(cachedDateFile), { recursive: true });
 const files = execSync(`fd --hidden . '${blogRoot}'`, { encoding: "utf-8" })
     .trim()
     .split("\n")
@@ -50,6 +59,7 @@ export default {
     cwd,
     blogRoot,
     buildRoot,
+    cacheRoot,
     files,
     dates,
 };

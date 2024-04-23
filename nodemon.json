@@ -3,11 +3,11 @@
     "ignore": [
         ".git",
         "node_modules/**/node_modules",
-        "build",
+        "_build", "_cache",
         "testing"
     ],
     "verbose": true,
-    "exec": "",
+    "exec": "npm run build",
     "ext": "*",
     "watch": ["./src", "./static", "build.js"]
 }

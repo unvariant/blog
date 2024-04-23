@@ -4,7 +4,7 @@ import { lstatSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import config from "./config.js";
 
-const infoMemo = new Map();
+export const infoMemo = new Map();
 
 /**
  * @param {string} absolutePath
@@ -40,7 +40,7 @@ class Info {
         const stats = lstatSync(absolutePath);
         let lastModifiedDate = undefined;
         if (relativePath.startsWith("..")) {
-            lastModifiedDate = new Date(0);
+            lastModifiedDate = new Date(-1);
         } else {
             lastModifiedDate = new Date(config.dates[absolutePath]);
             if (isNaN(lastModifiedDate)) {
@@ -64,12 +64,10 @@ class Info {
             this.size = 0;
         }
         if (this.stats.isDirectory()) {
-            const files = config.files
+            this.children = config.files
                 .filter((parsedPath) => parsedPath.dir === absolutePath)
-                .map((parsedPath) =>
-                    path.join(parsedPath.dir, parsedPath.base)
-                );
-            this.children = files.map((file) => getInfo(file));
+                .map((parsedPath) => path.join(parsedPath.dir, parsedPath.base))
+                .map((file) => getInfo(file));
         } else {
             this.children = [];
         }

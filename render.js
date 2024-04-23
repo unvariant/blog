@@ -4,7 +4,6 @@ import { getInfo } from "./src/utils/info.js";
 import config from "./src/utils/config.js";
 import { register, process } from "./processor.js";
 import { fileTypeFromBuffer } from "file-type";
-
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { execSync } from "node:child_process";
@@ -13,6 +12,35 @@ import componentMap from "./src/components.js"
 import Highlight from "./src/components/Highlight.js";
 import Page from "./src/components/Page.js";
 import { InfoContext } from "./src/components/InfoContext.js";
+
+async function unknownProcessor(info) {
+    switch (info.basename.toLowerCase()) {
+        case "makefile":
+            return process("makefile", info);
+        case "dockerfile":
+            return process("dockerfile", info);
+        default:
+            if (info.source.subarray(0, 4).compare(Buffer.from("\x7fELF")) == 0) {
+                return process("elf", info);
+            }
+            // const type = await fileTypeFromBuffer(info.source);
+            // if (type) {
+            //     switch (type.ext) {
+            //         case "elf":
+            //             return process("elf", info);
+            //     }
+            // }
+
+            if (NodeBuffer.isUtf8(info.source.subarray(0, 100))) {
+                return (
+                    <div>
+                        <Highlight lang="text" source={ info.source.toString() } filename={ info.filename } always>
+                        </Highlight>
+                    </div>
+                );
+            }
+    }
+}
 
 function withInfo(info, element) {
     return (
@@ -40,34 +68,7 @@ export async function render(info) {
     let element = undefined;
     if (info.stats.isFile()) {
         const extname = info.extname.toLowerCase();
-        element = await process(extname, info, async function (info) {
-            switch (info.basename.toLowerCase()) {
-                case "makefile":
-                    return process("makefile", info);
-                case "dockerfile":
-                    return process("dockerfile", info);
-                default:
-                    if (info.source.subarray(0, 4).compare(Buffer.from("\x7fELF")) == 0) {
-                        return process("elf", info);
-                    }
-                    // const type = await fileTypeFromBuffer(info.source);
-                    // if (type) {
-                    //     switch (type.ext) {
-                    //         case "elf":
-                    //             return process("elf", info);
-                    //     }
-                    // }
-
-                    if (NodeBuffer.isUtf8(info.source.subarray(0, 100))) {
-                        return (
-                            <div>
-                                <Highlight lang="text" source={ info.source.toString() } filename={ info.filename } always>
-                                </Highlight>
-                            </div>
-                        );
-                    }
-            }
-        });
+        element = await process(extname, info, unknownProcessor);
     } else if (info.stats.isDirectory()) {
         if (info.resolved == info.children.length) {
             let readme;

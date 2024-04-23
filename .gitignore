@@ -4,3 +4,4 @@ _cache/
 package-lock.json
 testing/
 **/zig-cache/
+**/__pycache__/

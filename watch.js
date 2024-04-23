@@ -1,6 +1,6 @@
 import nodemon from "nodemon";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { Builder } from "./build.js";
 import { getInfo, removeInfo } from "./src/utils/info.js";
 import config from "./src/utils/config.js";

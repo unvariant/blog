@@ -1,7 +1,6 @@
 node_modules/
 _build/
 _cache/
-package-lock.json
 testing/
 **/zig-cache/
 **/__pycache__/

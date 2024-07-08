@@ -1,0 +1,42 @@
+diff --git a/node_modules/import-jsx/cache.js b/node_modules/import-jsx/cache.js
+index dafba22..2ffa9df 100644
+--- a/node_modules/import-jsx/cache.js
++++ b/node_modules/import-jsx/cache.js
+@@ -5,8 +5,8 @@ import path from 'node:path';
+ import crypto from 'node:crypto';
+ import makeDir from 'make-dir';
+ import findCacheDir from 'find-cache-dir';
+-import packageConfig from './package.json' assert {type: 'json'};
+ 
++const packageConfig = JSON.parse(await fs.readFile(new URL("./package.json", import.meta.url)));
+ const cacheDirectory = findCacheDir({name: 'import-jsx'}) || os.tmpdir();
+ 
+ export const cacheKeyFromSource = source => {
+diff --git a/node_modules/import-jsx/index.js b/node_modules/import-jsx/index.js
+index 30dea40..b10f8d4 100644
+--- a/node_modules/import-jsx/index.js
++++ b/node_modules/import-jsx/index.js
+@@ -37,7 +37,7 @@ export const load = async (url, _context, nextLoad) => {
+ 			format: 'module',
+ 			shortCircuit: true
+ 		};
+-	} catch {
++	} catch (e) {
+ 		return nextLoad(url);
+ 	}
+ };
+diff --git a/node_modules/import-jsx/transform.js b/node_modules/import-jsx/transform.js
+index ed502c7..adeaa2c 100644
+--- a/node_modules/import-jsx/transform.js
++++ b/node_modules/import-jsx/transform.js
+@@ -20,7 +20,10 @@ const transform = async (source, filename) => {
+ 		]
+ 	];
+ 
++	const plugins = [];
++
+ 	const result = await babel.transformAsync(source, {
++		plugins,
+ 		presets,
+ 		filename,
+ 		sourceMaps: 'inline',

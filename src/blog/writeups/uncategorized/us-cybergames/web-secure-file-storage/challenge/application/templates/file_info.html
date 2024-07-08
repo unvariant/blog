@@ -1,0 +1,34 @@
+{% extends "template.html" %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header text-center">
+                <h3>File Info</h3>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <tbody>
+                      <tr>
+                        <th scope="row">File Name</th>
+                        <td>{{ file["filename"] }}</td>
+                      </tr>
+                      <tr>
+                        <th scope="row">File Size</th>
+                        <td>{{ stats.ST_SIZE }}</td>
+                      </tr>
+                      <tr>
+                        <th scope="row">Created</th>
+                        <td>{{ stats.ST_CTIME }}</td>
+                      </tr>
+                      <tr>
+                        <th scope="row">Modified</th>
+                        <td>{{ stats.ST_MTIME }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

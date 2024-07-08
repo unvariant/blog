@@ -1,5 +1,5 @@
-import * as path from "node:path";
-import * as fs from "node:fs/promises";
+import path from "node:path";
+import fs from "node:fs/promises";
 import { lstatSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import config from "./config.js";
@@ -43,13 +43,8 @@ class Info {
             lastModifiedDate = new Date(-1);
         } else {
             lastModifiedDate = new Date(config.dates[absolutePath]);
-            if (isNaN(lastModifiedDate)) {
-                lastModifiedDate = new Date(0);
-            }
         }
-
-        this.resolved = 0;
-        this.pushChildren = true;
+        
         this.absolutePath = absolutePath;
         this.relativePath = relativePath;
         this.stats = stats;
@@ -67,7 +62,7 @@ class Info {
             this.children = config.files
                 .filter((parsedPath) => parsedPath.dir === absolutePath)
                 .map((parsedPath) => path.join(parsedPath.dir, parsedPath.base))
-                .map((file) => getInfo(file));
+                .map(getInfo);
         } else {
             this.children = [];
         }

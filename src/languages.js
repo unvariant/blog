@@ -29,9 +29,3 @@ export const languages = {
     json, yaml, ini,
     js,
 };
-
-for (const [langname, langdef] of Object.entries(languages)) {
-    hljs.registerLanguage(langname, langdef);
-}
-
-export default hljs;

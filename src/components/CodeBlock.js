@@ -1,13 +1,13 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
-import hljs from "../languages.js";
+import hljs from "../highlight.js";
 import { useInfo } from "./InfoContext.js";
 import { getInfo } from "../utils/info.js";
 import config from "../utils/config.js";
 
 function count(haystack, needle) {
     return (
-        haystack.split("").map(ch => ch == needle ? 1 : 0).concat([0, 0]).reduce((a, b) => a + b) +
+        haystack.length - haystack.replaceAll(needle, "").length +
         (haystack.endsWith(needle) ? 0 : 1)
     );
 }
@@ -50,7 +50,7 @@ export default function (props) {
         const defaultOpen = (wantsHeader ? false : true) || wantsOpen || wantsAlwaysOpen;
 
         if (props.hasOwnProperty("path")) {
-            const target = getInfo(path.resolve(path.dirname(info.absolutePath), props.path));
+            const target = getInfo(path.join(path.dirname(info.absolutePath), props.path));
             rawcode = target.source.toString();
             if (props.hasOwnProperty("range")) {
                 const range = props.range.split(",");

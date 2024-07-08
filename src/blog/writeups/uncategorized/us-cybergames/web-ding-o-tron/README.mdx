@@ -1,0 +1,72 @@
+# ding-o-tron
+
+Greeted with a page that tells us to click a button 9000 times...
+
+```js open
+setInterval(() => window.ding(), [4]);
+```
+Surely the challenge is not that easy right?
+
+```text open
+[ERROR] You're dinging too quickly!
+```
+...aaand it yells at you for dinging too quickly. :/
+
+Digging a bit deeper it turns out the main logic is handled inside a wasm program. Since the wasm has to interact
+with external js in order to determine the current time, we can hijack those syscalls to trick the wasm into thinking
+more time has passed and bypassing the dinging too quickly error.
+
+```js filename="hijack.js" open
+window.go = go;
+const setInt64 = (addr, v) => {
+	window.go.mem.setUint32(addr + 0, v, true);
+	window.go.mem.setUint32(addr + 4, Math.floor(v / 4294967296), true);
+}
+window.seconds = 0;
+go.importObject.go["runtime.nanotime1"] = (sp) => {
+  sp >>>= 0;
+	setInt64(sp + 8, window.seconds * 1e9);
+	window.seconds += 1;
+}
+window._seconds = 0;
+go.importObject.go["runtime.walltime"] = (sp) => {
+	sp >>>= 0;
+	setInt64(sp + 8, window._seconds);
+	window.go.mem.setInt32(sp + 16, 0, true);
+	window._seconds += 1;
+}
+playSound = () => {};
+yay = () => {};
+updateCount = console.log;
+```
+
+A few minutes later we are greeted with another error:
+```text open
+[LOL] Did you think it would be that easy? Can you find my secret hidden function?
+```
+
+Looks like the 9000 clicks was a red herring :(.
+
+```js filename="download.js" open
+var blob = new Blob([new Uint8Array(window.go.mem.buffer)]),
+    e    = document.createEvent('MouseEvents'),
+    a    = document.createElement('a')
+
+a.download = "mem.bin"
+a.href = window.URL.createObjectURL(blob)
+a.dataset.downloadurl =  ['text/plain', a.download, a.href].join(':')
+e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null)
+a.dispatchEvent(e)
+```
+
+With wasm challenges you can sometimes cheese them by looking through wasm memory for flags or interesting strings,
+and since the wasm heap is a js Uint8Array we can download it directly and inspect it.
+
+```js path="strings.txt" range="488," open
+```
+
+That is a suspicious function name... what happens when we run it in the console?
+
+The challenge finally spits out the flag :).
+
+# flag: `SIVUSCG{d1ng_d1ng_d1ng_d1ng}`

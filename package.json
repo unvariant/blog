@@ -1,7 +1,8 @@
 {
   "scripts": {
     "build": "CACHE_DIR=./_cache node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js build.js",
-    "dev":   "CACHE_DIR=./_cache npm run build --dev"
+    "dev": "npm run build --dev",
+    "postinstall": "patch-package"
   },
   "type": "module",
   "devDependencies": {
@@ -19,6 +20,7 @@
     "import-jsx": "^5.0.0",
     "nodemon": "^3.1.0",
     "object-hash": "^3.0.0",
+    "patch-package": "^8.0.0",
     "preact": "^10.20.2",
     "preact-render-to-string": "^6.4.2",
     "react": "npm:@preact/compat",

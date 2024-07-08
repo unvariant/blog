@@ -5,6 +5,8 @@ import { register } from "./processor.js";
 import { execSync } from "node:child_process";
 import Highlight from "./src/components/Highlight.js";
 import { render, mdxToHtml } from './render.js';
+import path from "node:path";
+import crypto from "node:crypto";
 
 async function highlight(info, lang) {
     const element = (
@@ -21,6 +23,37 @@ function handleLanguage(lang) {
     };
 }
 
+const readelfCache = path.join(config.cacheRoot, "readelf-cache");
+fs.mkdir(readelfCache, { recursive: true });
+
+async function cachedElfInfo(info) {
+    const value = info.source;
+    const key = crypto.createHash('md5').update(value).digest('hex');
+    const cached = path.join(readelfCache, key);
+
+    try {
+        return await fs.readFile(cached, { encoding: "utf-8" });
+    } catch (e) {
+        const readelf = execSync(`readelf -hldS ${info.absolutePath}`, { encoding: "utf-8" }).trim();
+        await fs.writeFile(cached, readelf);
+        return readelf;
+    }
+}
+
+async function cachedModInfo(info) {
+    const value = info.source;
+    const key = crypto.createHash('md5').update(value).digest('hex');
+    const cached = path.join(readelfCache, key);
+
+    try {
+        return await fs.readFile(cached, { encoding: "utf-8" });
+    } catch (e) {
+        const modinfo = execSync(`readelf -p .modinfo ${info.absolutePath}`, { encoding: "utf-8" }).trim();
+        await fs.writeFile(cached, modinfo);
+        return modinfo;
+    }
+}
+
 register([ ".md", ".mdx", ], mdxToHtml);
 register([ ".h", ".c", ], handleLanguage("c"));
 register([ ".hpp", ".cpp" ], handleLanguage("cpp"));
@@ -34,7 +67,7 @@ register([ ".js" ], handleLanguage("js"));
 register([ ".makefile" ], handleLanguage("makefile"));
 register([ ".dockerfile" ], handleLanguage("dockerfile"));
 register([ ".ko" ], async function (info) {
-    let modinfo = execSync(`readelf -p .modinfo ${info.absolutePath}`, { encoding: "utf-8" }).trim();
+    let modinfo = await cachedModInfo(info);
     return (
         <div>
             <Highlight lang="text" source={ modinfo } filename="modinfo" open="true">
@@ -43,7 +76,7 @@ register([ ".ko" ], async function (info) {
     );
 });
 register([ ".elf" ], async function (info) {
-    let readelf = execSync(`readelf -hldS ${info.absolutePath}`, { encoding: "utf-8" }).trim();
+    let readelf = await cachedElfInfo(info);
     // let checksec = (await $`pwn checksec ${info.sourcePath}`).stderr.trim();
     // checksec = checksec.substring(checksec.indexOf("\n") + 1);
     let checksec = "not available";
@@ -61,25 +94,10 @@ register([ ".elf" ], async function (info) {
 export class Builder {
     constructor() {
         this.rootInfo = getInfo(config.blogRoot);
-        this.queue = [this.rootInfo];
     }
 
     async renderAll() {
-        while (this.queue.length > 0) {
-            const info = this.queue.at(-1);
-            // console.log(`${info.relativePath} at ${info.resolved}, needs ${info.children.length}`);
-            if (info.resolved == info.children.length) {
-                // console.log(`rendering ${info.relativePath}`);
-                await render(info);
-                this.queue.pop();
-            }
-            if (info.pushChildren) {
-                info.pushChildren = false;
-                for (const child of info.children) {
-                    this.queue.push(child);
-                }
-            }
-        }
+        await render(this.rootInfo);
     }
 }
 

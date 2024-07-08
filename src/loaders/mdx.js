@@ -12,7 +12,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import hash from "object-hash";
-import config from "../utils/config.js";
 
 const options = {
     development: true,
@@ -42,8 +41,9 @@ const options = {
     ]
 };
 
+const cacheRoot = path.join(path.resolve("."), "_cache");
 const projectHash = `mdx-cache-${hash(options)}`;
-const cache = path.join(config.cacheRoot, projectHash);
+const cache = path.join(cacheRoot, projectHash);
 await fs.mkdir(cache, { recursive: true });
 
 const {extnames, process} = createFormatAwareProcessors(options);

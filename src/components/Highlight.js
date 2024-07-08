@@ -1,15 +1,14 @@
 import CodeBlock from './CodeBlock.js';
-import * as fs from 'node:fs';
-import hljs from '../languages.js';
+import hljs from '../highlight.js';
 
 export default function ({ lang, ...props }) {
     let source;
     let filename;
 
-    if (props.info) {
+    if (props.info !== undefined) {
         source = props.info.source.toString();
         filename = props.info.filename;
-    } else if (props.source) {
+    } else if (props.source !== undefined) {
         source = props.source;
         filename = props.filename || "";
     } else {

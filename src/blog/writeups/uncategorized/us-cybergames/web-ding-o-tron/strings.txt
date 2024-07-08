@@ -1,0 +1,494 @@
+ *func([]int) reflect.StructField
+ *map.bucket[int32]unsafe.Pointer
+ *map.bucket[string]syscall.Errno
+ *map.bucket[unsafe.Pointer]int32
+ *map[runtime._typePair]struct {}
+!*func() *reflectlite.uncommonType
+"*struct { runtime.gList; n int32 }
+#*map.bucket[uint32][]*runtime._type
+#*map[runtime.typeOff]*runtime._type
+$*func(string) (reflect.Method, bool)
+$*map.bucket[*runtime.note]*runtime.g
+$*map.bucket[interface {}]*sync.entry
+$*runtime.goroutineProfileStateHolder
+&*func(*runtime.g, unsafe.Pointer) bool
+&*map.bucket[string]*unicode.RangeTable
+'*map.bucket[runtime._typePair]struct {}
+'*struct { F uintptr; x *reflect.rtype }
+(*func(js.Value, []js.Value) interface {}
+)*func(string) (reflect.StructField, bool)
+**[]func(js.Value, []js.Value) interface {}
+**func(unsafe.Pointer, unsafe.Pointer) bool
+**map.bucket[runtime.typeOff]*runtime._type
+**map[*runtime.note]runtime.noteWithTimeout
+**struct { F uintptr; .autotmp_1 chan int }
+**struct { F uintptr; .autotmp_2 chan int }
++*[8]func(js.Value, []js.Value) interface {}
+,*struct { len int; buf [128]*runtime.mspan }
+0*struct { F uintptr; c chan syscall.callResult }
+1*map.bucket[*runtime.note]runtime.noteWithTimeout
+3*map[uint32]func(js.Value, []js.Value) interface {}
+4*func(func(string) bool) (reflect.StructField, bool)
+:*map.bucket[uint32]func(js.Value, []js.Value) interface {}
+)+./05:<=>CLMPSZ[]_`hms{} + @ P [%!(") )()
+, ->25: > CcCfCoCsLlLmLoLtLuMcMeMnNdNlNoPcPdPePfPiPoPsScSkSmSoYiZlZpZs")"
+  G  M  P *( -  <  >  m= n=%: ...125625???EIOEOFHanLaoMroNaNNkoVai]:
+endfingc gp in intmapnilobjpc=ptr
+s <== at  fp= is  lr: of  on  pc= sp: sp=) = ) m=+Inf-Inf3125: p=AhomChamDashEADVEDOMGOGCLEAFLisuMiaoModiNewaThai
+	m=] = ] n=allgallpargsbaseboolcallcas1cas2cas3cas4cas5cas6chancodedeaddingfuncidleint8itabkindmap[nullrootsbrkthistrueuint ...
+ MB,  and  cnt= got= max= ms,  ptr  tab= top=(nil), fp:1562578125<nil>AdlamArrayBamumBatakBuhidDograE2BIGEBADEEBADFEBADREBUSYECOMMEFBIGEIDRMEINTRELBINELOOPENOSRENXIOEPERMEPIPEEROFSESRCHETIMEEXDEVErrorGreekKhmerLatinLimbuNushuOghamOriyaOsageRunicSTermTakriTamil] = (arrayclosedefererrorfalsegcinggscanhchaninit int16int32int64mheappanicscav schedsleepslicesudogsweeptraceuint8write B ->  Value addr= alloc base  code= ctxt: curg= free  goid  jobs= list= m->p= max=  min=  next= p->m= prev= span=% util(...)
+, i = , not 390625<-chan<null>ArabicBrahmiCarianChakmaCommonCopticEACCESEAGAINEBADFDEBFONTECHILDECHRNGEDQUOTEEXISTEFAULTEFTYPEEILSEQEINVALEISDIREL2HLTEL3HLTEL3RSTELNRNGEMFILEEMLINKENFILEENOANOENOCSIENODEVENOENTENOLCKENOMEMENOMSGENONETENOPKGENOSPCENOSTRENOSYSENOTTYEPROTOERANGEESPIPEESRMNTESTALEEUSERSEXFULLFormatGothicHangulHatranHebrewHyphenKaithiKhojkiLepchaLycianLydianO_EXCLO_RDWRObjectRejangSCHED StringSyriacTai_LeTangutTeluguThaanaWanchoYezidi[]bytechan<-efenceerrno numberobjectresultselectstringstructsweep symbolsysmontimersuint16uint32uint64winner (scan  (scan) MB in  Value> allocs dying= locks= m->g0= nmsys= pad1=  pad2=  s=nil
+ text=  zombie% CPU ((PANIC=, goid=, j0 = 19531259765625: type AvestanBengaliBrailleChanDirCypriotDeseretEBADMSGEBADRQCEBADSLTEDEADLKEDOTDOTEISCONNELIBACCELIBBADELIBMAXELIBSCNENMFILEENOBUFSENODATAENOEXECENOLINKENOTDIRENOTSUPEREMCHGEREMOTEEUNATCHElbasanElymaicGODEBUGGranthaHanunooIO waitKannadaMakasarMandaicMarchenMultaniMyanmarO_CREATO_TRUNCOsmanyaRadicalSharadaShavianSiddhamSinhalaSogdianSoyomboTagalogTibetanTirhutaUNKNOWN	types 	value=booleanconsolecpuproffloat32float64forcegcgctracehead = invalidmessageminpc= pacer: panic: processrunningsyscalluintptrunknownwaiting bytes,  etypes  is not  maxpc=  mcount= minLC=  minutes nalloc= newval= nfreed= packed= pointer stack=[ status 48828125<object><symbol>ArmenianBAD RANKBalineseBopomofoBugineseCherokeeCyrillicDuployanEALREADYEL2NSYNCELIBEXECEMSGSIZEENETDOWNENOSHAREENOTCONNENOTSOCKENOTUNIQEPROCLIMEthiopicExtenderGeorgianGoStringGujaratiGurmukhiHiraganaJavaneseKatakanaKayah_LiLinear_ALinear_BMahajaniNo anodeO_APPENDO_WRONLYOl_ChikiPhags_PaTagbanwaTai_ThamTai_VietTifinaghUgaritic[signal 	stack=[bad typecgocheckdeadlockfunctiongiveFlagpollDescrunnablerwmutexRrwmutexWscavengetraceBuftrigger=unknown( (forced) -> node= B exp.)  B work ( blocked= in use)
+ lockedg= lockedm= m->curg= marked   method:  ms cpu,  not in [ runtime= s.limit= s.state= threads= unmarked wbuf1.n= wbuf2.n=%!(EXTRA (MISSING)(unknown), newval=, oldval=, size = , tail = 244140625: status=<number: Bassa_VahBhaiksukiCuneiformDiacriticECANCELEDEDEADLOCKEHOSTDOWNEMULTIHOPENETRESETENOMEDIUMENOTEMPTYEOVERFLOWESHUTDOWNETIMEDOUTHex_DigitI/O errorInheritedInterfaceKhudawadiMalayalamMongolianNabataeanPalmyreneSamaritanSundaneseTry againValue.GetValue.IntValue.Setatomicor8bad indirchan sendcomplex64constantscopystackctxt != 0funcargs(hchanLeafinittraceinterfaceinvalid nmSpanDeadpanicwaitplaySoundpreemptedprofBlockrecover: reflect: scavtracestackpooltracebackundefinedwbufSpans} stack=[ MB goal,  flushGen  gfreecnt= heapGoal= pages at  ptrSize=  runqsize= runqueue= s.base()= spinning= stopwait= sweepgen  sweepgen= targetpc= throwing= until pc=%!(NOVERB)(BADINDEX), bound = , limit = /dev/stdin12207031256103515625<boolean: <function>Bad varintChorasmianDeprecatedDevanagariEADDRINUSEECASECLASHECONNRESETEOPNOTSUPPEPROTOTYPEGC forced
+GOMAXPROCSGOMEMLIMITGlagoliticKharoshthiManichaeanOld_ItalicOld_PermicOld_TurkicOther_MathPhoenicianSaurashtraUint8ArrayValue.Callatomicand8complex128debug callfloat32nanfloat64nangoroutine invalidptrlock countmSpanInUsenotifyListprofInsertruntime: gs.state = schedtracesemacquirestackLarget.Kind == tracefree(tracegc()
+unknown pc  of size   (targetpc= , plugin:  KiB work,  exp.) for  freeindex= gcwaiting= idleprocs= in status  mallocing= ms clock,  nBSSRoots= p->status= s.nelems=  schedtick= span.list= timerslen=%!(BADPREC)) at entry+, elemsize=, npages = /dev/stderr/dev/stdout30517578125: frame.sp=<undefined>Bad addressBroken pipeDives_AkuruEINPROGRESSENETUNREACHENOPROTOOPTEWOULDBLOCKFile existsGOMEMLIMIT=GOTRACEBACKIdeographicMedefaidrinNandinagariNew_Tai_LueOld_PersianOld_SogdianPau_Cin_HauSignWritingSoft_DottedValue.IndexWarang_CitiWhite_SpaceassistQueuebad argSizebad m valuebad timedivcgocall nilclobberfreecreated by float32nan2float64nan1float64nan2float64nan3gccheckmarkglobalAlloci/o timeoutmSpanManualmethodargs(minTrigger=netpollInitreflectOffsruntime: P runtime: g runtime: p scheddetailshort writetracealloc(unreachableupdateCount B (
+goal  KiB total,  MB stacks,  [recovered] allocCount  found at *( gcscandone  m->gsignal= maxTrigger= nDataRoots= nSpanRoots= pages/byte
+ preemptoff= s.elemsize= s.sweepgen= span.limit= span.state= sysmonwait= wbuf1=<nil> wbuf2=<nil>%!(BADWIDTH)) p->status=, cons/mark -byte limit
+152587890625762939453125Bidi_ControlEAFNOSUPPORTECONNABORTEDECONNREFUSEDEDESTADDRREQEHOSTUNREACHENAMETOOLONGEPFNOSUPPORTETOOMANYREFSHost is downIllegal seekInvalid slotJoin_ControlMeetei_MayekPahawh_HmongSora_SompengSyloti_NagriValue.Invokeabi mismatchbad flushGenbad g statusbad recoverycan't happencas64 failedchan receivedumping heapend tracegc
+entersyscallgcBitsArenasgcpacertraceharddecommitinvalid pathlfstack.pushmadvdontneedmheapSpecialmspanSpecialnot pollablerandautoseedreleasep: m=runtime: gp=runtime: sp=short bufferspanSetSpinesweepWaiterstraceStringswirep: p->m=worker mode  != sweepgen  MB globals,  MB) workers= called from  flushedWork  idlethreads= is nil, not  nStackRoots= pluginpath=  s.spanclass= span.base()= syscalltick= work.nproc=  work.nwait= , gp->status=, not pointer-byte block (3814697265625: unknown pc EADDRNOTAVAILExchange fullGC sweep waitGunjala_GondiLevel 3 resetMasaram_GondiMende_KikakuiNo more filesOld_HungarianOut of memorySrmount errorTimer expired_pendingEventbad flushGen bad map statebad type flagdouble unlockfatal error: load64 failedmin too largenil stackbaseout of memoryprofMemActiveprofMemFutureruntime: seq=runtime: val=self deadlocktraceStackTabvalue method xadd64 failedxchg64 failed}
+	sched={pc: needspinning= nmidlelocked= on zero Value out of range  to finalizer  untyped args -thread limit
+1907348632812595367431640625File too largeGC assist waitGC worker initIs a directoryLevel 2 haltedLevel 3 haltedMB; allocated No such deviceOther_ID_StartPattern_SyntaxProtocol errorQuota exceededQuotation_MarkToo many linksValue.SetIndexallocfreetracebad allocCountbad span statefinalizer waitgcstoptheworldinvalid syntaxmemprofileratenil elem type!no module datareflect.Value.runtime: full=runtime: want=s.allocCount= semaRoot queuestack overflowstopm spinningstore64 failedsync.Cond.Waitunexpected EOFunknown methodunsafe.PointeruserArenaStatework.full != 0  with GC prog
+/static/wow.mp3476837158203125: no frame (sp=<invalid Value>ASCII_Hex_DigitAdvertise errorBad file numberEPROTONOSUPPORTESOCKTNOSUPPORTHanifi_RohingyaNo such processNot a directoryOther_LowercaseOther_UppercasePsalter_Pahlavi]
+	morebuf={pc:asyncpreemptoffdouble scavengeforce gc (idle)invalid argSizemalloc deadlockmisaligned maskmissing mcache?ms: gomaxprocs=preempt SPWRITErecovery failedruntime error: runtime.gopanicruntime: frame runtime: max = runtime: min = runtimer: bad pscan missed a gstartm: m has pstopm holding psync.Mutex.Locktraceback stuck mheap.sweepgen= not in ranges:
+ untyped locals , not a function/static/ding.mp30123456789ABCDEF0123456789abcdef2384185791015625GC scavenge waitGC worker (idle)GODEBUG: value "Imperial_AramaicInvalid argumentInvalid exchangeMeroitic_CursiveMessage too longNot a typewriterOther_AlphabeticUnknown protocolZanabazar_Square
+_makeFuncWrapperabcdef0123456789bad g transitionbad special kindbad summary databad symbol tablecastogscanstatusgc: unswept spangcshrinkstackoffinvalid argumentinvalid g statusmSpanList.insertmSpanList.removemissing stackmapnon-Go function
+reflect mismatchruntime: addr = runtime: base = runtime: head = runtime: nelems=schedule: in cgotime: bad [0-9]*workbuf is empty spinningthreads=, p.searchAddr = 0123456789ABCDEFX0123456789abcdefx1192092895507812559604644775390625: missing method Bad font file fmtCross-device linkExec format errorGC assist markingOld_North_ArabianOld_South_ArabianOther_ID_ContinuePermission deniedSentence_TerminalUnified_Ideographbad TinySizeClassg already scannedlocked m0 woke upmark - bad statusmarkBits overflownotetsleepg on g0permission deniedreflect.Value.Intreflect.Value.Lenreflect: call of runtime: level = runtime: nameOff runtime: pointer runtime: summary[runtime: textOff runtime: typeOff scanobject n == 0select (no cases)stack: frame={sp:swept cached spansync.RWMutex.Lockthread exhaustionunknown caller pcunknown type kindwait for GC cycle  but memory size  because dotdotdot in async preempt
+ to non-Go memory , locked to thread298023223876953125Caucasian_AlbanianConnection abortedConnection refusedDeadlock conditionFile name too longGC worker (active)Identifier removedJavaScript error: Multihop attemptedNo child processesRegional_IndicatorVariation_Selectoradaptivestackstartbad lfnode addressbad manualFreeListforEachP: not donegarbage collectionindex out of rangereflect.Value.Elemreflect.Value.Typereflect.Value.Uintruntime:   gp: gp=runtime: getg:  g=runtime: npages = runtime: range = {stopping the worldsync.RWMutex.RLocksystem page size (tracebackancestorsuse of closed filevalue out of range [controller reset] called using nil *,  g->atomicstatus=, gp->atomicstatus=14901161193847656257450580596923828125Canadian_AboriginalDevice not a streamDirectory not emptyFile table overflowGC mark terminationGC work not flushedHost is unreachableIDS_Binary_OperatorKhitan_Small_ScriptOperation canceled.Pattern_White_SpaceToo many open files_cgo_setenv missingadjusttimers: bad pbad kind in runfinqbad notifyList sizebad runtime
+mstartbad sequence numberbad value for fieldcgocall unavailabledodeltimer: wrong Pfile already closedfile already existsfile does not existm not found in allmmarking free objectmarkroot: bad indexmissing deferreturnmspan.sweep: state=nwait > work.nprocspanic during mallocpanic during panic
+panic holding lockspanicwrap: no ( in panicwrap: no ) in reflect.Value.Bytesreflect.Value.Fieldreflect.Value.Floatreflect.Value.Indexreflect.Value.IsNilreflect.Value.Sliceruntime: pcdata is runtime: preempt g0semaRoot rotateLeftskip this directorystopm holding lockssysMemStat overflowunexpected g statusunknown wait reason markroot jobs done
+ to unallocated span37252902984619140625Connection timed outEgyptian_HieroglyphsIDS_Trinary_OperatorInvalid request codeMeroitic_HieroglyphsSeek: invalid offsetSeek: invalid whenceTerminal_PunctuationThe object is remotebad system page sizebad use of bucket.bpbad use of bucket.mpchan send (nil chan)close of nil channeldodeltimer0: wrong Pforcegc: phase errorgo of nil func valuegopark: bad g statusinvalid write resultmalloc during signalp mcache not flushedpacer: assist ratio=preempt off reason: reflect.makeFuncStubsemaRoot rotateRightsyscall/js: call of time: invalid numbertrace: out of memorywirep: already in goworkbuf is not emptywrite of Go pointer  of unexported method pcHeader.textStart=  previous allocCount=, levelBits[level] = /static/emotional.mp3186264514923095703125931322574615478515625Address not availableAnatolian_HieroglyphsInscriptional_PahlaviOther_Grapheme_ExtendPackage not installedRead-only file system_cgo_unsetenv missingasync stack too largebad type in compare: checkdead: runnable gconcurrent map writesdefer on system stackfindrunnable: wrong pnegative shift amountnot implemented on jspanic on system stackpkcs7pad: bad paddingpreempt at unknown pcreflect.Value.Complexreflect.Value.Pointerreleasep: invalid argruntime: confused by runtime: newstack at runtime: newstack sp=runtime: searchIdx = runtime: work.nwait= startlockedm: m has pstartm: m is spinningtimer data corruptionunexpected value step4656612873077392578125Address already in useArgument list too longInscriptional_ParthianNetwork is unreachableNyiakeng_Puachue_HmongProtocol not availableRemote address changedValueOf: invalid valueassembly checks failedbad g->status in readybad sweepgen in refillduplicated defer entryfreeIndex is not validgetenv before env initheadTailIndex overflowinteger divide by zerointerface conversion: minpc or maxpc invalidnon-Go function at pc=oldoverflow is not nilruntime.main not on m0runtime: work.nwait = runtime:scanstack: gp=s.freeindex > s.nelemsscanstack - bad statussend on closed channelspan has no free spacestack not a power of 2superSecretFunction_%strace reader (blocked)trace: alloc too largeunexpected method stepwirep: invalid p state) must be a power of 2
+23283064365386962890625<invalid reflect.Value>Device or resource busyInterrupted system callLogical_Order_ExceptionMB during sweep; swept No space left on deviceNoncharacter_Code_PointOperation not permittedSocket is not connectedToo many symbolic links", missing CPU support
+bytes.Buffer: too largechan receive (nil chan)close of closed channelfatal: morestack on g0
+garbage collection scangcDrain phase incorrectindex out of range [%x]invalid m->lockedInt = left over markroot jobsmakechan: bad alignmentmissing type in runfinqnanotime returning zeropanic during preemptoffprocresize: invalid argreflect.Value.Interfacereflect.Value.NumMethodreflect.methodValueCallruntime: internal errorruntime: s.allocCount= s.allocCount > s.nelemsschedule: holding locksshrinkstack at bad timespan has no free stacksstack growth after forksyntax error in patternsystem huge page size (unlock of unlocked lockwork.nwait > work.nproc is not a function, got 116415321826934814453125582076609134674072265625Connection reset by peerLevel 2 not synchronizedLink number out of rangeOut of streams resourcesSocket already connectedbad defer entry in panicbypassed recovery failedcan't scan our own stackdouble traceGCSweepStartgcDrainN phase incorrecthash of unhashable type invalid argument to IntnpageAlloc: out of memoryqueuefinalizer during GCrange partially overlapsrunqsteal: runq overflowruntime: found obj at *(runtime: markroot index runtime: p.searchAddr = span has no free objectsstack trace unavailable
+update during transition to unused region of span2910383045673370361328125GODEBUG: can not enable "No buffer space availableNo data (for no delay io)No medium (in tape drive)No record locks availableNo such device or addressNo such file or directorySocket type not supportedThe link has been severed_cgo_thread_start missingallgadd: bad status Gidlearena already initializedbad status in shrinkstackbad system huge page sizecall to released functionchansend: spurious wakeupcheckdead: no m for timercheckdead: no p for timerinconsistent poll.fdMutexmissing stack in newstackmissing traceGCSweepStartreleasep: invalid p stateremaining pointer buffersruntime: program exceeds slice bounds out of rangestartm: p has runnable gsstoplockedm: not runnable1455191522836685180664062572759576141834259033203125Given log. name not uniqueInvalid request descriptorNo CSI structure availableNo message of desired typecorrupted semaphore ticketentersyscall inconsistent forEachP: P did not run fnfreedefer with d.fn != nilinvalid argument to Int31ninvalid argument to Int63nnegative idle mark workersnewosproc: not implementednotewakeup - double wakeupout of memory (stackalloc)persistentalloc: size == 0runtime: bad span s.state=runtime: pcHeader: magic= shrinking stack in libcallstartlockedm: locked to meunknown ABI parameter kinduse of invalid sweepLockerwakep: negative nmspinning not in stack roots range [363797880709171295166015625: unexpected return pc for Channel number out of rangeCommunication error on sendG waiting list is corruptedSocket is already connectedaddress not a stack addressfailed to set sweep barriergcstopm: not waiting for gcgrowslice: len out of rangeinternal lockOSThread errorinvalid profile bucket typemakechan: size out of rangemakeslice: cap out of rangemakeslice: len out of rangemspan.sweep: bad span stateprogToPointerMask: overflowrunlock of unlocked rwmutexruntime: asyncPreemptStack=runtime: checkdead: find g runtime: checkdead: nmidle=runtime: thread ID overflowstack size not a power of 2stopTheWorld: holding lockstime: invalid location nametimer when must be positivework.nwait was > work.nproc args stack map entries for 18189894035458564758300781259094947017729282379150390625Destination address requiredFixedStack is not power-of-2No such host or network pathPrepended_Concatenation_MarkProtocol driver not attached[originating from goroutine comparing uncomparable type fatal: morestack on gsignal
+findrunnable: netpoll with pfound pointer to free objectgcBgMarkWorker: mode not setgcstopm: negative nmspinninginvalid runtime symbol tablemheap.freeSpanLocked - span missing stack in shrinkstackmspan.sweep: m is not lockednewproc1: new g is not Gdeadnewproc1: newg missing stackos: process already finishedregion exceeds uintptr rangeruntime: bad lfnode address runtime: casgstatus: oldval=runtime: no module data for save on system g not allowed45474735088646411895751953125Machine is not on the networkMath result not representableProtocol family not supportedaddspecial on invalid pointercrypto/aes: invalid key size doRecordGoroutineProfile gp1=gc done but gcphase != _GCoffgfput: bad status (not Gdead)invalid function symbol tableinvalid length of trace eventio: read/write on closed pipenotesleep not supported by jsreflect: Elem of invalid typeruntime: impossible type kindruntime: levelShift[level] = runtime: marking free object runtime: p.gcMarkWorkerMode= runtime: split stack overflowruntime: sudog with non-nil cruntime: summary max pages = runtime: traceback stuck. pc=scanobject of a noscan objectsemacquire not on the G stackstring concatenation too longsyntax error scanning boolean (types from different scopes) in prepareForSweep; sweepgen  locals stack map entries for 227373675443232059478759765625Connection already in progressGODEBUG: unknown cpu feature "MapIter.Key called before NextMath arg out of domain of funcProtocol wrong type for socketSocket operation on non-socket[INFO] Ding-O-Tron Now Active!abi mismatch detected between assignment to entry in nil mapcheckdead: inconsistent countsfailed to get system page sizefreedefer with d._panic != nilinvalid pointer found on stacknotetsleep not supported by jsreflect: Elem of invalid type reflect: Len of non-array typerunqputslow: queue is not fullruntime: bad pointer in frame runtime: found in object at *(runtime: impossible type kind subtle.XORBytes: dst too shortsync: inconsistent mutex statesync: unlock of unlocked mutextoo many writes on closed pipeunsafe.Slice: len out of range) not in usable address space: ...additional frames elided...
+.lib section in a.out corrupted11368683772161602973937988281255684341886080801486968994140625bad write barrier buffer boundscasgstatus: bad incoming valuescheckmark found unmarked objectf.d. invalid for this operationfmt: unknown base; can't happeninternal error - misuse of itabmalformed time zone informationnon in-use span in unswept listpacer: sweep done at heap size pattern contains path separatorreflect: Len of non-array type resetspinning: not a spinning mruntime: cannot allocate memoryruntime: split stack overflow: slice bounds out of range [%x:]slice bounds out of range [:%x]unsafe.String: len out of range (types from different packages)28421709430404007434844970703125Accessing a corrupted shared libCan't access a needed shared libCan't send after socket shutdownMapIter.Value called before Next" not supported for cpu option "crypto/aes: input not full blockend outside usable address spaceinvalid limiter event type foundpanic while printing panic valuereflect.nameFrom: tag too long: removespecial on invalid pointerruntime: fixalloc size too largeruntime: mcall function returnedruntime: newstack called from g=runtime: root level max pages = runtime: stack split at bad timeruntime: sudog with non-nil elemruntime: sudog with non-nil nextruntime: sudog with non-nil prevscanstack: goroutine not stoppedscavenger state is already wiredslice bounds out of range [%x::]slice bounds out of range [:%x:]slice bounds out of range [::%x]sweep increased allocation countuse of closed network connection of method on nil interface value142108547152020037174224853515625710542735760100185871124267578125GODEBUG: no value specified for "Inappropriate file type or formatTrying to read unreadable messagebase outside usable address spaceconcurrent map read and map writecrypto/aes: output not full blockfindrunnable: negative nmspinningfreeing stack not in a stack spanmin must be a non-zero power of 2misrounded allocation in sysAllocreflect.nameFrom: name too long: reflect: Field index out of rangereflect: array index out of rangereflect: slice index out of rangeruntime: castogscanstatus oldval=runtime: failed mSpanList.insert runtime: goroutine stack exceeds runtime: memory allocated by OS [runtime: name offset out of rangeruntime: type offset out of rangeskip everything and stop the walkslice bounds out of range [%x:%y]stackalloc not on scheduler stackstoplockedm: inconsistent lockingsyscall/js: Value.Call: property timer period must be non-negative3552713678800500929355621337890625Inode is remote (not really error)Other_Default_Ignorable_Code_Pointcrypto/aes: invalid buffer overlapdoaddtimer: P already set in timerforEachP: sched.safePointWait != 0mspan.ensureSwept: m is not lockedout of memory allocating allArenasreflect: Field index out of boundsreflect: Field of non-struct type reflect: string index out of rangeruntime.SetFinalizer: cannot pass runtime: g is running but p is notschedule: spinning with local workslice bounds out of range [%x:%y:]slice bounds out of range [:%x:%y]1776356839400250464677810668945312588817841970012523233890533447265625Attempting to exec a shared libraryAttempting to link in too many libsFilename exists with different caseNetwork interface is not configured[ERROR] You're dinging too quickly!attempt to clear non-empty span setfile type does not support deadlinefindrunnable: netpoll with spinninggreyobject: obj not pointer-alignedmheap.freeSpanLocked - invalid freemismatched begin/end of activeSweeppersistentalloc: align is too largepidleput: P has non-empty run queueryuFtoaFixed32 called with prec > 9traceback did not unwind completely) is larger than maximum page size () is not Grunnable or Gscanrunnable
+0123456789abcdefghijklmnopqrstuvwxyz444089209850062616169452667236328125Cross mount point (not really error)Go pointer stored into non-Go memorycrypto/cipher: input not full blockslfstack node allocated from the heapmethod ABI and value ABI don't alignruntime: bad notifyList size - sync=runtime: invalid pc-encoded table f=runtime: invalid typeBitsBulkBarrierruntime: marked free object in span runtime: mcall called on m->g0 stackruntime: sudog with non-nil waitlinkruntime: wrong goroutine in newstackryuFtoaFixed64 called with prec > 18startm: P required for spinning=truesyntax error scanning complex numberuncaching span but s.allocCount == 0user arena span is on the wrong list) is smaller than minimum page size (2220446049250313080847263336181640625Value too large for defined data type_cgo_notify_runtime_init_done missingall goroutines are asleep - deadlock!cipher: message authentication failedcrypto/cipher: invalid buffer overlapfailed to reserve page summary memorymethod ABI and value ABI do not alignreflect.Value.Bytes of non-byte arrayreflect.Value.Bytes of non-byte slicereflect: funcLayout of non-func type runtime: allocation size out of rangeruntime: unexpected SPWRITE function setprofilebucket: profile already setstartTheWorld: inconsistent mp->nextp1110223024625156540423631668090820312555511151231257827021181583404541015625arg size to reflect.call more than 1GBcannot read stack of running goroutineconcurrent map iteration and map writegcBgMarkWorker: blackening not enabledindex out of range [%x] with length %yinternal error: exit hook invoked exitmakechan: invalid channel element typeruntime.write to fd > 2 is unsupportedruntime: sudog with non-false isSelectunreachable method called. linker bug?277555756156289135105907917022705078125internal error: exit hook invoked panicmismatched count during itab table copymspan.sweep: bad span state after sweepout of memory allocating heap arena mapruntime: casfrom_Gscanstatus failed gp=stack growth not allowed in system callsuspendG from non-preemptible goroutinetraceback: unexpected SPWRITE function 13877787807814456755295395851135253906256938893903907228377647697925567626953125MapIter.Key called on exhausted iteratorbulkBarrierPreWrite: unaligned argumentscannot free workbufs when work.full != 0crypto/cipher: output smaller than inputfailed to acquire lock to reset capacityinvalid span in heapArena for user arenamarkWorkerStop: unknown mark worker modemust be able to track idle limiter eventrefill of span with free space remainingruntime.SetFinalizer: first argument is runtime: out of memory: cannot allocate runtime: typeBitsBulkBarrier with type  ryuFtoaFixed32 called with negative prec34694469519536141888238489627838134765625MapIter.Next called on exhausted iteratorattempted to add zero-sized address rangebinary: varint overflows a 64-bit integercan't call pointer on a non-pointer ValuegcSweep being done but phase is not GCoffmheap.freeSpanLocked - invalid span statemheap.freeSpanLocked - invalid stack freeobjects added out of order or overlappingruntime.SetFinalizer: second argument is runtime: typeBitsBulkBarrier without typestopTheWorld: not stopped (stopwait != 0)strconv: illegal AppendInt/FormatInt base173472347597680709441192448139190673828125867361737988403547205962240695953369140625MapIter.Value called on exhausted iteratoracquireSudog: found s.elem != nil in cachenon-empty mark queue after concurrent markon a locked thread with no template threadout of memory allocating checkmarks bitmappersistentalloc: align is not a power of 2sweep: tried to preserve a user arena spanunexpected signal during runtime executiongcBgMarkWorker: unexpected gcMarkWorkerModegrew heap, but no adequate free space foundmethodValueCallFrameObjs is not in a modulemult64bitPow10: power of 10 is out of rangemultiple Read calls return no data or errornon in-use span found with specials bit setroot level max pages doesn't fit in summaryruntime.SetFinalizer: finalizer already setruntime.SetFinalizer: first argument is nilruntime: casfrom_Gscanstatus bad oldval gp=runtime: releaseSudog with non-nil gp.paramruntime:stoplockedm: lockedg (atomicstatus=unfinished open-coded defers in deferreturnunknown runnable goroutine during bootstrapactive sweepers found at start of mark phasegcmarknewobject called while doing checkmarkmult128bitPow10: power of 10 is out of rangeno P available, write barriers are forbiddenout of memory allocating heap arena metadatareflect: funcLayout with interface receiver runtime: lfstack.push invalid packing: node=span on userArena.faultList has invalid sizeunsafe.Slice: ptr is nil and len is not zeroOperation not supported on transport endpoint[ERROR] Error decrypting AES-CBC-128 message.exitsyscall: syscall frame is no longer validproduced a trigger greater than the heap goalreflect: internal error: invalid method indexruntime: failed mSpanList.remove span.npages=transitioning GC to the same state as before?tried to run scavenger from another goroutineunsafe.String: ptr is nil and len is not zero (bad use of unsafe.Pointer? try -d=checkptr)
+memory reservation exceeds address space limitpanicwrap: unexpected string after type name: reflect.Value.Slice: slice index out of boundsreleased less than one physical page of memoryruntime: name offset base pointer out of rangeruntime: panic before malloc heap initialized
+runtime: text offset base pointer out of rangeruntime: type offset base pointer out of rangeslice bounds out of range [:%x] with length %ystopTheWorld: not stopped (status != _Pgcstop)sysGrow bounds not aligned to pallocChunkBytestried to park scavenger from another goroutineAddress family not supported by protocol familyP has cached GC work at end of mark terminationfailed to acquire lock to start a GC transitionfinishGCTransition called without starting one?function symbol table not sorted by PC offset: racy sudog adjustment due to parking on channelreflect.Value.Bytes of unaddressable byte arrayslice bounds out of range [::%x] with length %ytried to sleep scavenger from another goroutinenot enough significant bits after mult64bitPow10slice bounds out of range [:%x] with capacity %ystrconv: illegal AppendFloat/FormatFloat bitSizecasgstatus: waiting for Gwaiting but is Grunnabledelayed zeroing on data that may contain pointersfully empty unfreed span set block found in resetinvalid memory address or nil pointer dereferencenot enough significant bits after mult128bitPow10panicwrap: unexpected string after package name: reflect.Value.Slice: slice of unaddressable arrays.allocCount != s.nelems && freeIndex == s.nelemsslice bounds out of range [::%x] with capacity %ysweeper left outstanding across sweep generationsmallocgc called with gcphase == _GCmarkterminationrecursive call during initialization - linker skewfatal: systemstack called from unexpected goroutinelimiterEvent.stop: invalid limiter event type foundpotentially overlapping in-use allocations detectedcasfrom_Gscanstatus: gp->status is not in scan statemallocgc called without a P or outside bootstrappingruntime.SetFinalizer: pointer not in allocated blockruntime: use of FixAlloc_Alloc before FixAlloc_Init
+span set block with unpopped elements found in resetreflect.Value.Slice: string slice index out of bounds	goroutine running on other thread; stack unavailable
+bytes.Buffer: reader returned negative count from ReadgcControllerState.findRunnable: blackening not enabledno goroutines (main called runtime.Goexit) - deadlock!casfrom_Gscanstatus:top gp->status is not in scan statecipher.NewCBCDecrypter: IV length must equal block sizegentraceback callback cannot be used with non-zero skipmheap.freeSpanLocked - invalid free of user arena chunkos: invalid use of WriteAt on file opened with O_APPENDreflect: internal error: invalid use of makeMethodValuein gcMark expecting to see gcphase as _GCmarkterminationnon-empty pointer map passed for non-pointer-size valuesprofilealloc called without a P or outside bootstrappinggentraceback cannot trace user goroutine on its own stackruntime: checkmarks found unexpected unmarked object obj=reflect: reflect.Value.Elem on an invalid notinheap pointeraddr range base and limit are not in the same memory segmentmanual span allocation called with non-manually-managed typereflect: call of reflect.Value.Len on ptr to non-array ValueabiRegArgsType needs GC Prog, update methodValueCallFrameObjsfound bad pointer in Go heap (incorrect use of unsafe or cgo?)limiterEvent.stop: found wrong event in p's limiter event slotreflect: reflect.Value.Pointer on an invalid notinheap pointerruntime: internal error: misuse of lockOSThread/unlockOSThreadmalformed GOMEMLIMIT; see `go doc runtime/debug.SetMemoryLimit`runtime.SetFinalizer: first argument was allocated into an arenaruntime.SetFinalizer: pointer not at beginning of allocated blockuser arena chunk size is not a mutliple of the physical page sizebytes.Buffer: UnreadByte: previous operation was not a successful readtoo many concurrent operations on a single file or socket (max 1048575)MapIter.Next called on an iterator that does not have an associated map Valuecannot convert slice with length %y to array or pointer to array with length %xsyscall/js: CopyBytesToJS: expected dst to be an Uint8Array or Uint8ClampedArray[LOL] Did you think it would be that easy? Can you find my secret hidden function?reflect.Value.Interface: cannot return value obtained from unexported field or method00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899
+dep	github.com/zenazn/pkcs7pad	v0.0.0-20170308005700-253a5b1f0e03	h1:m1h+vudopHsI67FPT9MOncyndWhTcdUoBtI1R1uajGY=
+runtime/internal/atomic.LoadAcquintptr
+runtime/internal/atomic.StoreRel
+runtime/internal/atomic.StoreReluintptr
+runtime/internal/atomic.Loaduint
+runtime/internal/atomic.Xadduintptr
+runtime/internal/atomic.Xchgint64
+runtime/internal/atomic.Casint32
+runtime/internal/atomic.Casint64
+runtime/internal/atomic.Casuintptr
+runtime/internal/atomic.Storeint32
+runtime/internal/atomic.Storeint64
+runtime/internal/atomic.Storeuintptr
+runtime/internal/atomic.Loaduintptr
+runtime/internal/atomic.Loadint32
+runtime/internal/atomic.Loadint64
+runtime/internal/atomic.Xaddint32
+runtime/internal/atomic.Xaddint64
+runtime/internal/atomic.StorepNoWB
+type:.eq.runtime/internal/atomic.Uint64
+type:.eq.runtime/internal/atomic.Int64
+type:.eq.runtime/internal/sys.NotInHeap
+internal/bytealg.IndexByteString
+runtime.(*mspan).setUserArenaChunkToFault
+runtime/internal/atomic.(*Uint64).Add
+runtime.(*mspan).setUserArenaChunkToFault.func1
+runtime.cgoCheckWriteBarrier.func1
+runtime/internal/atomic.(*Uint8).Load
+runtime.cgoCheckTypedBlock.func1
+runtime/internal/math.MulUintptr
+runtime/internal/atomic.(*Bool).Store
+runtime/internal/atomic.(*Uint8).Store
+runtime/internal/atomic.(*Uint32).CompareAndSwap
+runtime.(*TypeAssertionError).Error
+runtime.memclrNoHeapPointersChunked
+runtime.(*maptype).hashMightPanic
+runtime.(*mspan).refillAllocCache
+runtime.(*mspan).divideByElemSize
+runtime.bulkBarrierPreWriteSrcOnly
+runtime/internal/atomic.(*Uint32).Store
+runtime.(*mcache).prepareForSweep
+runtime/internal/atomic.(*Uint32).Load
+runtime.(*mcentral).partialSwept
+runtime.(*mcentral).partialUnswept
+runtime/internal/atomic.(*Uint32).Or
+runtime/internal/atomic.(*Uint32).And
+runtime.pollFractionalWorkerExit
+runtime/internal/atomic.(*Int32).Load
+runtime/internal/atomic.(*Uint64).Load
+runtime/internal/atomic.(*Uint32).Add
+runtime/internal/atomic.(*Int64).Load
+runtime/internal/atomic.(*Int64).Store
+runtime/internal/atomic.(*Uint64).Store
+runtime/internal/atomic.(*Uintptr).Store
+runtime.(*gcCPULimiterState).startGCTransition
+runtime.(*gcCPULimiterState).tryLock
+runtime.(*gcCPULimiterState).finishGCTransition
+runtime.(*gcCPULimiterState).update
+runtime.(*gcCPULimiterState).updateLocked
+runtime/internal/atomic.(*Int64).Add
+runtime.(*gcCPULimiterState).accumulate
+runtime.(*gcCPULimiterState).unlock
+runtime/internal/atomic.(*Uint32).Swap
+runtime.(*gcCPULimiterState).resetCapacity
+runtime.limiterEventStamp.duration
+runtime/internal/atomic.(*Uint64).CompareAndSwap
+runtime.(*gcCPULimiterState).addIdleTime
+runtime.(*gcCPULimiterState).addAssistTime
+runtime.(*gcCPULimiterState).limiting
+runtime/internal/atomic.(*Bool).Load
+runtime/internal/atomic.(*Float64).Load
+runtime.(*stackScanState).buildIndex
+runtime.(*stackScanState).findObject
+runtime.(*stackObject).setRecord
+runtime.(*stackObjectRecord).gcdata
+runtime.(*stackObjectRecord).useGCProg
+runtime.(*stackObjectRecord).ptrdata
+runtime.(*mspan).markBitsForIndex
+runtime.(*gcControllerState).init
+runtime.(*gcControllerState).startCycle
+runtime.(*gcControllerState).heapGoal
+runtime.(*gcControllerState).revise
+runtime/internal/atomic.(*Float64).Store
+runtime.(*gcControllerState).endCycle
+runtime.(*gcControllerState).enlistWorker
+runtime.(*gcControllerState).findRunnableGCWorker
+runtime.(*gcCPULimiterState).needUpdate
+runtime.(*gcControllerState).resetLive
+runtime.(*gcControllerState).markWorkerStop
+runtime.(*gcControllerState).update
+runtime.(*gcControllerState).addScannableStack
+runtime.(*gcControllerState).heapGoalInternal
+runtime.(*gcControllerState).memoryLimitHeapGoal
+runtime.(*gcControllerState).trigger
+runtime.(*gcControllerState).commit
+runtime.(*gcControllerState).setGCPercent
+runtime/internal/atomic.(*Int32).Store
+runtime.(*gcControllerState).setMemoryLimit
+runtime.(*gcControllerState).addIdleMarkWorker
+runtime.(*gcControllerState).needIdleMarkWorker
+runtime.(*gcControllerState).removeIdleMarkWorker
+runtime.(*gcControllerState).setMaxIdleMarkWorkers
+runtime.(*scavengerState).controllerFailed
+runtime.(*pageAlloc).scavenge.func1
+runtime.(*pageAlloc).scavengeOne
+runtime/internal/atomic.(*Uint8).And
+runtime.(*pallocData).findScavengeCandidate
+runtime/internal/sys.LeadingZeros64
+runtime.(*atomicOffAddr).StoreUnmark
+runtime/internal/atomic.(*Int64).CompareAndSwap
+runtime/internal/atomic.(*Uint8).Or
+runtime.(*atomicOffAddr).StoreMarked
+runtime.(*stackScanState).putPtr
+runtime.(*stackScanState).getPtr
+runtime.(*stackScanState).addObject
+runtime.(*mheap).nextSpanForSweep
+runtime.(*activeSweep).markDrained
+runtime.(*sweepLocker).tryAcquire
+runtime/internal/atomic.(*Uintptr).Add
+runtime.(*specialsIter).unlinkAndNext
+runtime.markBits.setMarkedNonAtomic
+runtime.(*mspan).markBitsForBase
+runtime.(*mspan).allocBitsForIndex
+runtime.(*sweepLocked).sweep.func1
+runtime/internal/atomic.(*Uintptr).Load
+runtime.(*workbuf).checknonempty
+runtime/internal/atomic.(*Uintptr).CompareAndSwap
+runtime.(*mheap).allocMSpanLocked
+runtime.(*mheap).freeMSpanLocked
+runtime.(*pageAlloc).findMappedAddr
+runtime.(*pageAlloc).allocToCache
+runtime.(*pallocBits).allocPages64
+runtime.(*pageBits).clearBlock64
+runtime.(*pallocBits).findSmallN
+runtime.(*pallocBits).findLargeN
+runtime.(*pallocData).allocRange
+runtime.(*pallocBits).allocRange
+runtime.(*mProfCycleHolder).setFlushed
+runtime.(*mProfCycleHolder).increment
+runtime/internal/atomic.(*UnsafePointer).Load
+runtime/internal/atomic.(*UnsafePointer).StoreNoWB
+runtime.(*mProfCycleHolder).read
+runtime.tryRecordGoroutineProfileWB
+runtime.tryRecordGoroutineProfile
+runtime.(*goroutineProfileStateHolder).Load
+runtime.(*goroutineProfileStateHolder).CompareAndSwap
+runtime.(*goroutineProfileStateHolder).Store
+runtime.doRecordGoroutineProfile
+runtime.doRecordGoroutineProfile.func1
+runtime.(*atomicOffAddr).StoreMin
+runtime.(*addrRanges).findAddrGreaterEqual
+runtime.(*atomicSpanSetSpinePointer).Load
+runtime.(*atomicSpanSetSpinePointer).StoreNoWB
+runtime.spanSetSpinePointer.lookup
+runtime/internal/atomic.(*Pointer[...]).StoreNoWB
+runtime/internal/atomic.(*Pointer[...]).Load
+runtime.(*atomicMSpanPointer).StoreNoWB
+runtime.(*atomicHeadTailIndex).load
+runtime.(*atomicHeadTailIndex).cas
+runtime.(*atomicMSpanPointer).Load
+runtime.(*atomicHeadTailIndex).reset
+runtime.(*spanSetBlockAlloc).alloc
+runtime.(*spanSetBlockAlloc).free
+runtime.(*atomicHeadTailIndex).incTail
+runtime.(*consistentHeapStats).acquire
+runtime.(*consistentHeapStats).release
+runtime.addOneOpenDeferFrame.func1
+runtime.addOneOpenDeferFrame.func1.1
+runtime/internal/atomic.(*Int32).Add
+runtime/internal/atomic.(*Int32).CompareAndSwap
+runtime/internal/atomic.(*Int64).Swap
+runtime.exitsyscallfast_reacquired
+runtime.exitsyscallfast_reacquired.func1
+runtime/internal/atomic.(*Pointer[...]).Load
+runtime/internal/atomic.(*Pointer[...]).Load
+runtime/internal/atomic.(*Pointer[...]).StoreNoWB
+runtime.gcComputeStartingStackSize
+runtime.(*stkframe).argMapInternal
+runtime.(*gcControllerState).addGlobals
+runtime.updateTimerModifiedEarliest
+runtime/internal/atomic.(*Pointer[...]).CompareAndSwapNoWB
+runtime/internal/atomic.(*UnsafePointer).CompareAndSwapNoWB
+runtime/internal/atomic.(*Pointer[...]).Load
+runtime.(*traceStackTable).put.func1
+runtime.(*traceStackTable).newStack
+runtime.(*traceAllocBlockPtr).set
+runtime.printAncestorTracebackFuncInfo
+runtime.(*scavengerState).init.func1
+runtime.(*scavengerState).init.func2
+runtime.(*scavengerState).init.func3
+runtime.(*scavengerState).init.func4
+runtime.(*gcControllerState).findRunnableGCWorker.func1
+runtime.gcMarkTermination.func4.1
+runtime.(*mheap).allocSpan.func1
+runtime/internal/atomic.storePointer
+sync/atomic.CompareAndSwapPointer
+sync.runtime_registerPoolCleanup
+runtime/internal/atomic.(*Pointer[...]).Store
+runtime/internal/atomic.(*UnsafePointer).Store
+internal/reflectlite.resolveNameOff
+internal/poll.runtime_Semacquire
+internal/poll.runtime_Semrelease
+type:.eq.runtime.TypeAssertionError
+type:.eq.struct { runtime.gList; runtime.n int32 }
+sync/atomic.CompareAndSwapUintptr
+sync/atomic.CompareAndSwapUint64
+internal/reflectlite.name.readVarint
+internal/reflectlite.Kind.String
+internal/reflectlite.(*rtype).String
+internal/reflectlite.(*rtype).nameOff
+internal/reflectlite.(*rtype).Elem
+internal/reflectlite.(*rtype).Kind
+internal/reflectlite.(*rtype).Len
+type:.eq.internal/reflectlite.uncommonType
+internal/reflectlite.(*Kind).String
+sync/atomic.(*Pointer[...]).Load
+sync/atomic.(*Pointer[...]).Load
+sync/atomic.(*Pointer[...]).CompareAndSwap
+sync/atomic.(*Pointer[...]).Store
+sync/atomic.(*Pointer[...]).Store
+type:.eq.sync/atomic.Pointer[...]
+internal/abi.(*IntArgRegBitmap).Set
+internal/abi.(*RegArgs).IntRegArgAddr
+reflect.(*rtype).exportedMethods
+reflect.(*uncommonType).exportedMethods
+crypto/cipher.(*cbcDecrypter).BlockSize
+crypto/cipher.(*cbcDecrypter).CryptBlocks
+crypto/internal/alias.InexactOverlap
+crypto/internal/alias.AnyOverlap
+encoding/binary.bigEndian.Uint32
+encoding/binary.bigEndian.PutUint32
+crypto/aes.(*aesCipher).BlockSize
+crypto/aes.(*KeySizeError).Error
+internal/fmtsort.(*SortedMap).Len
+internal/fmtsort.(*SortedMap).Less
+internal/fmtsort.(*SortedMap).Swap
+internal/poll.errNetClosing.Error
+internal/poll.(*DeadlineExceededError).Error
+internal/poll.(*fdMutex).increfAndClose
+internal/poll.(*fdMutex).rwunlock
+internal/poll.(*pollDesc).prepareWrite
+internal/poll.(*pollDesc).prepare
+internal/poll.(*pollDesc).waitWrite
+internal/poll.(*errNetClosing).Error
+internal/godebug.(*Setting).Value
+sync/atomic.(*Pointer[...]).Load
+internal/godebug.(*Setting).Value.func1
+sync/atomic.(*Pointer[...]).Store
+type:.eq.sync/atomic.Pointer[...]
+type:.eq.internal/godebug.Setting
+math/rand.(*lockedSource).source
+github.com/zenazn/pkcs7pad.Unpad
+crypto/subtle.ConstantTimeLessOrEq
+crypto/subtle.ConstantTimeByteEq
+/usr/local/go/src/internal/cpu/cpu.go
+/usr/local/go/src/runtime/internal/atomic/atomic_wasm.go
+/usr/local/go/src/runtime/internal/atomic/atomic_wasm.s
+/usr/local/go/src/runtime/internal/math/math.go
+/usr/local/go/src/internal/bytealg/compare_wasm.s
+/usr/local/go/src/internal/bytealg/equal_wasm.s
+/usr/local/go/src/internal/bytealg/indexbyte_wasm.s
+/usr/local/go/src/runtime/alg.go
+/usr/local/go/src/runtime/stubs.go
+/usr/local/go/src/runtime/arena.go
+/usr/local/go/src/runtime/mheap.go
+/usr/local/go/src/runtime/internal/atomic/types.go
+/usr/local/go/src/runtime/mem.go
+/usr/local/go/src/runtime/lockrank_off.go
+/usr/local/go/src/runtime/lock_js.go
+/usr/local/go/src/runtime/runtime2.go
+/usr/local/go/src/runtime/atomic_pointer.go
+/usr/local/go/src/runtime/mwbbuf.go
+/usr/local/go/src/runtime/cgocall.go
+/usr/local/go/src/runtime/symtab.go
+/usr/local/go/src/runtime/cgocheck.go
+/usr/local/go/src/runtime/mbitmap.go
+/usr/local/go/src/runtime/chan.go
+/usr/local/go/src/runtime/os_js.go
+/usr/local/go/src/runtime/time_nofake.go
+/usr/local/go/src/runtime/proc.go
+/usr/local/go/src/runtime/debug.go
+/usr/local/go/src/runtime/env_posix.go
+/usr/local/go/src/runtime/error.go
+/usr/local/go/src/runtime/exithook.go
+/usr/local/go/src/runtime/hash64.go
+/usr/local/go/src/runtime/histogram.go
+/usr/local/go/src/runtime/type.go
+/usr/local/go/src/runtime/iface.go
+/usr/local/go/src/runtime/lfstack.go
+/usr/local/go/src/runtime/lfstack_64bit.go
+/usr/local/go/src/runtime/runtime1.go
+/usr/local/go/src/runtime/lockrank.go
+/usr/local/go/src/runtime/malloc.go
+/usr/local/go/src/runtime/mfixalloc.go
+/usr/local/go/src/runtime/mem_js.go
+/usr/local/go/src/runtime/mcache.go
+/usr/local/go/src/runtime/fastlog2.go
+/usr/local/go/src/runtime/float.go
+/usr/local/go/src/runtime/map.go
+/usr/local/go/src/runtime/msize.go
+/usr/local/go/src/runtime/map_fast32.go
+/usr/local/go/src/runtime/map_fast64.go
+/usr/local/go/src/runtime/map_faststr.go
+/usr/local/go/src/runtime/mbarrier.go
+/usr/local/go/src/runtime/mcentral.go
+/usr/local/go/src/runtime/mcheckmark.go
+/usr/local/go/src/runtime/mfinal.go
+/usr/local/go/src/runtime/mgc.go
+/usr/local/go/src/runtime/trace.go
+/usr/local/go/src/runtime/sema.go
+/usr/local/go/src/runtime/mgcwork.go
+/usr/local/go/src/runtime/mstats.go
+/usr/local/go/src/runtime/mprof.go
+/usr/local/go/src/runtime/print.go
+/usr/local/go/src/runtime/mgcsweep.go
+/usr/local/go/src/runtime/mgclimit.go
+/usr/local/go/src/runtime/mgcmark.go
+/usr/local/go/src/runtime/stack.go
+/usr/local/go/src/runtime/mgcstack.go
+/usr/local/go/src/runtime/mgcpacer.go
+/usr/local/go/src/runtime/string.go
+/usr/local/go/src/runtime/mgcscavenge.go
+/usr/local/go/src/runtime/time.go
+/usr/local/go/src/runtime/mpagealloc.go
+/usr/local/go/src/runtime/internal/sys/intrinsics_common.go
+/usr/local/go/src/runtime/mranges.go
+/usr/local/go/src/runtime/mpallocbits.go
+/usr/local/go/src/runtime/mpagealloc_32bit.go
+/usr/local/go/src/runtime/mpagecache.go
+/usr/local/go/src/runtime/traceback.go
+/usr/local/go/src/runtime/mspanset.go
+/usr/local/go/src/runtime/netpoll.go
+/usr/local/go/src/runtime/panic.go
+/usr/local/go/src/runtime/preempt.go
+/usr/local/go/src/runtime/runtime.go
+/usr/local/go/src/runtime/rwmutex.go
+/usr/local/go/src/runtime/select.go
+/usr/local/go/src/runtime/slice.go
+/usr/local/go/src/runtime/sys_wasm.go
+/usr/local/go/src/runtime/stkframe.go
+/usr/local/go/src/runtime/unsafe.go
+/usr/local/go/src/runtime/utf8.go
+/usr/local/go/src/runtime/write_err.go
+/usr/local/go/src/runtime/timestub.go
+/usr/local/go/src/runtime/asm_wasm.s
+/usr/local/go/src/runtime/memclr_wasm.s
+/usr/local/go/src/runtime/memmove_wasm.s
+/usr/local/go/src/runtime/preempt_wasm.s
+/usr/local/go/src/runtime/rt0_js_wasm.s
+/usr/local/go/src/runtime/sys_wasm.s
+/usr/local/go/src/sync/atomic/asm.s
+/usr/local/go/src/internal/reflectlite/type.go
+/usr/local/go/src/errors/errors.go
+/usr/local/go/src/errors/wrap.go
+/usr/local/go/src/sync/atomic/type.go
+/usr/local/go/src/sync/poolqueue.go
+/usr/local/go/src/sync/runtime.go
+/usr/local/go/src/math/bits/bits.go
+/usr/local/go/src/unicode/utf8/utf8.go
+/usr/local/go/src/strconv/decimal.go
+/usr/local/go/src/strconv/ftoa.go
+/usr/local/go/src/math/unsafe.go
+/usr/local/go/src/strconv/ftoaryu.go
+/usr/local/go/src/strconv/itoa.go
+/usr/local/go/src/strconv/quote.go
+/usr/local/go/src/strconv/atof.go
+/usr/local/go/src/strconv/atoi.go
+/usr/local/go/src/unicode/casetables.go
+/usr/local/go/src/unicode/tables.go
+/usr/local/go/src/internal/itoa/itoa.go
+/usr/local/go/src/reflect/abi.go
+/usr/local/go/src/reflect/type.go
+/usr/local/go/src/reflect/value.go
+/usr/local/go/src/internal/abi/abi.go
+/usr/local/go/src/reflect/makefunc.go
+/usr/local/go/src/runtime/extern.go
+/usr/local/go/src/reflect/asm_wasm.s
+/usr/local/go/src/encoding/binary/binary.go
+/usr/local/go/src/encoding/binary/varint.go
+/usr/local/go/src/bytes/buffer.go
+/usr/local/go/src/crypto/subtle/xor.go
+/usr/local/go/src/crypto/subtle/xor_generic.go
+/usr/local/go/src/crypto/cipher/cbc.go
+/usr/local/go/src/bytes/bytes.go
+/usr/local/go/src/crypto/internal/alias/alias.go
+/usr/local/go/src/crypto/cipher/gcm.go
+/usr/local/go/src/crypto/crypto.go
+/usr/local/go/src/crypto/aes/block.go
+/usr/local/go/src/crypto/aes/cipher.go
+/usr/local/go/src/crypto/aes/cipher_generic.go
+/usr/local/go/src/sort/zsortinterface.go
+/usr/local/go/src/internal/fmtsort/sort.go
+/usr/local/go/src/internal/oserror/errors.go
+/usr/local/go/src/syscall/js/func.go
+/usr/local/go/src/syscall/js/js.go
+/usr/local/go/src/syscall/js/js_js.s
+/usr/local/go/src/syscall/fs_js.go
+/usr/local/go/src/syscall/tables_js.go
+/usr/local/go/src/syscall/syscall_js.go
+/usr/local/go/src/syscall/env_unix.go
+/usr/local/go/src/time/format.go
+/usr/local/go/src/time/zoneinfo.go
+/usr/local/go/src/time/zoneinfo_read.go
+/usr/local/go/src/internal/poll/fd.go
+/usr/local/go/src/internal/poll/fd_mutex.go
+/usr/local/go/src/internal/poll/fd_unix.go
+/usr/local/go/src/internal/poll/fd_poll_js.go
+/usr/local/go/src/internal/safefilepath/path.go
+/usr/local/go/src/os/dir_unix.go
+/usr/local/go/src/os/file_unix.go
+/usr/local/go/src/os/file_posix.go
+/usr/local/go/src/os/tempfile.go
+/usr/local/go/src/internal/godebug/godebug.go
+/usr/local/go/src/math/rand/rand.go
+/usr/local/go/src/math/rand/rng.go
+/usr/local/go/src/math/rand/exp.go
+/go/pkg/mod/github.com/zenazn/pkcs7pad@v0.0.0-20170308005700-253a5b1f0e03/pkcs7pad.go
+/usr/local/go/src/crypto/subtle/constant_time.go
+ !"#$%%&&''((()))*++,,,,,------....//////0001123333333333444444444455666677777888888888889999999999::::::;;;;;;;;;;;;;;;;<<<<<<<<<<<<<<<<=====>>>>>>>>>>>??????????@@@@@@@@@@@@@@@@@@@@@@AAAAAAAAAAAAAAAAAAAAABBBBBBBBBBBCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+?UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
+                                                                                                                                                                                                                                                            I"
+e4e2aa4eed0b2b26e4e2aa4eed0b2b26
+[ERROR] You're dinging too quickly!
+superSecretFunction_e4e2aa4eed0b2b26

@@ -25,11 +25,14 @@ export async function getCachedDates() {
         const dates = {};
         for (const file of files) {
             const absolutePath = getAbsolutePath(file);
-            const lastModifiedDate = new Date(
+            let lastModifiedDate = new Date(
                 execSync(`git log -1 --pretty="format:%cD" ${absolutePath}`, {
                     encoding: "utf-8",
                 })
             );
+            if (isNaN(lastModifiedDate)) {
+                lastModifiedDate = new Date(0);
+            }
             dates[absolutePath] = lastModifiedDate;
         }
         await setCachedDates(dates);

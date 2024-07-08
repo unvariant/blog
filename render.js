@@ -1,5 +1,5 @@
-import * as path from "node:path";
-import * as fs from "node:fs/promises";
+import path from "node:path";
+import fs from "node:fs/promises";
 import { getInfo } from "./src/utils/info.js";
 import config from "./src/utils/config.js";
 import { register, process } from "./processor.js";
@@ -70,18 +70,17 @@ export async function render(info) {
         const extname = info.extname.toLowerCase();
         element = await process(extname, info, unknownProcessor);
     } else if (info.stats.isDirectory()) {
-        if (info.resolved == info.children.length) {
-            let readme;
-            for (const child of info.children) {
-                if (child.stats.isFile() && child.basename.toLowerCase().startsWith("readme")) {
-                    readme = child.element;
-                }
+        let readme;
+        const children = await Promise.all(info.children.map(render));
+        for (const child of children) {
+            if (child.stats.isFile() && child.basename.toLowerCase().startsWith("readme")) {
+                readme = child.element;
             }
-            
-            element = await mdxToHtml(getInfo(path.resolve(config.cwd, "src/index.mdx")), {
-                readme,
-            });
         }
+        
+        element = await mdxToHtml(getInfo(path.resolve(config.cwd, "src/index.mdx")), {
+            readme,
+        });
     } else if (info.stats.isSymbolicLink()) {
         const target = await fs.readlink(info.absolutePath);
         element = (
@@ -94,63 +93,62 @@ export async function render(info) {
         );
     }
 
-    if (info.resolved == info.children.length) {
-        if (element === undefined) {
-            element = (
-                <div>
-                    <p>
-                        { "cannot view binary file. go to raw/ to download instead" }
-                    </p>
-                </div>
-            );
-        }
-    
-        element = withInfo(info, element);
-
-        info.parent.resolved += 1;
-        info.parent.size += info.size;
-        info.element = element;
-
-        const page = (
-            <InfoContext.Provider value={ info }>
-                <Page>
-                    { element }
-                </Page>
-            </InfoContext.Provider>
+    if (element === undefined) {
+        element = (
+            <div>
+                <p>
+                    { "cannot view binary file. go to raw/ to download instead" }
+                </p>
+            </div>
         );
-        const rendered = renderToStaticMarkup(page);
-        const outfile = path.join(config.buildRoot, info.relativePath, "index.html");
-        const outdir = path.dirname(outfile);
+    }
 
-        if (info.relativePath.startsWith("..")) {
-            console.log(info.relativePath);
-            throw new Error("wtf??");
-        }
+    element = withInfo(info, element);
 
-        await fs.mkdir(outdir, { recursive: true });
-        await fs.writeFile(outfile, rendered);
-        if (info.stats.isFile()) {
-            const outraw = path.join(config.buildRoot, info.relativePath, "raw");
-            if (info.stats.size < 20 * 1024 * 1024) {
-                await fs.copyFile(info.absolutePath, outraw);
-            } else {
-                const repoRelativePath = path.relative(config.cwd, info.absolutePath);
-                const route = path.normalize(path.join("unvariant/blog/main/", repoRelativePath));
-                const redirect = (
-                    <html>
-                        <head>
-                            <meta httpEquiv="refresh" content={ `0; url=https://raw.githubusercontent.com/${route}` } />
-                        </head>
-                        <body>
-                            <p>
-                                { "sorry this file too large for cloudflare pages, redirecting to github instead." }
-                            </p>
-                        </body>
-                    </html>
-                );
-                const html = renderToStaticMarkup(redirect);
-                await fs.writeFile(outraw, html);
-            }
+    info.parent.size += info.size;
+    info.element = element;
+
+    const page = (
+        <InfoContext.Provider value={ info }>
+            <Page>
+                { element }
+            </Page>
+        </InfoContext.Provider>
+    );
+    const rendered = renderToStaticMarkup(page);
+    const outfile = path.join(config.buildRoot, info.relativePath, "index.html");
+    const outdir = path.dirname(outfile);
+
+    if (info.relativePath.startsWith("..")) {
+        console.log(info.relativePath);
+        throw new Error("wtf??");
+    }
+
+    await fs.mkdir(outdir, { recursive: true });
+    await fs.writeFile(outfile, rendered);
+    if (info.stats.isFile()) {
+        const outraw = path.join(config.buildRoot, info.relativePath, "raw");
+        if (info.stats.size < 20 * 1024 * 1024) {
+            await fs.copyFile(info.absolutePath, outraw);
+        } else {
+            const repoRelativePath = path.relative(config.cwd, info.absolutePath);
+            const route = path.normalize(path.join("unvariant/blog/main/", repoRelativePath));
+            const redirect = (
+                <html>
+                    <head>
+                        <meta httpEquiv="refresh" content={ `0; url=https://raw.githubusercontent.com/${route}` } />
+                    </head>
+                    <body>
+                        <p>
+                            { "sorry this file too large for cloudflare pages, redirecting to github instead." }
+                        </p>
+                    </body>
+                </html>
+            );
+            const html = renderToStaticMarkup(redirect);
+            await fs.writeFile(outraw, html);
         }
     }
+
+    return info;
 }

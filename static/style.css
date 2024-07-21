@@ -116,13 +116,18 @@
   --max-blog-width: 80ch;
   --left-padding: 12px;
   --right-padding: 12px;
+  --top-bar-height: 48px;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   font-family: "JetBrains Mono";
   max-width: var(--max-file-width);
   margin: auto;
-  margin-top: 2rem;
+  /* margin-top: 2rem; */
   font-size: 1rem;
   padding-left: var(--left-padding);
   padding-right: var(--right-padding);
@@ -147,6 +152,33 @@ body details * {
 .inline-code {
   color: #6610f2;
 }
+
+.scroll-target {
+  scroll-margin-top: var(--top-bar-height);
+}
+
+/* top bar stuff */
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: white;
+  height: var(--top-bar-height);
+  border-bottom: 1px solid black;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.top-bar-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+/* top bar stuff end */
 
 /*
   table stuff
@@ -195,12 +227,12 @@ h6 a:hover {
   text-decoration: none;
 }
 
-h1 > a #_hash,
-h2 > a #_hash,
-h3 > a #_hash,
-h4 > a #_hash,
-h5 > a #_hash,
-h6 > a #_hash {
+h1 > a .hash,
+h2 > a .hash,
+h3 > a .hash,
+h4 > a .hash,
+h5 > a .hash,
+h6 > a .hash {
   margin-right: 1rem;
 }
 
@@ -298,7 +330,7 @@ summary {
 
 .sticky {
   position: sticky;
-  top: 0;
+  top: var(--top-bar-height);
   z-index: 1;
 }
 

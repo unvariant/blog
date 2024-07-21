@@ -1,16 +1,23 @@
-import Footer from './Footer.mdx';
+import Footer from "./Footer.mdx";
 import FileEntry from "./FileEntry.js";
 import { useInfo } from "./InfoContext.js";
 
-export default function(props) {
+export default function (props) {
     const info = useInfo();
 
     return (
-        <html>
+        <html id="_top">
             <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1"></meta>
+                <meta
+                    name="viewport"
+                    content="width=device-width, initial-scale=1"
+                ></meta>
 
-                { props.children.props.title ? <title>{ props.children.props.title }</title> : <></> }
+                {props.children.props.title ? (
+                    <title>{props.children.props.title}</title>
+                ) : (
+                    <></>
+                )}
                 {/* <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"></link> */}
 
                 <link rel="stylesheet" href="/style.css"></link>
@@ -19,16 +26,49 @@ export default function(props) {
             </head>
 
             <body>
-                { [
-                    // FileEntry(info, {
-                    //     filename: "."
-                    // }),
-                    FileEntry(info.parent, {
-                        filename: ".."
-                    }),
-                ] }
+                <div className={"top-bar fullWidth"}>
+                    <div className={"top-bar-group"}>
+                        <a href={"/"} className="file-link">
+                            <img src={"/icons/dir.png"}></img>
+                            <span>{"/"}</span>
+                        </a>
+                        <a href={".."} className="file-link">
+                            <img src={"/icons/dir.png"}></img>
+                            <span>{".."}</span>
+                        </a>
+                    </div>
 
-                { props.children }
+                    <div className={"top-bar-group"}>
+                        <h3>
+                            <a href={"#_content"}>
+                                <code className={"hash inline-code"}>
+                                    {"#"}
+                                </code>
+                                CONTENT
+                            </a>
+                        </h3>
+                        <h3>
+                            <a href={"#_top"}>
+                                <code className={"hash inline-code"}>
+                                    {"#"}
+                                </code>
+                                TOP
+                            </a>
+                        </h3>
+                    </div>
+                </div>
+                {
+                    [
+                        // FileEntry(info, {
+                        //     filename: "."
+                        // }),
+                        // FileEntry(info.parent, {
+                        //     filename: "..",
+                        // }),
+                    ]
+                }
+
+                {props.children}
 
                 <Footer />
             </body>

@@ -7,7 +7,8 @@ export default function() {
         function visitor(node) {
             const data = node.data || (node.data = {});
             const props = data.hProperties || (data.hProperties = {});
-            props.className = "inline-code";
+            props.className = props.className || [];
+            props.className.push("inline-code");
         }
     }
 }

@@ -16,7 +16,7 @@ export default function() {
                 value: "#",
                 data: {
                     hProperties: {
-                        id: "_hash"
+                        className: ["hash"],
                     }
                 }
             },].concat(node.children);
@@ -29,6 +29,8 @@ export default function() {
                 url: `#${slug}`,
                 children: children,
             }];
+
+            node.data.hProperties.className = ["scroll-target"];
         }
 
         function collect(node) {

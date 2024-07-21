@@ -97,7 +97,10 @@ export async function render(info) {
         element = (
             <div>
                 <p>
-                    { "cannot view binary file. go to raw/ to download instead" }
+                    <span>{ "cannot view binary file." }</span>
+                </p>
+                <p>
+                    <a href="raw" download={info.filename}>{ "click to download instead." }</a>
                 </p>
             </div>
         );

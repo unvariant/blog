@@ -1,0 +1,7 @@
+glibc/
+*.bndb
+strace
+*.tar*
+bash
+dash
+test*

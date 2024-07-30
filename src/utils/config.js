@@ -50,7 +50,7 @@ const buildRoot = path.resolve(cwd, "_build");
 const cacheRoot = path.resolve("_cache"); 
 const cachedDateFile = path.join(cacheRoot, "cached_dates.json");
 await fs.mkdir(path.dirname(cachedDateFile), { recursive: true });
-const files = execSync(`fd --hidden . '${blogRoot}'`, { encoding: "utf-8" })
+const files = execSync(`fd --hidden . '${blogRoot}'`, { encoding: "utf-8", maxBuffer: 1024 * 1024 * 4 })
     .trim()
     .split("\n")
     .filter((s) => s.length > 0)

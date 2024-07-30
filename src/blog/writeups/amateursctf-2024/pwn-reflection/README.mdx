@@ -1,12 +1,62 @@
 import { ChallengeInfo } from "../../../../components/ChallengeInfo.js"
 
-# linker-as-a-service
+# reflection
 
 <ChallengeInfo items={{
-    points: 500,
-    solves: 1,
-    difficulty: "hard"
+    points: "?",
+    solves: "?",
+    difficulty: "medium"
 }}>
 Do you know what ret2dlresolve is?
 
 </ChallengeInfo>
+
+This challenge was ret2dlresolve without any gadgets to directly control `rdi`, which is needed to call `system("/bin/sh")`.
+To prevent unintended cheeses any unnecessary function were replaced with `ret` instructions, reducing possible rop gadgets.
+
+## solution
+
+The intended solution abuses how `_dl_fixup` determines where to write the address of the resolved function. In most ret2dlresolve challenges, you do not care about where `_dl_fixup` writes the resolved symbol (as long as the address is writeable) because you are calling `system("/bin/sh")` to pop a shell immediately. However you can not do that directly in this challenge without `rdi` control.
+
+```c open
+_dl_fixup (
+# ifdef ELF_MACHINE_RUNTIME_FIXUP_ARGS
+	   ELF_MACHINE_RUNTIME_FIXUP_ARGS,
+# endif
+	   struct link_map *l, ElfW(Word) reloc_arg)
+{
+  const ElfW(Sym) *const symtab
+    = (const void *) D_PTR (l, l_info[DT_SYMTAB]);
+  const char *strtab = (const void *) D_PTR (l, l_info[DT_STRTAB]);
+
+  const uintptr_t pltgot = (uintptr_t) D_PTR (l, l_info[DT_PLTGOT]);
+
+  const PLTREL *const reloc
+    = (const void *) (D_PTR (l, l_info[DT_JMPREL])
+		      + reloc_offset (pltgot, reloc_arg));
+  const ElfW(Sym) *sym = &symtab[ELFW(R_SYM) (reloc->r_info)];
+  const ElfW(Sym) *refsym = sym;
+  void *const rel_addr = (void *)(l->l_addr + reloc->r_offset);
+  lookup_t result;
+  DL_FIXUP_VALUE_TYPE value;
+
+  /* --- snip --- */
+
+  return elf_machine_fixup_plt (l, result, refsym, sym, reloc, rel_addr, value);
+}
+
+static inline ElfW(Addr)
+elf_machine_fixup_plt (struct link_map *map, lookup_t t,
+		       const ElfW(Sym) *refsym, const ElfW(Sym) *sym,
+		       const ElfW(Rela) *reloc,
+		       ElfW(Addr) *reloc_addr, ElfW(Addr) value)
+{
+  return *reloc_addr = value;
+}
+```
+
+This is the source code for `_dl_fixup` which is used in ret2dlresolve. The location that the resolved symbol is written back to is blindly trusted from `reloc->r_offset`, which we control. What happens if we setup `reloc->r_offset` to point to the `gets` got table entry 🤔. Once the ret2dlresolve payload is invoked `system` is called and does not crash as long as it points to readable memory, and `gets` now points to `system` instead! Now we can return to main and call `system` with controlled `rdi` argument by abusing the same code that calculates the first argument that is passed into `gets`.
+
+## unintended
+
+Turns out that after a `gets` call `rdi` points into the libc... which is exploitable... 😭.

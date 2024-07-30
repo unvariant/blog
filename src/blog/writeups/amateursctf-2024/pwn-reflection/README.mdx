@@ -55,7 +55,9 @@ elf_machine_fixup_plt (struct link_map *map, lookup_t t,
 }
 ```
 
-This is the source code for `_dl_fixup` which is used in ret2dlresolve. The location that the resolved symbol is written back to is blindly trusted from `reloc->r_offset`, which we control. What happens if we setup `reloc->r_offset` to point to the `gets` got table entry 🤔. Once the ret2dlresolve payload is invoked `system` is called and does not crash as long as it points to readable memory, and `gets` now points to `system` instead! Now we can return to main and call `system` with controlled `rdi` argument by abusing the same code that calculates the first argument that is passed into `gets`.
+This is the source code for `_dl_fixup` which is used in ret2dlresolve. The location that the resolved symbol is written back to is blindly trusted from `reloc->r_offset`, which we control. What happens if we setup `reloc->r_offset` to point to the `gets` got table entry 🤔?
+
+Once the ret2dlresolve payload is invoked `system` is called and does not crash as long as it points to readable memory, and `gets` now points to `system` instead! Now we can return to main and call `system` with controlled `rdi` argument by abusing the same code that calculates the first argument that is passed into `gets`.
 
 ## unintended
 

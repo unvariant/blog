@@ -56,7 +56,6 @@ await plugin({
   async setup(build) {
     build.onLoad({ filter: regex }, async ({ path: href }) => {
         const url = new URL(`file://${href}`);
-        console.log(href);
         const value = await Bun.file(url).text();
         const key = crypto.createHash('md5').update(value).digest('hex');
         const cached = path.join(cache, key);

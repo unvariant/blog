@@ -1,0 +1,120 @@
+import { ChallengeInfo } from "../../../../components/ChallengeInfo.js"
+
+# phantom-link
+
+<ChallengeInfo items={{
+    author: "LMS",
+    points: "500ish",
+    solves: "idr",
+    difficulty: "hard",
+}}>
+nc 0.cloud.chals.io 30126
+
+Heap of trouble? More like a heap of fun! Dig through the chaos to uncover the flag.
+
+</ChallengeInfo>
+
+The challenge presents a typical heap note interface:
+```text open
+--- Menu ---
+1. Add Data
+2. Remove Data
+3. Print Data
+4. Exit
+Please enter your choice: 
+```
+
+```c filename="binja decompile of add data" open
+int64_t add_data()
+    printf(format: "Enter size: ")
+    uint64_t n
+    __isoc99_scanf(format: "%d", &n)
+    getchar()
+    printf(format: "Enter data: ")
+    int32_t idx = 0
+    
+    while (true)
+        if (idx s> 9)
+            return puts(str: "No more space to add data.")
+        
+        if (data_array[sx.q(idx)].size s<= 0)
+            break
+        
+        idx += 1
+    
+    getline(lineptr: &data_array[sx.q(idx)], &n, stream: stdin)
+    data_array[sx.q(idx)].size = n.d
+    return printf(format: "Data added successfully to index…", zx.q(idx))
+```
+```c filename="binja decompile of remove data" open
+int64_t remove_data()
+    printf(format: "Enter index of data to remove: ")
+    int32_t idx
+    __isoc99_scanf(format: "%d", &idx)
+    
+    if (idx s< 0 || idx s> 9 || data_array[sx.q(idx)].data == 0)
+        return puts(str: "Invalid index or data not found.")
+    
+    free(mem: data_array[sx.q(idx)].data)
+    data_array[sx.q(idx)].size = 0
+    return puts(str: "Data removed successfully.")
+```
+```c filename="binja decompile of print data"
+void print_data()
+    for (int32_t i = 0; i s<= 9; i += 1)
+        if (data_array[sx.q(i)].size != 0)
+            printf(format: "Index %d: %s\n", zx.q(i), data_array[sx.q(i)].data)
+```
+
+Looking through the heapnote functions, there are two vulnerabilities. The first vulnerability is double free in `remove_data`, since it only checks that the data is non-zero, not that the size is non-zero. The second vulnerability has to do with how the chal reads the size of the input data in `add_data`. Inside `add_data` `n` is defined as a 64 bit integer, however it uses `scanf("%d")` to read in the number. This leaves the upper 32 bits of `n` uninitialized with whatever was on the stack at that location, and due to the behavior of `getline` effectively turns the function into a pseudo gets function.
+
+## getline antics
+
+```text filename="man 3 getline" open wrap
+DESCRIPTION
+       getline()  reads  an entire line from stream, storing the address of the buffer containing the text into *lineptr.  The buffer is null-terminated and includes the newline
+       character, if one was found.
+
+       If *lineptr is set to NULL before the call, then getline() will allocate a buffer for storing the line.  This buffer should be freed by the user program even if getline()
+       failed.
+
+       Alternatively, before calling getline(), *lineptr can contain a pointer to a malloc(3)-allocated buffer *n bytes in size.  If the buffer is not large enough to  hold  the
+       line, getline() resizes it with realloc(3), updating *lineptr and *n as necessary.
+
+       In either case, on a successful call, *lineptr and *n will be updated to reflect the buffer address and allocated size respectively.
+
+       getdelim()  works like getline(), except that a line delimiter other than newline can be specified as the delimiter argument.  As with getline(), a delimiter character is
+       not added if one was not present in the input before end of file was reached.
+```
+
+`data_array` is a 10 element array that is zero initialized, and on the first `getline` call for each index `getline` will allocate a buffer whose size is dependent on how much input is read in. On the second call the buffer is never resized because of the upper 32 bits of `n` are uninitialized, making `getline` think the buffer is huge. While this means we have easy heap overflow (`getline` never resizes the buffer no matter how much input we send), it also means that malloc can only be called a maximum on 10 times.
+
+## heap leak (4/10 allocations)
+
+The challenge is using libc 2.39 and the heap has safe linking, so our first step should be getting a heap leak to defeat safe linking.
+
+```py path="solve.py" range="61,74" open
+```
+
+We can abuse `remove_data` along with the `getline` behavior discussed above to get a double reference to a heap chunk. Freeing one of the references while the other one still has a non-zero size allows us to print a leak the first qword.
+
+```py path="solve.py" range="76,88" open
+```
+
+Here we cheat a tiny bit. Since we are given a dockerfile we can determine the exact offset from the heapbase the leaked chunk will be. This allows us to decode the encrypted pointer to recover the heapbase.
+
+## libc leak (6/10 allocations)
+
+```py path="solve.py" range="90,118" open
+```
+
+In this specific libc version, the lowest byte of the unsorted bin address is 0x00 and prevents leaking the full raw unsorted bin address. One easy way to get around this is to move the chunk from unsorted into either smallbin or largebin, where the lowest byte should no longer be 0x00. Issue with that strategy is it takes up too many allocations, not leaving enough for the final rce step.
+
+The other method (which took me a few days to realize during the competition) is to insert the chunk into the tcache, using the tcache's own pointer encryption to destroy the null byte and allow recovery of the encrypted unsorted bin address with our heap leak. This also explains the name of the challenge `phantom-link`, because we need to mess with the tcache to create fake links to chunks.
+
+## full rce  (exactly 10/10 allocations)
+
+```py path="solve.py" range="120,135" open
+```
+
+Popping a shell is done by overwriting a libc got entry to trigger system while `getline` is reading input. I think I was overwriting the `memchr` got entry, but I do not really remember at this point and I'm too lazy to check.

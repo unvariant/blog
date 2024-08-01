@@ -47,6 +47,7 @@ export default function (props) {
         const wantsOpen = props.hasOwnProperty("open");
         const wantsAlwaysOpen = props.hasOwnProperty("always");
         const wantsNoSticky = props.hasOwnProperty("nosticky");
+        const wantsWrap = props.hasOwnProperty("wrap");
         const defaultOpen = (wantsHeader ? false : true) || wantsOpen || wantsAlwaysOpen;
 
         if (props.hasOwnProperty("path")) {
@@ -105,6 +106,7 @@ export default function (props) {
             }
         }
 
+        const wrapping = wantsWrap ? "code-block-code-wrap" : "code-block-code-nowrap";
         let codeBlock = (
             <div className="code-block">
                 <div className="code-block-lines">
@@ -112,7 +114,7 @@ export default function (props) {
                         {lines}
                     </pre>
                 </div>
-                <div className="code-block-code">
+                <div className={ `code-block-code ${wrapping}` }>
                     <pre>
                         {code}
                     </pre>

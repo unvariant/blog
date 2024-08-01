@@ -1,2 +1,3 @@
 preload = ["./src/bun-loaders/mdx.js"]
 jsxImportSource = "react"
+jsx = "react-jsx"

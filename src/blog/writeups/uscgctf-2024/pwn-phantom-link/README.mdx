@@ -70,8 +70,11 @@ Looking through the heapnote functions, there are two vulnerabilities. The first
 
 ## getline antics
 
-```text filename="man 3 getline" open wrap
+<hr></hr>
+**man 3 getline**
+
 DESCRIPTION
+
        getline()  reads  an entire line from stream, storing the address of the buffer containing the text into *lineptr.  The buffer is null-terminated and includes the newline
        character, if one was found.
 
@@ -85,7 +88,7 @@ DESCRIPTION
 
        getdelim()  works like getline(), except that a line delimiter other than newline can be specified as the delimiter argument.  As with getline(), a delimiter character is
        not added if one was not present in the input before end of file was reached.
-```
+<hr></hr>
 
 `data_array` is a 10 element array that is zero initialized, and on the first `getline` call for each index `getline` will allocate a buffer whose size is dependent on how much input is read in. On the second call the buffer is never resized because of the upper 32 bits of `n` are uninitialized, making `getline` think the buffer is huge. While this means we have easy heap overflow (`getline` never resizes the buffer no matter how much input we send), it also means that malloc can only be called a maximum on 10 times.
 

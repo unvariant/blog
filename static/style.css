@@ -340,14 +340,6 @@ summary {
   font-family: "JetBrains Mono", monospace;
 }
 
-.code-block-code {
-
-}
-
-.code-block-code-wrap > pre > code {
-
-}
-
 .code-block-code-nowrap {
   overflow-x: auto;
 }

@@ -19,7 +19,7 @@ This writeup is not going to be very in depth, mostly because I want to complain
 
 ## broken plugin
 
-The plugin provides shadow stack tracking and ibt endbr64/endbr32 enforcement, however does not implement any of the associated cpu instructions that are needed for applications to use them properly. `cpuid` does not report cet or ibt, causing the `setcontext` code inside the glibc to break because it thinks shadow stack is off. This is VERY annoying and the plugin author should have done their due diligence to properly read the goddamn intel manuals and implement the fucking features properly.
+The plugin provides shadow stack tracking and ibt endbr64/endbr32 enforcement, however does not implement any of the associated cpu instructions that are needed for applications to use them properly. `cpuid` does not report cet or ibt, causing the `setcontext` code inside the glibc to break because it thinks shadow stack is off. This is VERY annoying and the plugin author should have done their due diligence to properly read the intel manuals and implement the features properly.
 
 All that aside the plugin works fine (except ibt is always on and doesnt respect the disabling instructions, oh and shadow stack is also always on, and none of the shadow stack manipulation instructions have been implemented). It works fine...
 

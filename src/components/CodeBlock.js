@@ -64,7 +64,7 @@ export default function (props) {
                 startLine = start;
                 endLine = end;
             }
-            const html = hljs.highlight(rawcode, { language: lang }).value;
+            const html = hljs.getLanguage(lang) ? hljs.highlight(rawcode, { language: lang }).value : rawcode;
             code = (
                 <code className={ code.className } dangerouslySetInnerHTML={{ __html: html }}>
                 </code>

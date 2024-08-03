@@ -1,0 +1,86 @@
+# improving-patchelf
+
+## psa for pwn mains writing challenges
+
+Quick note before we get into things, if you want to write a challenge that uses relative libc and linker, please DO NOT compile and patch afterwards. Instead use the builtin compiler flags `-Wl,-rpath,./libs` and `-Wl,--dynamic-linker=./ld-linux-x86-64.so.2`.
+
+example:
+```makefile path="Makefile" open
+```
+```text path="test.ldd" open
+```
+
+## what is patchelf
+
+`patchelf` is a great tool for fixing up binaries to resolve libraries other than the default system ones. This happens quite a bit during ctfs when challenge authors provide libc/linker, but the binary loads the system `/lib` libraries instead. For pwn the options we care about for `patchelf` are `--set-rpath` and `--set-interpreter`, to force a binary to use libraries instead of `/lib` and to change the dynamic linker path.
+
+## issues with patchelf
+
+In pwn we want the patching to preserve the overall structure and contents of the original binary as much as possible, to ensure that we do not end up accidentally introducing bugs or introducing behavior inconsistent with remote. While `patchelf` works in *most* cases it is not ideal because when changing rpath or interpreter, `patchelf` always allocates a completely new LOAD segment for the new dynamic table and/or interpreter path. By default `patchelf` also changes the segment and section ordering (you can turn it off with `--no-sort`), again violating our requirements of as little modification of the original binary as possible.
+
+The `patchelfed-ls` file in the current directory has been patched with `patchelf --set-rpath . --set-interpreter ./ld-linux-x86-64.so.2`. After patching, the section segment ordering has completely changed, a new `LOAD` segment was added, and an extra 16kb of data has been added to the file. This is a pretty horrible result if you ask me.
+
+```sh open
+$ patchelf --set-rpath . --set-interpreter ./ld-linux-x86-64.so.2 ./patchelfed-ls
+$ ldd patchelfed-ls 
+        linux-vdso.so.1 (0x0000719432c29000)
+        libcap.so.2 => /usr/lib/libcap.so.2 (0x0000719432bc3000)
+        libc.so.6 => ./libc.so.6 (0x00007194329d7000)
+        ./ld-linux-x86-64.so.2 => /usr/lib64/ld-linux-x86-64.so.2 (0x0000719432c2b000)
+$ dust ls patchelfed-ls 
+128K   ┌── ls
+144K   ├── patchelfed-ls
+$ diff <(xxd patchelfed-ls) <(xxd ls) | diffstat
+ unknown | 1748 ++++++++++++++++------------------------------------------------
+ 1 file changed, 447 insertions(+), 1301 deletions(-)
+```
+
+The worst part of this behavior is that for most pwn challenges this is entirely avoidable.
+
+## making patchelf better
+
+### fixing rpath
+
+On x64, the dynamic table is a list of dynamic tags:
+```c filename="dynamic tag format" open
+typedef struct {
+    uint64_t tag;
+    uint64_t val;
+} Dyntag;
+```
+The size of the dynamic table is not fixed, instead it is terminated by a dynamic tag with it's tag value set to NULL. 
+
+{ /* TODO: fixup image paths to be relative to their directories */ }
+![dynamic table with extra space afterwards](/dynamic-table-extra-space.png)
+
+However in most binaries there is extra unused space after the dynamic table that is not used by anything else in the binary. We can simply add more dynamic tags to the end of the current dynamic table, if the extra space can accomodate the new dynamic tags. There is no need to create a whole new `LOAD` segment for the new dynamic tags when in almost all cases you can extend the existing dynamic table.
+
+### fixing interp
+
+`patchelf` for some reason also decides to allocate an entirely new `LOAD` section to hold the new interpreter path. The most common action in pwn with patchelf is to replace `/usr/lib64/ld-linux-x86-64.so.2` with `./ld-linux-x86-64.so.2` as the new interpreter. The new path is always shorter than the old path, allowing us to reuse the existing `INTERP` segment by directly replacing the old path without moving anything.
+
+### custom patchelf
+
+A custom patchelf implementation using a simple in-place elf modfication library is implemented in [patchelf.py](./patchelf.py).
+
+```sh open
+$ ./patchelf.py --rpath . --interp ./ld-linux-x86-64.so.2 ls my-patchelfed-ls
+[*] used 0x190 out of 0x1f0 (81%) of DYNAMIC
+[*] space for 5 extra dynamic tags
+[*] rpath     set to .
+[*] interp    set to ./ld-linux-x86-64.so.2
+$ ldd my-patchelfed-ls 
+ldd: warning: you do not have execution permission for `./my-patchelfed-ls'
+        linux-vdso.so.1 (0x00007c9d8cbfc000)
+        libcap.so.2 => /usr/lib/libcap.so.2 (0x00007c9d8cb9a000)
+        libc.so.6 => ./libc.so.6 (0x00007c9d8c9ae000)
+        ./ld-linux-x86-64.so.2 => /usr/lib64/ld-linux-x86-64.so.2 (0x00007c9d8cbfe000)
+$ dust ls my-patchelfed-ls                                                   
+128K   ┌── ls
+128K   ├── my-patchelfed-ls
+$ diff <(xxd my-patchelfed-ls) <(xxd ls) | diffstat
+ unknown |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+```
+
+My custom implementation is able to achieve in place modification without having to change any of the section segment headers or changing the overall file size. Much better than whatever dumpster fire `patchelf` was cooking up.

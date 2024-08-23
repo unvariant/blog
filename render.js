@@ -66,21 +66,27 @@ export async function mdxToHtml(info, options) {
 
 export async function render(info) {
     let element = undefined;
+    let layout = Page;
+
     if (info.stats.isFile()) {
         const extname = info.extname.toLowerCase();
         element = await process(extname, info, unknownProcessor);
     } else if (info.stats.isDirectory()) {
-        let readme;
+        let readme = (
+            <div></div>
+        );
         const children = await Promise.all(info.children.map(render));
         for (const child of children) {
             if (child.stats.isFile() && child.basename.toLowerCase().startsWith("readme")) {
                 readme = child.element;
+                if (child.requestedLayout) {
+                    const { default: Content, ...props } = await import(`file:///${config.cwd}/${child.requestedLayout}`);
+                    layout = Content;
+                }
             }
         }
         
-        element = await mdxToHtml(getInfo(path.resolve(config.cwd, "src/index.mdx")), {
-            readme,
-        });
+        element = readme;
     } else if (info.stats.isSymbolicLink()) {
         const target = await fs.readlink(info.absolutePath);
         element = (
@@ -106,16 +112,19 @@ export async function render(info) {
         );
     }
 
+    // capture layout before the element gets wrapped up
+    const requestedLayout = element.props.layout;
     element = withInfo(info, element);
 
     info.parent.size += info.size;
     info.element = element;
+    info.requestedLayout = requestedLayout;
 
     const page = (
         <InfoContext.Provider value={ info }>
-            <Page>
-                { element }
-            </Page>
+            { React.createElement(layout, {
+                children: element,
+            }) }
         </InfoContext.Provider>
     );
     const rendered = renderToStaticMarkup(page);

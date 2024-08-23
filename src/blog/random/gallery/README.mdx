@@ -1,0 +1,13 @@
+import Image from './Image.js'
+import Gallery from './Gallery.js'
+import { useInfo } from "../../../components/InfoContext.js";
+
+export const layout = "./src/components/Empty.js";
+
+<Gallery
+    mainTitle={ <h2>Black Squares</h2> }
+    practiceTitle={ <h3>Black Squares Practice</h3> }
+    info={ useInfo() }
+    target={ "black-squares" }
+>
+</Gallery>

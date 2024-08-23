@@ -37,6 +37,7 @@ class Info {
         const extname = path.extname(absolutePath);
         const basename = path.basename(absolutePath, extname);
         const filename = path.basename(absolutePath);
+        const dirname = path.dirname(absolutePath);
         const stats = lstatSync(absolutePath);
         let lastModifiedDate = undefined;
         if (relativePath.startsWith("..")) {
@@ -51,6 +52,7 @@ class Info {
         this.extname = extname;
         this.basename = basename;
         this.filename = filename;
+        this.dirname = dirname;
         this.lastModifiedDate = lastModifiedDate;
         this.element = undefined;
         if (stats.isFile()) {

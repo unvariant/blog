@@ -5,9 +5,14 @@ import { useInfo } from "../../../components/InfoContext.js";
 export const layout = "./src/components/Empty.js";
 
 <Gallery
+    mainTitle={ <h2>Black Shapes</h2> }
+    practiceTitle={ <h3>Black Shapes Practice</h3> }
+    target={ "black-shapes" }
+></Gallery>
+
+<Gallery
     mainTitle={ <h2>Black Squares</h2> }
     practiceTitle={ <h3>Black Squares Practice</h3> }
-    info={ useInfo() }
     target={ "black-squares" }
 >
 </Gallery>

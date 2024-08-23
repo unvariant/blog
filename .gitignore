@@ -4,3 +4,7 @@ _cache/
 testing/
 **/zig-cache/
 **/__pycache__/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

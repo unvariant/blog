@@ -1,12 +1,21 @@
 import Image from './Image.js';
+import { useInfo } from '../../../components/InfoContext.js';
+
+const imageFormats = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+];
 
 export default function (props) {
-    const target = props.info.parent.children.find(i => i.filename == props.target);
-    const main = target.children.filter(i => i.extname == ".jpg").map(i => (
-        <Image src={ `${props.target}/${i.filename}/raw` }></Image>
+    const info = useInfo();
+    const target = info.parent.children.find(i => i.filename == props.target);
+    const main = target.children.filter(i => imageFormats.indexOf(i.extname) != -1).map(i => (
+        <Image src={ `${props.target}/${i.filename}` }></Image>
     ));
     const practice = target.children.find(i => i.filename == "practice").children.map(i => (
-        <Image src={ `${props.target}/practice/${i.filename}/raw` }></Image>
+        <Image src={ `${props.target}/practice/${i.filename}` }></Image>
     ));
 
     return (

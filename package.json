@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "CACHE_DIR=./_cache node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js build.js",
+    "build": "PATH=\"./dist:$PATH\" CACHE_DIR=./_cache node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js build.js",
     "dev": "npm run build --dev",
     "postinstall": "node download.js && patch-package"
   },

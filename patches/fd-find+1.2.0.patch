@@ -1,0 +1,25 @@
+diff --git a/node_modules/fd-find/dist/fd b/node_modules/fd-find/dist/fd
+index defa9c3..bf0066e 100755
+Binary files a/node_modules/fd-find/dist/fd and b/node_modules/fd-find/dist/fd differ
+diff --git a/node_modules/fd-find/download.js b/node_modules/fd-find/download.js
+index 12e92d8..dbc08e5 100644
+--- a/node_modules/fd-find/download.js
++++ b/node_modules/fd-find/download.js
+@@ -48,7 +48,7 @@ const downloadAsset = asset => {
+ 
+   // These throw when they fail
+   runCommand("mkdir", ["-p", "--", distFolder]);
+-  runCommand("wget", ["-qO", tarDest, "--", asset.browser_download_url]);
++  runCommand("curl", ["-o", tarDest, "--", asset.browser_download_url]);
+   runCommand("tar", ["xzf", tarDest], {
+     cwd: distFolder, // Run in the distFolder so it outputs to the right place
+   });
+@@ -68,7 +68,7 @@ async function checkRequirements() {
+     );
+   }
+ 
+-  const requiredCommands = ["wget", "tar"];
++  const requiredCommands = ["curl", "tar"];
+   const missingCommands = [];
+ 
+   const existsArr = await Promise.all(

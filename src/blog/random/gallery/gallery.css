@@ -1,0 +1,70 @@
+:root {
+    --next-button-width: 7vw;
+}
+
+input[type=radio] { 
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+div.hide {
+    display: none;
+}
+
+input[type=radio].gallery:checked + * img {
+    height: 80vh;
+    max-width: 80vw;
+    position: fixed;
+    left: 50%;
+    top: calc(50vh + var(--top-bar-height) / 2);
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+div:has(label > input[type=radio]:checked) label div.close {
+    position: fixed;
+    display: block;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 100vh;
+    width: 100vw;
+    background-color: white;
+    max-width: none;
+}
+
+label:has(+ label > input[type=radio]:checked) div.hide.left {
+    position: fixed;
+    display: flex;
+    left: 0%;
+    top: calc(50vh + var(--top-bar-height) / 2);
+    transform: translateY(-50%);
+    height: 100vh;
+    width: var(--next-button-width);
+    background-color: white;
+    border-right: 2px solid black;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 2;
+    font-size: 2vw;
+}
+
+label:has(input[type=radio]:checked) + label div.hide.right {
+    position: fixed;
+    display: flex;
+    right: 0%;
+    top: calc(50vh + var(--top-bar-height) / 2);
+    transform: translateY(-50%);
+    height: 100vh;
+    width: var(--next-button-width);
+    background-color: white;
+    border-left: 2px solid black;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 2;
+    font-size: 2vw;
+}

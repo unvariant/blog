@@ -19,33 +19,41 @@ export default function (props) {
     ));
 
     return (
-        <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-        }} className="fullwidth">
-            { props.mainTitle }
             <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                rowGap: "5px",
-                columnGap: "5px",
-                gridAutoRows: "min-content",
-                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
             }} className="fullwidth">
-                { main }
+                { props.mainTitle }
+                <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    rowGap: "5px",
+                    columnGap: "5px",
+                    gridAutoRows: "min-content",
+                    boxSizing: "border-box",
+                }} className="fullwidth">
+                    { main }
+                    <div>
+                        <label>
+                            <div>
+                                <input type="radio" name="gallery"></input>
+                                <div class="hide close"></div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                { props.practiceTitle }
+                <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(6, 1fr)",
+                    rowGap: "5px",
+                    columnGap: "5px",
+                    gridAutoRows: "min-content",
+                    boxSizing: "border-box",
+                }} className="fullwidth">
+                    { practice }
+                </div>
             </div>
-            { props.practiceTitle }
-            <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(6, 1fr)",
-                rowGap: "5px",
-                columnGap: "5px",
-                gridAutoRows: "min-content",
-                boxSizing: "border-box",
-            }} className="fullwidth">
-                { practice }
-            </div>
-        </div>
     );
 }

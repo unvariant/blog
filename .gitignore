@@ -1,7 +1,7 @@
 node_modules/
 _build/
 
-_cache/
+_cache/*
 !_cache/optimized-images/
 
 testing/

@@ -22,25 +22,44 @@ export default function(props) {
     const jpegs = sizes.map(size => `/optimized-images/${basename}/${size}x${size}.jpg ${size}w`).join(",");
 
     return (
-        <picture>
-            <source
-                type="image/webp"
-                srcset={ webps }
-            >
-            </source>
-            <img
-                src={ `${props.src}/raw` }
-                srcset={ jpegs }
-                sizes={ sizeSet }
-                alt={ altText }
-                style={{
-                    aspectRatio: "1/1",
-                    objectFit: "scale-down",
-                    maxWidth: "100%",
-                }}
-                decoding="async"
-            >
-            </img>
-        </picture>
+        <label>
+            <input type="radio" name="gallery" class="gallery"></input>
+            <picture>
+                <source
+                    type="image/webp"
+                    srcset={ webps }
+                >
+                </source>
+                <img
+                    src={ `${props.src}/raw` }
+                    srcset={ jpegs }
+                    sizes={ sizeSet }
+                    alt={ altText }
+                    style={{
+                        aspectRatio: "1/1",
+                        objectFit: "scale-down",
+                        maxWidth: "100%",
+                    }}
+                    decoding="async"
+                >
+                </img>
+            </picture>
+            <div class="hide left">
+                <span style={{
+                    writingMode: "vertical-rl",
+                    textOrientation: "upright",
+                }}>
+                    LEFT
+                </span>
+            </div>
+            <div class="hide right">
+                <span style={{
+                    writingMode: "vertical-rl",
+                    textOrientation: "upright",
+                }}>
+                    RIGHT
+                </span>
+            </div>
+        </label>
     );
 }

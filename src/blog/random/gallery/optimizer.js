@@ -26,16 +26,15 @@ parentPort.on('message', async (data) => {
         const hash = crypto.createHash('md5').update(bytes).digest('hex');
         const cache = path.join(imageCache, hash);
         const basename = path.basename(file, path.extname(file));
-        const exists = existsSync(cache);
 
-        if (!exists) {
-            console.log(`generating ${path.basename(file)}`);
-            await mkdir(cache, { recursive: true });
-            for (const size of sizes) {
-                for (const format of formats) {
-                    const img = `${size}x${size}.${format.toLowerCase()}`;
-                    const cached = path.join(cache, img);
+        await mkdir(cache, { recursive: true });
+        for (const size of sizes) {
+            for (const format of formats) {
+                const img = `${size}x${size}.${format.toLowerCase()}`;
+                const cached = path.join(cache, img);
 
+                if (!existsSync(cached)) {
+                    console.log(`generating ${path.basename(file)}.${format} ${size}.${size}`);
                     const psd = await importPSD(file);
                     await psd.process({
                         format,
@@ -46,11 +45,11 @@ parentPort.on('message', async (data) => {
                         metadata: false,
                         overridePath: cached,
                     });
-
-                    const resized = path.join(config.buildRoot, "optimized-images", basename, img);
-                    await mkdir(path.dirname(resized), { recursive: true });
-                    await copyFile(cached, resized);
                 }
+
+                const resized = path.join(config.buildRoot, "optimized-images", basename, img);
+                await mkdir(path.dirname(resized), { recursive: true });
+                await copyFile(cached, resized);
             }
         }
 

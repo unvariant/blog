@@ -5,15 +5,31 @@ import { useInfo } from "../../../components/InfoContext.js";
 export const layout = "./src/components/Gallery.js";
 
 <Gallery
-    mainTitle={ <h2>Black Shapes</h2> }
-    practiceTitle={ <h3>Black Shapes Practice</h3> }
+    mainTitle={ <h2>Fence Repair</h2>}
+    target={ "fence-repair" }
+>
+</Gallery>
+
+<Gallery
+    mainTitle={ <h2>Active/Passive/Mysterious Shape Compositions</h2> }
     target={ "black-shapes" }
+>
+</Gallery>
+<Gallery
+    mainTitle={ <h3>Practice</h3> }
+    target={ "black-shapes/practice"}
+    columns={ 6 }
 >
 </Gallery>
 
 <Gallery
     mainTitle={ <h2>Black Squares</h2> }
-    practiceTitle={ <h3>Black Squares Practice</h3> }
     target={ "black-squares" }
+>
+</Gallery>
+<Gallery
+    mainTitle={ <h3>Practice</h3> }
+    target={ "black-squares/practice"}
+    columns={ 6 }
 >
 </Gallery>

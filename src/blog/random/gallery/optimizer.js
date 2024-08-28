@@ -19,7 +19,7 @@ parentPort.on('message', async (data) => {
     } else {
         const { file, sizes, formats } = data;
         waiting += 1;
-        while (processing > 4) {
+        while (processing > 1) {
             await new Promise((resolve, reject) => setTimeout(resolve, 500));
         }
         waiting -= 1;
@@ -48,9 +48,9 @@ parentPort.on('message', async (data) => {
                         metadata: false,
                         overridePath: cached,
                     };
-                    if (extname === ".psd") {
-                        options.dpi = 300;
-                    }
+                    // if (extname === ".psd") {
+                    //     options.dpi = 300;
+                    // }
                     await psd.process(options);
                 }
 

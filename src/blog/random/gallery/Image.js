@@ -1,18 +1,46 @@
-import { readFileSync } from "fs";
 import { useInfo } from "../../../components/InfoContext.js";
+import path from "node:path";
+import { optimizer } from "./handle.js";
 
 export default function(props) {
     const info = useInfo();
-    const altText = props.alt || "";
-    const bytes = readFileSync(`${info.dirname}/${props.src}`);
-    const base64 = bytes.toString('base64');
-    const image = `data:image/jpeg;charset=utf-8;base64,${base64}`;
+    const src = path.join(info.dirname, props.src);
+    const sizeSet = props.sizeSet || "30vw";
+    const basename = path.basename(src, path.extname(src));
+    const altText = props.alt || "oops";
+
+    const sizes = [400, 800, 1440];
+    const formats = ["WEBP", "JPG"];
+    
+    optimizer.postMessage({
+        file: src,
+        sizes,
+        formats,
+    });
+
+    const webps = sizes.map(size => `/optimized-images/${basename}/${size}x${size}.webp ${size}w`).join(", ");
+    const jpegs = sizes.map(size => `/optimized-images/${basename}/${size}x${size}.jpg ${size}w`).join(",");
 
     return (
-        <img src={ image } alt={ altText } style={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            aspectRatio: "1/1",
-        }} loading="lazy" decoding="async"></img>
+        <picture>
+            <source
+                type="image/webp"
+                srcset={ webps }
+            >
+            </source>
+            <img
+                src={ `${props.src}/raw` }
+                srcset={ jpegs }
+                sizes={ sizeSet }
+                alt={ altText }
+                style={{
+                    aspectRatio: "1/1",
+                    objectFit: "scale-down",
+                    maxWidth: "100%",
+                }}
+                decoding="async"
+            >
+            </img>
+        </picture>
     );
 }

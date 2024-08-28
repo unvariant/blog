@@ -1,6 +1,9 @@
 node_modules/
 _build/
+
 _cache/
+!_cache/optimized-images/
+
 testing/
 **/zig-cache/
 **/__pycache__/

@@ -8,6 +8,7 @@ import Highlight from "./src/components/Highlight.js";
 import { render, mdxToHtml } from './render.js';
 import path from "node:path";
 import crypto from "node:crypto";
+import { optimizer } from "./src/blog/random/gallery/handle.js";
 
 async function highlight(info, lang) {
     const element = (
@@ -107,3 +108,5 @@ console.log(`[+] building ${config.blogRoot}`);
 const builder = new Builder();
 await fs.cp("static", config.buildRoot, { recursive: true })
 await builder.renderAll();
+optimizer.postMessage("done");
+console.log(`done`);

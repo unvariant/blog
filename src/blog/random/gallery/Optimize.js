@@ -27,7 +27,7 @@ export class Exporter {
         if (options.height && typeof options.height !== "number") {
             throw new Error(`invalid height ${options.height}`);
         }
-        if (typeof options.dpi !== "number") {
+        if ((options.dpi != undefined) && (typeof options.dpi !== "number")) {
             throw new Error(`invalid dpi ${options.dpi}`);
         }
         if (typeof options.quality !== "number") {
@@ -65,7 +65,9 @@ export class Exporter {
         settings.name = await page.locator("div.form.cell * label:has-text('Name') + input");
         settings.width = await page.locator("div.form.cell * label:has-text('Width') + input");
         settings.height = await page.locator("div.form.cell * label:has-text('Height') + input");
-        settings.dpi = await page.locator("div.form.cell * label:has-text('DPI') + input");
+        if (options.dpi !== undefined) {
+            settings.dpi = await page.locator("div.form.cell * label:has-text('DPI') + input");
+        }
         settings.quality = await page.locator("div.form.cell * label:has-text('Quality:') + input");
         settings.aspectRatio = await page.locator("div.form.cell * [title='Keep Aspect Ratio']");
         settings.save = await page.locator("button:has-text('Save')");
@@ -81,8 +83,10 @@ export class Exporter {
         await settings.height.clear();
         await settings.height.fill(`${options.height}`);
 
-        await settings.dpi.clear();
-        await settings.dpi.fill(`${options.dpi}`);
+        if (options.dpi !== undefined) {
+            await settings.dpi.clear();
+            await settings.dpi.fill(`${options.dpi}`);
+        }
 
         await settings.quality.clear();
         await settings.quality.fill(`${options.quality}`);

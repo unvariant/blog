@@ -34,14 +34,6 @@ export default function (props) {
                     boxSizing: "border-box",
                 }} className="fullwidth">
                     { main }
-                    <div>
-                        <label>
-                            <div>
-                                <input type="radio" name="gallery"></input>
-                                <div class="hide close"></div>
-                            </div>
-                        </label>
-                    </div>
                 </div>
                 { props.practiceTitle }
                 <div style={{
@@ -53,6 +45,15 @@ export default function (props) {
                     boxSizing: "border-box",
                 }} className="fullwidth">
                     { practice }
+                </div>
+
+                <div>
+                    <label>
+                        <div>
+                            <input type="radio" name="gallery"></input>
+                            <div class="hide close"></div>
+                        </div>
+                    </label>
                 </div>
             </div>
     );

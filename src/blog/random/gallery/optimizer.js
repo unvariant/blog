@@ -9,6 +9,7 @@ import { exit } from "node:process";
 
 const imageCache = path.join(config.cacheRoot, "optimized-images");
 let processing = 0;
+let waiting = 0;
 let finished = false;
 
 parentPort.on('message', async (data) => {
@@ -17,15 +18,18 @@ parentPort.on('message', async (data) => {
         console.log("worker acknowledge");
     } else {
         const { file, sizes, formats } = data;
+        waiting += 1;
         while (processing > 4) {
             await new Promise((resolve, reject) => setTimeout(resolve, 500));
         }
+        waiting -= 1;
         processing += 1;
 
         const bytes = await readFile(file);
         const hash = crypto.createHash('md5').update(bytes).digest('hex');
         const cache = path.join(imageCache, hash);
-        const basename = path.basename(file, path.extname(file));
+        const extname = path.extname(file);
+        const basename = path.basename(file, extname);
 
         await mkdir(cache, { recursive: true });
         for (const size of sizes) {
@@ -36,15 +40,18 @@ parentPort.on('message', async (data) => {
                 if (!existsSync(cached)) {
                     console.log(`generating ${path.basename(file)}.${format} ${size}.${size}`);
                     const psd = await importPSD(file);
-                    await psd.process({
+                    const options = {
                         format,
                         width: size,
                         height: size,
-                        dpi: 300,
                         quality: 70,
                         metadata: false,
                         overridePath: cached,
-                    });
+                    };
+                    if (extname === ".psd") {
+                        options.dpi = 300;
+                    }
+                    await psd.process(options);
                 }
 
                 const resized = path.join(config.buildRoot, "optimized-images", basename, img);
@@ -54,7 +61,7 @@ parentPort.on('message', async (data) => {
         }
 
         processing -= 1;
-        if (processing == 0 && finished) {
+        if (processing == 0 && waiting == 0 && finished) {
             console.log("worker done");
             exit(0);
         }

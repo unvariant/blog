@@ -23,7 +23,7 @@ input[type=radio].gallery:checked + * img {
     z-index: 10;
 }
 
-div:has(label > input[type=radio]:checked) label div.close {
+div:has(div > label > input[type=radio]:checked) > div > label div.close {
     position: fixed;
     display: block;
     top: 50%;

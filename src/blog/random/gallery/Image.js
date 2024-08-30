@@ -9,6 +9,7 @@ export default function(props) {
     const sizeSet = props.sizeSet || "30vw";
     const basename = path.basename(src, path.extname(src));
     const altText = props.alt || "oops";
+    const target = `${props.target}-gallery`
 
     const dimensions = sizeOf(src);
     const sizes = [400, 800, 1440].map(width => [width, Math.round(dimensions.height * width / dimensions.width)]);
@@ -25,7 +26,7 @@ export default function(props) {
 
     return (
         <label>
-            <input type="radio" name="gallery" class="gallery"></input>
+            <input type="radio" name={ target } class="gallery"></input>
             <picture>
                 <source
                     type="image/webp"

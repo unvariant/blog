@@ -26,7 +26,7 @@ export default function (props) {
     const target = walk(info.parent, props.target); // info.parent.children.find(i => i.filename == props.target);
     const columns = props.columns || 3;
     const main = target.children.filter(i => imageFormats.indexOf(i.extname) != -1).map(i => (
-        <Image src={ `${props.target}/${i.filename}` }></Image>
+        <Image src={ `${props.target}/${i.filename}` } target={ props.target }></Image>
     ));
     // const practice = target.children.find(i => i.filename == "practice").children.map(i => (
     //     <Image src={ `${props.target}/practice/${i.filename}` }></Image>
@@ -65,7 +65,7 @@ export default function (props) {
                 <div>
                     <label>
                         <div>
-                            <input type="radio" name="gallery"></input>
+                            <input type="radio" name={ `${props.target}-gallery` }></input>
                             <div class="hide close"></div>
                         </div>
                     </label>

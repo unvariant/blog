@@ -68,3 +68,22 @@ label:has(input[type=radio]:checked) + label div.hide.right {
     z-index: 2;
     font-size: 2vw;
 }
+
+details.sources {
+    border: 2px solid black;
+}
+
+details.sources > summary {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+details.sources > .links {
+    overflow-x: hidden;
+    white-space: nowrap;
+}
+
+a.ellipsis {
+    text-overflow: ellipsis;
+}

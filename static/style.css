@@ -137,15 +137,15 @@ body * {
   max-width: var(--max-blog-width);
 }
 
-body details,
+body details.codeblock,
 body .file,
 .fullwidth {
   max-width: var(--max-file-width);
   width: min(calc(100vw - var(--left-padding) - var(--right-padding)), var(--max-file-width));
 }
 
-body details,
-body details * {
+body details.codeblock,
+body details.codeblock * {
   max-width: var(--max-file-width);
 }
 
@@ -306,15 +306,15 @@ h6 > a .hash {
   margin-bottom: 0.5rem;
 } */
 
-details > summary {
+details.codeblock > summary {
   list-style: none;
 }
 
-details > summary::-webkit-details-marker {
+details.codeblack > summary::-webkit-details-marker {
   display: none;
 }
 
-summary {
+details.codeblock > summary {
   display: -webkit-inline-flex;
   display: -ms-inline-flexbox;
   display: inline-flex;
@@ -344,11 +344,11 @@ summary {
   overflow-x: auto;
 }
 
-details .code-block-code pre {
+details.codeblock .code-block-code pre {
   padding-top: 0.5rem;
 }
 
-details .code-block-lines pre {
+details.codeblock .code-block-lines pre {
   padding-top: 0.5rem;
 }
 

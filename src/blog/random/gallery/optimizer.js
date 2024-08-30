@@ -32,18 +32,18 @@ parentPort.on('message', async (data) => {
         const basename = path.basename(file, extname);
 
         await mkdir(cache, { recursive: true });
-        for (const size of sizes) {
+        for (const [width, height] of sizes) {
             for (const format of formats) {
-                const img = `${size}x${size}.${format.toLowerCase()}`;
+                const img = `${width}x${height}.${format.toLowerCase()}`;
                 const cached = path.join(cache, img);
 
                 if (!existsSync(cached)) {
-                    console.log(`generating ${path.basename(file)}.${format} ${size}.${size}`);
+                    console.log(`generating ${basename}.${format} ${width}.${height}`);
                     const psd = await importPSD(file);
                     const options = {
                         format,
-                        width: size,
-                        height: size,
+                        width,
+                        height,
                         quality: 70,
                         metadata: false,
                         overridePath: cached,

@@ -1,12 +1,33 @@
 import Image from './Image.js'
 import Gallery from './Gallery.js'
+import Sources from "./Sources.js"
 import { useInfo } from "../../../components/InfoContext.js";
 
 export const layout = "./src/components/Gallery.js";
 
 <Gallery
+    mainTitle={ <h2>Fence Repair Creative</h2> }
+    target={ "fence-repair/creative" }
+></Gallery>
+<Sources
+    links={[
+        "https://vcahospitals.com/-/media/2/vca/images/lifelearn-images-foldered/13041/cat_tail.ashx",
+        "https://www.fearfreehappyhomes.com/wp-content/uploads/2020/08/shutterstock_707431309-e1554172878508.jpg",
+        "https://images.squarespace-cdn.com/content/v1/5f88cb4677ea8f6614fc65b9/053afba7-63cd-4c92-a3da-ce5c7d11595d/iStock-877369086%2C+GlobalP.jpg",
+        "https://streamline.imgix.net/9909d0de-9797-4416-97c3-b6f877e5307d/f400af75-faf5-4f17-93cb-115cd093bc37/House%20mouse%20Mus%20musculus%20shutterstock_321795701.jpg?ixlib=rb-1.1.0&w=2000&h=2000&fit=max&or=0&s=b3eeccef3884be5dc2ddb31d588bf886",
+        "https://images.unsplash.com/photo-1591195853095-f1681b00e29c?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fHdoaXRlJTIwd29vZCUyMHRleHR1cmV8ZW58MHx8MHx8fDA%3D",
+        "https://cdn.thewirecutter.com/wp-content/media/2023/09/wirelessmouse-2048px-7423.jpg",
+        "https://ewscripps.brightspotcdn.com/dims4/default/88c1287/2147483647/strip/true/crop/1004x565+0+83/resize/1280x720!/quality/90/?url=http%3A%2F%2Fewscripps-brightspot.s3.amazonaws.com%2Ffc%2F02%2F802e083f4ae793cb0b32f790ac95%2Ffatal-crash3.jpg",
+        "https://www.lorenzoandlorenzo.com/wp-content/uploads/2018/02/22e3132c89a1aee6cdbc650b429abb79.jpeg",
+        "https://media.compliancesigns.com/media/catalog/product/m/u/mutcd-r6-1-traffic-control-reflective-sign-cs726051_1000.gif",
+        "https://indianapublicmedia.org/images/news-images/high-street-sign.jpg",
+    ]}
+>
+</Sources>
+<Gallery
     mainTitle={ <h2>Fence Repair</h2>}
     target={ "fence-repair" }
+    columns={ 2 }
 >
 </Gallery>
 

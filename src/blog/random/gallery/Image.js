@@ -1,6 +1,7 @@
 import { useInfo } from "../../../components/InfoContext.js";
 import path from "node:path";
 import { optimizer } from "./handle.js";
+import sizeOf from "image-size";
 
 export default function(props) {
     const info = useInfo();
@@ -9,7 +10,8 @@ export default function(props) {
     const basename = path.basename(src, path.extname(src));
     const altText = props.alt || "oops";
 
-    const sizes = [400, 800, 1440];
+    const dimensions = sizeOf(src);
+    const sizes = [400, 800, 1440].map(width => [width, Math.round(dimensions.height * width / dimensions.width)]);
     const formats = ["WEBP", "JPG"];
     
     optimizer.postMessage({
@@ -18,8 +20,8 @@ export default function(props) {
         formats,
     });
 
-    const webps = sizes.map(size => `/optimized-images/${basename}/${size}x${size}.webp ${size}w`).join(", ");
-    const jpegs = sizes.map(size => `/optimized-images/${basename}/${size}x${size}.jpg ${size}w`).join(",");
+    const webps = sizes.map(dims => `/optimized-images/${basename}/${dims[0]}x${dims[1]}.webp ${dims[0]}w`).join(", ");
+    const jpegs = sizes.map(dims => `/optimized-images/${basename}/${dims[0]}x${dims[1]}.jpg ${dims[0]}w`).join(",");
 
     return (
         <label>

@@ -14,9 +14,7 @@ export default function (props) {
                 <link rel="stylesheet" type="text/css" href="/gallery.css"></link>
             </head>
 
-            <body>
-                <TopBar></TopBar>
-                
+            <body>                
                 <div id="_content" style={{
                     scrollMarginTop: "48px",
                 }}>

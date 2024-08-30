@@ -121,10 +121,13 @@ export default function (props) {
                 </div>
             </div>
         );
+        
+        let className = wantsAlwaysOpen ? "always-open" : "";
+        className = `${className} codeblock`;
 
         if (wantsHeader) {
             codeBlock = (
-                <details open={defaultOpen} className={ `${ wantsAlwaysOpen ? "always-open" : "" }` }>
+                <details open={defaultOpen} className={ className }>
                     <summary className={ `${wantsNoSticky ? "" : "sticky"}` }>
                         <div>
                             <b>{filename}</b>

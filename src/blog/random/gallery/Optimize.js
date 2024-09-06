@@ -44,11 +44,13 @@ export class Exporter {
         const page = await browser.newPage();
         await page.goto("https://www.photopea.com");
 
+        await page.evaluate(() => addPP());
+
         const upload = await page.locator("input[type=file]");
         upload.setInputFiles(this.filepath);
 
-        await page.waitForSelector("button", { hasText: /^File$/,  });
-        const file = await page.locator("button", { hasText: /^File$/ });
+        await page.waitForSelector("button:has-text('File')");
+        const file = await page.locator("button:has-text('File')");
         await file.click();
 
         await page.waitForSelector("div.enab > span:has-text('Export as')");

@@ -13,7 +13,8 @@ export default function(props) {
                     <></>
                 )} */}
 
-                <link rel="stylesheet" href="/style.css"></link>
+                <link rel="stylesheet" href="/fonts.css" type="text/css" preload></link>
+                <link rel="stylesheet" href="/style.css" type="text/css" preload></link>
         </>
     );
 }

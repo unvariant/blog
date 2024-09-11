@@ -53,7 +53,7 @@ export default function(info, options) {
     return (
         <div key={linkpath} className="file">
             <a href={linkpath} className="file-link">
-                <img src={icon}></img>
+                <img src={icon} width={ 20 } height={ 22 }></img>
                 <span>{filename}</span>
             </a>
             { meta }

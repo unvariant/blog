@@ -8,6 +8,7 @@ const formats = [
     "PNG",
     "WEBP",
 ];
+const DEBUG = false;
 
 export class Exporter {
     constructor(filepath) {
@@ -37,8 +38,9 @@ export class Exporter {
             throw new Error(`invalid metadata ${options.metadata}`);
         }
 
+        const headless = DEBUG ? false : true;
         const browser = await playwright.chromium.launch({
-            headless: true,
+            headless,
             timeout: 0,
         });
         const page = await browser.newPage();
@@ -51,11 +53,22 @@ export class Exporter {
 
         await page.waitForSelector("button:has-text('File')");
         const file = await page.locator("button:has-text('File')");
-        await file.click();
 
-        await page.waitForSelector("div.enab > span:has-text('Export as')");
-        const exportAs = await page.locator("div.enab > span", { hasText: /^Export as$/ });
-        await exportAs.click();
+        while (true) {
+            await file.click();
+
+            try {
+                await page.waitForSelector("div.enab > span:has-text('Export as')", {
+                    timeout: 100,
+                });
+                const exportAs = await page.locator("div.enab > span:has-text('Export as')");
+                await exportAs.click();
+                break;
+            } catch (e) {
+                console.log(`failed to find export button, retrying`);
+                await file.click();
+            }
+        }
 
         await page.waitForSelector(`div.enab > span:has-text('${options.format}')`);
         const fileType = await page.locator("div.enab > span", { hasText: new RegExp(`^${options.format}$`) });
@@ -104,8 +117,10 @@ export class Exporter {
         }
         await download.saveAs(downloadPath);
 
-        await browser.close();
-        console.log(`done with ${this.filename}`);
+        if (!DEBUG) {
+            await browser.close();
+            console.log(`done with ${this.filename}`);
+        }
     }
 }
 

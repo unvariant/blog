@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import Icon from "./Icon.js";
 
 function apacheDate(date) {
     const year = date.getFullYear();
@@ -27,12 +28,12 @@ function formatSize(size) {
 
 function grabIcon(stats) {
     if (stats.isFile()) {
-        return "/icons/text.png";
+        return "text";
     } else if (stats.isDirectory()) {
-        return "/icons/dir.png";
+        return "dir";
     } else {
         // TODO: get a dont know icon
-        return "/icons/text.png";
+        return "text";
     }
 }
 
@@ -53,7 +54,7 @@ export default function(info, options) {
     return (
         <div key={linkpath} className="file">
             <a href={linkpath} className="file-link">
-                <img src={icon} width={ 20 } height={ 22 }></img>
+                <Icon icon={ icon }></Icon>
                 <span>{filename}</span>
             </a>
             { meta }

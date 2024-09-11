@@ -1,13 +1,15 @@
+import Icon from "./Icon.js";
+
 export default function(props) {
     return (
         <div className={"top-bar fullWidth"}>
             <div className={"top-bar-group"}>
                 <a href={"/"} className="file-link">
-                    <img src={"/icons/dir.png"}></img>
+                    <Icon icon="dir"></Icon>
                     <span>{"/"}</span>
                 </a>
                 <a href={".."} className="file-link">
-                    <img src={"/icons/dir.png"}></img>
+                    <Icon icon="dir"></Icon>
                     <span>{".."}</span>
                 </a>
             </div>

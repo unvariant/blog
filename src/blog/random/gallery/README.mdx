@@ -6,6 +6,17 @@ import { useInfo } from "../../../components/InfoContext.js";
 export const layout = "./src/components/Gallery.js";
 
 <Gallery
+    mainTitle={ <h2>Glow Portraits</h2> }
+    target={ "glow-portraits" }
+>
+</Gallery>
+<Sources
+    links={[
+        "https://images.pexels.com/photos/9482193/pexels-photo-9482193.jpeg?cs=srgb&dl=pexels-ottovonrascon-9482193.jpg&fm=jpg"
+    ]}
+></Sources>
+
+<Gallery
     mainTitle={ <h2>Displacement</h2> }
     target={ "displacement" }
 >
@@ -32,6 +43,12 @@ export const layout = "./src/components/Gallery.js";
 </Sources>
 
 <Gallery
+    mainTitle={ <h2>Fence Repair</h2>}
+    target={ "fence-repair" }
+    columns={ 2 }
+>
+</Gallery>
+<Gallery
     mainTitle={ <h2>Fence Repair Creative</h2> }
     target={ "fence-repair/creative" }
 ></Gallery>
@@ -50,12 +67,6 @@ export const layout = "./src/components/Gallery.js";
     ]}
 >
 </Sources>
-<Gallery
-    mainTitle={ <h2>Fence Repair</h2>}
-    target={ "fence-repair" }
-    columns={ 2 }
->
-</Gallery>
 
 <Gallery
     mainTitle={ <h2>Active/Passive/Mysterious Shape Compositions</h2> }

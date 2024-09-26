@@ -6,6 +6,18 @@ import { useInfo } from "../../../components/InfoContext.js";
 export const layout = "./src/components/Gallery.js";
 
 <Gallery
+    mainTitle={ <h2>Dispersions</h2> }
+    target={ "dispersions" }
+    columns={ 3 }
+></Gallery>
+<Sources
+    links={[
+        "https://upload.wikimedia.org/wikipedia/commons/e/e1/Clock_Tower_-_Palace_of_Westminster%2C_London_-_September_2006.jpg",
+        "https://static.politico.com/77/9c/15de328b4eb4b8b19d388614e72e/https-delivery-gettyimages.com/downloads/1433950464",
+    ]}
+></Sources>
+
+<Gallery
     mainTitle={ <h2>Animal Hybrids</h2> }
     target={ "animal-hybrids" }
     columns={ 3 }

@@ -5,6 +5,156 @@ import { useInfo } from "../../../components/InfoContext.js";
 
 export const layout = "./src/components/Gallery.js";
 
+<div class="center fullwidth">
+    <h2>Fantastical Portraits</h2>
+</div>
+
+<Gallery
+    mainTitle={ <h3>Head in the Clouds</h3> }
+    target={ "fantastical-portraits/cloud/done" }
+    columns={ 1 }
+></Gallery>
+<Sources links={{
+    "towers left": "https://liloneoftheashes.com/wp-content/uploads/2013/05/20130512_065016.jpg",
+    "towers right": "https://liloneoftheashes.com/wp-content/uploads/2013/05/20130512_065016.jpg",
+    "clouds": "https://www.pexels.com/photo/aerial-view-of-clouds-258149/",
+    "milky way": "https://wallpapercat.com/milky-way-wallpapers",
+    "moon": "https://www.newsweek.com/supermoon-august-full-sturgeon-moon-astronomy-1938453",
+}}></Sources>
+
+<p>
+    The original idea was based on the expression "head in the clouds", meaning absent minded or daydreaming.
+    Hence the slightly surreal portrait with two moons, walking on clouds, and ridiculously long shadow.
+    I was going to put a giant version of my face poking above the clouds (for the literal interpretation of head in the clouds),
+    but decided against it because the images I had were not the best quality and slightly grainy when used directly.
+    Also hair is annoying and when the subject is downscaled it is harder to notice the little imperfections.
+</p>
+<p>
+    Some issues that I do not like about the image is the lighting and pose of the subject are not ideal.
+    The lighting on the subject's face does not match the overall lighting of the scene, and the perspective is slightly off.
+    Other than that I would have liked to do more in the upper left corner of the image, since there is a large empty space there could be filled
+    with something.
+</p>
+
+<Image src="fantastical-portraits/cloud/snapshot-1.jpg"></Image>
+<p>
+    Started off with this image because of the nice horizon line and mostly uniform lighting.
+</p>
+
+<Image src="fantastical-portraits/cloud/snapshot-2.jpg"></Image>
+<p>
+    I spent quite a while on this step trying to figure out a good way to mask out the clouds in the sky. I did not want to totally
+    remove them, and ended up using color range select to remove the blue sky. The sky was replaced with a backdrop of the milky way
+    for a more interesting background. I also spent some time figuring out if I should move the clouds up and content aware fill the bottom,
+    but the content aware fill did not produce the results I wanted.
+</p>
+
+<Image src="fantastical-portraits/cloud/snapshot-4.jpg"></Image>
+<p>
+    Cleaned up the clouds in the sky, and started adding some small buildings in the distance, so the scene is more than a person
+    standing on clouds. Added a moon behind some clouds because it seemed to fit well with the atmosphere of the scene. The clouds were also brightened
+    by duplicating the layer and setting the blend mode to screen. This makes the clouds match the lighting of the moon much better.
+</p>
+
+<Image src="fantastical-portraits/cloud/snapshot-5.jpg"></Image>
+<p>
+    More buildings and another moon, making sure to blend the edge of the moon into the clouds to make it look more natural. The second moon
+    is there to reinforce the feeling that this scene is abnormal/fantastical.
+</p>
+
+<Image src="fantastical-portraits/cloud/snapshot-6.jpg"></Image>
+<p>
+    Added the subject standing with their feet half obscured by the clouds.
+    This is to make the subject look more part of the scene and to hide the awkward angle of the feet.
+    A fake shadow is also extended to the biggest moon. The shadow is again supposed to make the subject look more integrated into the scene.
+</p>
+
+<Gallery
+    mainTitle={ <h4>Snapshots</h4> }
+    target={ "fantastical-portraits/cloud" }
+    columns={ 6 }
+></Gallery>
+
+<Gallery
+    mainTitle={ <h3>Adrift</h3> }
+    target={ "fantastical-portraits/rain/done" }
+    columns={ 1 }
+></Gallery>
+
+<Sources links={{
+    "stormy sky": "https://unsplash.com/photos/a-cloudy-sky-over-a-beach-with-a-boat-in-the-water-9hIJJghBqb0",
+    "umbrella": "https://weatherornotaccessories.com/products/small-1-person-8-panel-umbrella-white",
+    "other lightning": "https://www.pexels.com/search/lightning/",
+    "birds": "https://lostandtaken.com/downloads/black-white-bird-animal-texture-7/",
+    "lightning": "https://www.flushinghospital.org/newsletter/what-should-i-do-if-im-outside-during-a-lightning-storm/",
+    "more birds": "https://stock.adobe.com/images/black-silhouette-of-birds-flying-in-the-distance-vector-illustration/303149356",
+    "sunny background": "https://www.needpix.com/photo/download/1384226/clouds-sun-sky-blue-background-bright-cheerful-warm-summer",
+}}>
+</Sources>
+
+<p>
+    The portrait is meant to represent a violent storm, with the subject flying through the storm on an umbrella.
+    The umbrella is their only safe haven as shown by the umbrella parting the storm to reveal a bright blue sunny sky below.
+    This was originally inspired by the idea of a scene of half rain, half sun, with the subject standing in the middle.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-01.jpg"></Image>
+<p>
+    Chose a good large picture of a stormy sky, at just the right perspective.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-02.jpg"></Image>
+<p>
+    Mess around with Hue+Saturation for a more dark and oppressive feeling, and cut out the part of the storm for the umbrella.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-04.jpg"></Image>
+<p>
+    Add the umbrella and fake rain to make the constrast between the storm and the sky under the umbrella.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-05.jpg"></Image>
+<p>
+    Add an effect around the top of the umbrella to make it seem like the rain is bouncing off slightly.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-06.jpg"></Image>
+<p>
+    First failed attempt at lightning.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-07.jpg"></Image>
+<p>
+    Second attempt, much better. The flash of the lightning blending into the clouds also makes it more convincing.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-08.jpg"></Image>
+<p>
+    Blend a different scene of a blue sunny sky into the sky underneath the umbrella, and add fake sun rays coming from the sun.
+    Now the constrast between the storm and the umbrella is very distinct.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-09.jpg"></Image>
+<p>
+    Add birds into the background for a little more dynamic feeling.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-10.jpg"></Image>
+<p>
+    Add the subject into the image holding the umbrella, and fix the subject's hand so they are properly holding the umbrella.
+</p>
+
+<Image src="fantastical-portraits/rain/snapshot-11.jpg"></Image>
+<p>
+    Finally fix the lighting cast onto the subject so it looks more convincing with the sun in the background.
+</p>
+
+<Gallery
+    mainTitle={ <h4>Snapshots</h4> }
+    target={ "fantastical-portraits/rain" }
+    columns={ 6 }
+></Gallery>
+
 <Gallery
     mainTitle={ <h2>Dispersions</h2> }
     target={ "dispersions" }

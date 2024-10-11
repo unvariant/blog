@@ -108,5 +108,9 @@ console.log(`[+] building ${config.blogRoot}`);
 const builder = new Builder();
 await fs.cp("static", config.buildRoot, { recursive: true })
 await builder.renderAll();
-optimizer.postMessage("done");
+try {
+    optimizer.postMessage("done");
+} catch (e) {
+    console.log(`postMessage failed`);
+}
 console.log(`done`);

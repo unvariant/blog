@@ -25,8 +25,9 @@ export default function (props) {
     const info = useInfo();
     const target = walk(info.parent, props.target); // info.parent.children.find(i => i.filename == props.target);
     const columns = props.columns || 3;
+    const optimize = props.optimize || false;
     const main = target.children.filter(i => imageFormats.indexOf(i.extname) != -1).map(i => (
-        <Image src={ `${props.target}/${i.filename}` } target={ props.target }></Image>
+        <Image src={ `${props.target}/${i.filename}` } target={ props.target } optimize={optimize}></Image>
     ));
     // const practice = target.children.find(i => i.filename == "practice").children.map(i => (
     //     <Image src={ `${props.target}/practice/${i.filename}` }></Image>
@@ -37,6 +38,7 @@ export default function (props) {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
+                marginBottom: "0px",
             }} className="fullwidth">
                 { props.mainTitle }
                 <div style={{

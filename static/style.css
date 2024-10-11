@@ -36,6 +36,10 @@ body details.codeblock * {
     max-width: var(--max-file-width);
 }
 
+.center {
+    text-align: center;
+}
+
 .inline-code {
     color: #6610f2;
 }

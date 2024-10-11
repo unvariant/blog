@@ -36,7 +36,7 @@ export const layout = "./src/components/Gallery.js";
     with something.
 </p>
 
-<Image src="fantastical-portraits/cloud/idea-map.png"></Image>
+<Image src="fantastical-portraits/cloud/map/idea-map.png"></Image>
 
 <Gallery
     mainTitle={ <h4>Before and After</h4> }
@@ -106,7 +106,7 @@ export const layout = "./src/components/Gallery.js";
     This was originally inspired by the idea of a scene of half rain, half sun, with the subject standing in the middle.
 </p>
 
-<Image src="fantastical-portraits/rain/idea-map.png"></Image>
+<Image src="fantastical-portraits/rain/map/idea-map.png"></Image>
 
 <Gallery
     mainTitle={ <h4>Before and After</h4> }
@@ -199,9 +199,10 @@ export const layout = "./src/components/Gallery.js";
         "pangolin": "https://unsplash.com/photos/pangolin-hunting-for-ants-MG4gps1yfoA",
         "bald eagle": "https://discover.silversea.com/to-the-curious/behind-the-lens/in-alaska-and-across-theu-s-bald-eagles-regain-footing-inspire-hope/",
         "antlers": "https://a-z-animals.com/reference/antler/",
-        "rhino": "https://www.pexels.com/photo/gray-rhinoceros-in-close-up-photography-16040/",
+        "rhino": "https://www.pexels.com/photo/gray-rhinoceros-in-https://commons.wikimedia.org/wiki/File:National_Geographic_Magazine_Logo.svgclose-up-photography-16040/",
         "elephant": "https://commons.wikimedia.org/wiki/File:ELEPHANT_SIDE_VIEW.jpg",
         "sheep": "https://www.manyhatshandymanserviceofnortheastohio.com/reviews",
+        "national geographic": "https://commons.wikimedia.org/wiki/File:National_Geographic_Magazine_Logo.svg",
     }}
 ></Sources>
 
@@ -225,23 +226,21 @@ export const layout = "./src/components/Gallery.js";
 >
 </Gallery>
 <Sources
-    links={[
-        "https://midcoastyacht.com/wp-content/uploads/slider/cache/105e97d6b850552e9484f31937e783b4/IMG_4080-scaled.jpg",
-        "https://upload.wikimedia.org/wikipedia/commons/5/56/Donald_Trump_official_portrait.jpg",
-        "https://www.whitehouse.gov/wp-content/uploads/2021/04/P20210303AS-1901.jpg",
-        "https://static1.squarespace.com/static/58a9fd9ed482e974647ed56b/59d8e719cd39c3774da65da2/5f3f16a60f4b9c565a3bbe3c/1678152867898/holding+duck+eggs.jpg?format=1500w",
-        "https://images.pexels.com/photos/11085376/pexels-photo-11085376.jpeg?cs=srgb&dl=pexels-a2pro-11085376.jpg&fm=jpg",
-        "https://images.takeshape.io/fd194db7-7b25-4b5a-8cc7-da7f31fab475/dev/896bba32-9c48-4a59-b544-7cbff9e2b1d2/luis-vidal-1387452-unsplash.jpg?auto=compress%2Cformat",
-        "https://www.decoratorsbest.com/cdn/shop/files/6960057712686.jpg?v=1709021251",
-        "https://wallpapers.com/images/hd/bunch-of-minions-despicable-me-2-e5n27c7yq77r4awd.jpg",
-        "https://images.unsplash.com/photo-1653510216111-43a0ab1f8cbf?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-        "https://upload.wikimedia.org/wikipedia/commons/7/71/Team-Fortress-2-logo.png",
-        "https://www.poltronafrau.com/content/dam/ld/poltronafrau/products/d/u/o/duo-sofa/02_thumbnails/06_duo-sofa.jpg/jcr:content/renditions/cq5dam.thumbnail.5616.5616.jpg",
-        "https://static.vecteezy.com/system/resources/previews/004/264/020/original/free-hand-drawn-colorful-polka-dot-seamless-background-pattern-free-vector.jpg",
-        "https://static.vecteezy.com/system/resources/previews/024/485/951/original/cute-seamless-pattern-polka-dot-abstract-ornament-in-orange-pink-blue-black-colors-hand-drawn-circles-round-shapes-illustration-for-wallpaper-wrap-gold-dots-sparkles-shining-dots-background-vector.jpg",
-        "https://www.creativefabrica.com/wp-content/uploads/2023/04/05/Colorful-Polka-Dot-Background-66349271-1-1.png",
-        "https://static.vecteezy.com/system/resources/previews/008/557/494/original/irregular-colorful-stripes-seamless-pattern-abstract-colored-background-repeat-endless-background-design-element-illustration-vector.jpg",
-    ]}
+    links={{
+        "yacht": "https://midcoastyacht.com/",
+        "trump": "https://commons.wikimedia.org/wiki/File:Donald_Trump_official_portrait.jpg",
+        "biden": "https://www.whitehouse.gov/administration/president-biden/",
+        "eggs": "https://www.hoffmanslittleacres.com/blog/2020/8/20/duck-eggs-vs-chicken-eggs-are-they-all-theyre-cracked-up-to-be",
+        "minions": "https://www.decoratorsbest.com/products/roommates-minions-line-art-peel-and-stick-yellow-wallpaper",
+        "more minions": "https://wallpapers.com/wallpapers/minions-group-picture-uz8exq5c5o0v0dqy.html",
+        "sports car": "https://unsplash.com/photos/a-white-sports-car-with-a-red-stripe-on-the-side--ZWNkXB0V4M",
+        "team fortress 2 logo": "https://commons.wikimedia.org/wiki/File:Team-Fortress-2-logo.png",
+        "couch": "https://www.poltronafrau.com/dk/en/products/duo-sofa.html",
+        "polka 1": "https://www.vecteezy.com/vector-art/7516492-polka-dot-background-with-colorful-circles",
+        "polka 2": "https://www.vecteezy.com/vector-art/24485951-cute-seamless-pattern-polka-dot-abstract-ornament-in-orange-pink-blue-black-colors-hand-drawn-circles-round-shapes-vector-illustration-for-wallpaper-wrap-gold-dots-sparkles-shining-dots-background",
+        "polka 3": "https://www.creativefabrica.com/product/colorful-polka-dot-background-124/",
+        "stripes": "https://www.vecteezy.com/vector-art/8557494-irregular-colorful-stripes-seamless-pattern-abstract-colored-background-repeat-endless-background-design-element-vector-illustration",
+    }}
 >
 </Sources>
 
@@ -249,25 +248,27 @@ export const layout = "./src/components/Gallery.js";
     mainTitle={ <h2>Fence Repair</h2>}
     target={ "fence-repair" }
     columns={ 2 }
+    optimize
 >
 </Gallery>
 <Gallery
     mainTitle={ <h2>Fence Repair Creative</h2> }
     target={ "fence-repair/creative" }
+    optimize
 ></Gallery>
 <Sources
-    links={[
-        "https://vcahospitals.com/-/media/2/vca/images/lifelearn-images-foldered/13041/cat_tail.ashx",
-        "https://www.fearfreehappyhomes.com/wp-content/uploads/2020/08/shutterstock_707431309-e1554172878508.jpg",
-        "https://images.squarespace-cdn.com/content/v1/5f88cb4677ea8f6614fc65b9/053afba7-63cd-4c92-a3da-ce5c7d11595d/iStock-877369086%2C+GlobalP.jpg",
-        "https://streamline.imgix.net/9909d0de-9797-4416-97c3-b6f877e5307d/f400af75-faf5-4f17-93cb-115cd093bc37/House%20mouse%20Mus%20musculus%20shutterstock_321795701.jpg?ixlib=rb-1.1.0&w=2000&h=2000&fit=max&or=0&s=b3eeccef3884be5dc2ddb31d588bf886",
-        "https://images.unsplash.com/photo-1591195853095-f1681b00e29c?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fHdoaXRlJTIwd29vZCUyMHRleHR1cmV8ZW58MHx8MHx8fDA%3D",
-        "https://cdn.thewirecutter.com/wp-content/media/2023/09/wirelessmouse-2048px-7423.jpg",
-        "https://ewscripps.brightspotcdn.com/dims4/default/88c1287/2147483647/strip/true/crop/1004x565+0+83/resize/1280x720!/quality/90/?url=http%3A%2F%2Fewscripps-brightspot.s3.amazonaws.com%2Ffc%2F02%2F802e083f4ae793cb0b32f790ac95%2Ffatal-crash3.jpg",
-        "https://www.lorenzoandlorenzo.com/wp-content/uploads/2018/02/22e3132c89a1aee6cdbc650b429abb79.jpeg",
-        "https://media.compliancesigns.com/media/catalog/product/m/u/mutcd-r6-1-traffic-control-reflective-sign-cs726051_1000.gif",
-        "https://indianapublicmedia.org/images/news-images/high-street-sign.jpg",
-    ]}
+    links={{
+        "tabby": "https://www.myarlingtonvet.com/blog/when-it-comes-to-feline-body-language-look-at-the-tail/",
+        "gray cat": "https://www.fearfreehappyhomes.com/what-movement-and-gait-tell-you-about-your-cat/",
+        "lion": "https://stock.adobe.com/category/lions/57?asset_id=179693709",
+        "rat": "https://profesfar.com/cac-loai-chuot-gay-hai-pho-bien",
+        "wood plank": "https://unsplash.com/photos/brown-wooden-plank-with-white-background-uDT8nh0I-vk",
+        "mouse": "https://thewirecutter.com/reviews/best-wireless-mouse/",
+        "stop sign": "https://www.lorenzoandlorenzo.com/blog/auto-motorcycle-accidents/stopping-at-stop-signs/",
+        "one way sign": "https://www.compliancesigns.com/pd/reflective-federal-mutcd-r6-1-one-way-right-arrow-sign-cs726051",
+        "car crash": "https://ewscripps.brightspotcdn.com/dims4/default/88c1287/2147483647/strip/true/crop/1004x565+0+83/resize/1280x720!/quality/90/?url=http%3A%2F%2Fewscripps-brightspot.s3.amazonaws.com%2Ffc%2F02%2F802e083f4ae793cb0b32f790ac95%2Ffatal-crash3.jpg",
+        "high street": "https://indianapublicmedia.org/images/news-images/high-street-sign.jpg",
+    }}
 >
 </Sources>
 

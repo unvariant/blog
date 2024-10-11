@@ -12,18 +12,29 @@ let processing = 0;
 let waiting = 0;
 let finished = false;
 
+function shouldExit() {
+    return processing == 0 && waiting == 0 && finished;
+}
+
 parentPort.on('message', async (data) => {
     if (data === "done") {
         finished = true;
         console.log("worker acknowledge");
+        if (shouldExit()) {
+            console.log("no more work.");
+            console.log("exiting on reqeust");
+            exit(0);
+        } else {
+            console.log("work still left in queue.");
+        }
     } else {
         const { file, sizes, formats } = data;
         waiting += 1;
         while (processing > 1) {
             await new Promise((resolve, reject) => setTimeout(resolve, 500));
         }
-        waiting -= 1;
         processing += 1;
+        waiting -= 1;
 
         const bytes = await readFile(file);
         const hash = crypto.createHash('md5').update(bytes).digest('hex');

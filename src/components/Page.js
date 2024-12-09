@@ -2,7 +2,7 @@ import Footer from "./Footer.mdx";
 import FileEntry from "./FileEntry.js";
 import TopBar from "./TopBar.js";
 import Meta from "./Meta.js";
-import { useInfo } from "./InfoContext.js";
+import { useInfo } from "./Context.js";
 
 export default function (props) {
     const info = useInfo();

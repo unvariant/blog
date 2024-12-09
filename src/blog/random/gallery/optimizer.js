@@ -1,5 +1,5 @@
 import { parentPort } from "node:worker_threads";
-import config from "../../../utils/config.js";
+import config from "#utils/config.js";
 import path from "node:path";
 import { importPSD } from "./Optimize.js";
 import { readFile, mkdir, copyFile } from "node:fs/promises";

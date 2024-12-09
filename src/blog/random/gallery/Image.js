@@ -1,4 +1,4 @@
-import { useInfo } from "../../../components/InfoContext.js";
+import { useInfo } from "#components/Context.js";
 import path from "node:path";
 import { optimizer } from "./handle.js";
 import sizeOf from "image-size";

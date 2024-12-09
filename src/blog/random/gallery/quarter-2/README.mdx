@@ -2,12 +2,24 @@ import Image from '../Image.js'
 import Gallery from '../Gallery.js'
 import Sources from "../Sources.js"
 
-export const layout = "./src/components/Gallery.js";
+export const layout = "#components/Gallery.js";
 
 <div class="center fullwidth">
     <h1>quarter 2</h1>
     <hr></hr>
 </div>
+
+<Gallery
+    mainTitle={ <h2>Landscapes</h2> }
+    target="landscapes"
+    columns={ 2 }
+></Gallery>
+
+<Gallery
+    mainTitle={ <h2>Movie Posters</h2> }
+    target="posters"
+    columns={ 2 }
+></Gallery>
 
 <Gallery
     mainTitle={ <h2>Logos</h2> }
@@ -17,7 +29,7 @@ export const layout = "./src/components/Gallery.js";
 
 <Gallery
     mainTitle={ <h2>Color Theory Mandalas</h2>}
-    target="mandala"
+    target="mandalas"
     columns={ 2 }
 ></Gallery>
 

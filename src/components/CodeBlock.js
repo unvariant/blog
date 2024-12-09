@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import hljs from "../highlight.js";
-import { useInfo } from "./InfoContext.js";
+import { useInfo } from "./Context.js";
 import { getInfo } from "../utils/info.js";
 import config from "../utils/config.js";
 

@@ -1,8 +1,12 @@
 {
   "scripts": {
     "build": "PATH=\"./dist:$PATH\" CACHE_DIR=./_cache node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js build.js",
-    "dev": "npm run build --dev",
+    "dev": "nodemon npm run build --dev",
     "postinstall": "node download.js && patch-package"
+  },
+  "imports": {
+    "#components/*": "./src/components/*",
+    "#utils/*": "./src/utils/*"
   },
   "type": "module",
   "devDependencies": {

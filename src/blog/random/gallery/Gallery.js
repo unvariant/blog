@@ -1,5 +1,5 @@
 import Image from './Image.js';
-import { useInfo } from '../../../components/InfoContext.js';
+import { useInfo } from '#components/Context.js';
 import path from "node:path";
 
 const imageFormats = [
@@ -48,6 +48,7 @@ export default function (props) {
                     columnGap: "5px",
                     gridAutoRows: "min-content",
                     boxSizing: "border-box",
+                    justifyItems: "center",
                 }} className="fullwidth">
                     { main }
                 </div>

@@ -8,10 +8,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { execSync } from "node:child_process";
 import NodeBuffer from "node:buffer";
-import componentMap from "./src/components.js"
+import componentMap from "./src/components.js";
 import Highlight from "./src/components/Highlight.js";
 import Page from "./src/components/Page.js";
-import { InfoContext } from "./src/components/InfoContext.js";
+import { InfoContext, PageContext } from "./src/components/Context.js";
 
 async function unknownProcessor(info) {
     switch (info.basename.toLowerCase()) {
@@ -20,7 +20,9 @@ async function unknownProcessor(info) {
         case "dockerfile":
             return process("dockerfile", info);
         default:
-            if (info.source.subarray(0, 4).compare(Buffer.from("\x7fELF")) == 0) {
+            if (
+                info.source.subarray(0, 4).compare(Buffer.from("\x7fELF")) == 0
+            ) {
                 return process("elf", info);
             }
             // const type = await fileTypeFromBuffer(info.source);
@@ -34,8 +36,12 @@ async function unknownProcessor(info) {
             if (NodeBuffer.isUtf8(info.source.subarray(0, 100))) {
                 return (
                     <div>
-                        <Highlight lang="text" source={ info.source.toString() } filename={ info.filename } always>
-                        </Highlight>
+                        <Highlight
+                            lang="text"
+                            source={info.source.toString()}
+                            filename={info.filename}
+                            always
+                        ></Highlight>
                     </div>
                 );
             }
@@ -43,11 +49,11 @@ async function unknownProcessor(info) {
 }
 
 function withInfo(info, element) {
-    return (
-        <InfoContext.Provider value={ info }>
-            { element }
-        </InfoContext.Provider>
-    );
+    return <InfoContext.Provider value={info}>{element}</InfoContext.Provider>;
+}
+
+function withPage(info, element) {
+    return <PageContext.Provider value={info}>{element}</PageContext.Provider>;
 }
 
 export async function mdxToHtml(info, options) {
@@ -72,28 +78,35 @@ export async function render(info) {
         const extname = info.extname.toLowerCase();
         element = await process(extname, info, unknownProcessor);
     } else if (info.stats.isDirectory()) {
-        let readme = (
-            <div></div>
-        );
+        let readme = <div></div>;
         const children = await Promise.all(info.children.map(render));
         for (const child of children) {
-            if (child.stats.isFile() && child.basename.toLowerCase().startsWith("readme")) {
+            if (
+                child.stats.isFile() &&
+                child.basename.toLowerCase().startsWith("readme")
+            ) {
                 readme = child.element;
                 if (child.requestedLayout) {
-                    const { default: Content, ...props } = await import(`file:///${config.cwd}/${child.requestedLayout}`);
+                    let layoutLink = `file:///${config.cwd}/${child.requestedLayout}`;
+                    if (child.requestedLayout.startsWith("#")) {
+                        layoutLink = child.requestedLayout;
+                    }
+                    const { default: Content, ...props } = await import(
+                        layoutLink
+                    );
                     layout = Content;
                 }
             }
         }
-        
+
         element = readme;
     } else if (info.stats.isSymbolicLink()) {
         const target = await fs.readlink(info.absolutePath);
         element = (
             <div>
                 <p>
-                    { "symbolic link to " }
-                    <a href={ `../${target}` }>{ target }</a>
+                    {"symbolic link to "}
+                    <a href={`../${target}`}>{target}</a>
                 </p>
             </div>
         );
@@ -103,10 +116,12 @@ export async function render(info) {
         element = (
             <div>
                 <p>
-                    <span>{ "cannot view binary file." }</span>
+                    <span>{"cannot view binary file."}</span>
                 </p>
                 <p>
-                    <a href="raw" download={info.filename}>{ "click to download instead." }</a>
+                    <a href="raw" download={info.filename}>
+                        {"click to download instead."}
+                    </a>
                 </p>
             </div>
         );
@@ -114,21 +129,28 @@ export async function render(info) {
 
     // capture layout before the element gets wrapped up
     const requestedLayout = element.props.layout;
+    const props = element.props;
     element = withInfo(info, element);
 
     info.parent.size += info.size;
     info.element = element;
     info.requestedLayout = requestedLayout;
 
-    const page = (
-        <InfoContext.Provider value={ info }>
-            { React.createElement(layout, {
+    const page = withPage(
+        props,
+        withInfo(
+            info,
+            React.createElement(layout, {
                 children: element,
-            }) }
-        </InfoContext.Provider>
+            })
+        )
     );
     const rendered = renderToStaticMarkup(page);
-    const outfile = path.join(config.buildRoot, info.relativePath, "index.html");
+    const outfile = path.join(
+        config.buildRoot,
+        info.relativePath,
+        "index.html"
+    );
     const outdir = path.dirname(outfile);
 
     if (info.relativePath.startsWith("..")) {
@@ -143,16 +165,26 @@ export async function render(info) {
         if (info.stats.size < 20 * 1024 * 1024) {
             await fs.copyFile(info.absolutePath, outraw);
         } else {
-            const repoRelativePath = path.relative(config.cwd, info.absolutePath);
-            const route = path.normalize(path.join("unvariant/blog/main/", repoRelativePath));
+            const repoRelativePath = path.relative(
+                config.cwd,
+                info.absolutePath
+            );
+            const route = path.normalize(
+                path.join("unvariant/blog/main/", repoRelativePath)
+            );
             const redirect = (
                 <html>
                     <head>
-                        <meta httpEquiv="refresh" content={ `0; url=https://raw.githubusercontent.com/${route}` } />
+                        <meta
+                            httpEquiv="refresh"
+                            content={`0; url=https://raw.githubusercontent.com/${route}`}
+                        />
                     </head>
                     <body>
                         <p>
-                            { "sorry this file too large for cloudflare pages, redirecting to github instead." }
+                            {
+                                "sorry this file too large for cloudflare pages, redirecting to github instead."
+                            }
                         </p>
                     </body>
                 </html>

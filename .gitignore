@@ -7,8 +7,11 @@ _cache/*
 testing/
 **/zig-cache/
 **/__pycache__/
+**/.DS_Store
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 restore/
+
+src/blog/friends/

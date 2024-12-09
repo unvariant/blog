@@ -1,7 +1,7 @@
 import playwright from "playwright-core";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import config from "../../../utils/config.js";
+import config from "#utils/config.js";
 
 const formats = [
     "JPG",

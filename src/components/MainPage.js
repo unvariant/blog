@@ -67,9 +67,7 @@ export default function (props) {
                     >
                         {props.children}
                     </div>
-                    <div style={{
-                        textAlign: "right"
-                    }}>
+                    <div>
                         <h4>recent posts</h4>
                         {recent}
                     </div>

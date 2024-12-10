@@ -65,13 +65,7 @@ export default function (props) {
                     >
                         {props.children}
                     </div>
-                    <div style={{
-                        overflow: "hidden",
-                        overflowWrap: "break-word",
-                        width: "100%",
-                        textAlign: "right",
-                        paddingLeft: "1vw",
-                    }}>
+                    <div id="posts">
                         <h4>recent posts</h4>
                         {recent}
                     </div>

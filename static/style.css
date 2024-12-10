@@ -20,7 +20,7 @@ body {
     padding-right: var(--right-padding);
 }
 
-body * {
+#_content {
     max-width: var(--max-blog-width);
 }
 
@@ -72,13 +72,25 @@ body details.codeblock * {
     flex-direction: row;
 }
 
+#posts {
+    overflow: hidden;
+    overflow-wrap: break-word;
+    width: 100%;
+    text-align: right;
+    padding-left: 1vw;
+}
+
 /* 80ch magic number is derived from --max-blog-width */
 /* TODO: fix sidebar on mobile */
-/* @media screen and (max-width:calc(80ch + 30ch)) {
+@media screen and (max-width:calc(80ch + 40ch)) {
     .side-bar {
         flex-direction: column;
     }
-} */
+
+    #posts {
+        max-width: min(calc(100vw - var(--left-padding) - var(--right-padding) * 2), var(--max-file-width));
+    }
+}
 
 
 .top-bar-group {

@@ -1,14 +1,15 @@
 # TODOS
 
 - [ ] fix hot reloading
-- [ ] FIX RSS
+- [x] FIX RSS
 - [x] add topbar?
 - [ ] fix file line highlighting from overlay to background
 - [ ] ctags???
 - [ ] wasm unicorn based heap simulation
 - [ ] fix checksec
-- [ ] add recently posted list
+- [x] add recently posted list
 - [ ] fix mobile :P
-- [ ] gallery image optimizations
+- [x] gallery image optimizations
+- [ ] merge the concept of a "post" in build.js and MainPage.js
 
 If you have any suggestions feel free to message me on discord `@unvariant.winter`.

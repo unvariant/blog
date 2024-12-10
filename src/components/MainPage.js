@@ -68,8 +68,9 @@ export default function (props) {
                         {props.children}
                     </div>
                     <div style={{
+                        overflow: "hidden",
                         overflowWrap: "break-word",
-                        maxWidth: "calc(var(--max-file-width) - var(--max-blog-width))",
+                        width: "100%",
                         textAlign: "right",
                         paddingLeft: "1vw",
                     }}>

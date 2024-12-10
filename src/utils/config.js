@@ -20,7 +20,10 @@ export async function getCachedDates() {
     if (existsSync(cachedDateFile)) {
         console.log(`[+] using cached dates ${cachedDateFile}`);
         const dates = JSON.parse(await fs.readFile(cachedDateFile, { encoding: "utf-8" }));
-        return Object.fromEntries(Object.entries(dates).map(([key, val]) => [key, new Date(val)]));
+        return Object.fromEntries(Object.entries(dates).map(([key, { modified, created }]) => [key, {
+            modified: new Date(modified),
+            created: new Date(created),
+        }]));
     } else {
         console.log(`[+] regenerating cached dates`);
         const dates = {};
@@ -34,7 +37,16 @@ export async function getCachedDates() {
             if (isNaN(lastModifiedDate)) {
                 lastModifiedDate = new Date(0);
             }
-            dates[absolutePath] = lastModifiedDate;
+            let creationDate = new Date(
+                execSync(`git log --pretty="format:%cD" ${absolutePath} | tail -n 1`, { encoding: "utf-8"})
+            );
+            if (isNaN(creationDate)) {
+                creationDate = new Date(0);
+            }
+            dates[absolutePath] = {
+                modified: lastModifiedDate,
+                created: creationDate,
+            };
         }
         await setCachedDates(dates);
         return dates;
@@ -57,7 +69,7 @@ const files = execSync(`fd --hidden . '${blogRoot}'`, { encoding: "utf-8", maxBu
     .filter((s) => s.length > 0)
     .concat([blogRoot])
     .map((file) => path.parse(file));
-const dates = await getCachedDates();
+export const dates = await getCachedDates();
 
 export default {
     cwd,

@@ -160,8 +160,8 @@ function rssHook(info, elem) {
             id: url,
             description: elem.props.description,
             image,
-            auhtor: authors,
-            date: dates[info.absolutePath],
+            author: authors,
+            date: dates[info.absolutePath].modified,
         });
     }
 }

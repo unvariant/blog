@@ -1,8 +1,8 @@
+import { useInfo } from "./Context.js";
 import Footer from "./Footer.mdx";
-import FileEntry from "./FileEntry.js";
 import TopBar from "./TopBar.js";
 import Meta from "./Meta.js";
-import { useInfo } from "./Context.js";
+import Files from "./Files.js";
 
 export default function (props) {
     const info = useInfo();
@@ -16,16 +16,7 @@ export default function (props) {
             <body>
                 <TopBar></TopBar>
 
-                { info.children
-                    .filter(info => info.stats.isDirectory())
-                    .sort((a, b) => a.filename.localeCompare(b.filename))
-                    .map(FileEntry)
-                }
-                { info.children
-                    .filter(info => info.stats.isFile() || info.stats.isSymbolicLink())
-                    .sort((a, b) => a.filename.localeCompare(b.filename))
-                    .map(FileEntry)
-                }
+                <Files></Files>
 
                 <div id="_content" style={{
                     scrollMarginTop: "48px",

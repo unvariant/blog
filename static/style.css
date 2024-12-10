@@ -30,6 +30,9 @@ body .file,
     max-width: var(--max-file-width);
     width: min(calc(100vw - var(--left-padding) - var(--right-padding)), var(--max-file-width));
 }
+.blogwidth {
+    max-width: var(--max-blog-width);
+}
 
 body details.codeblock,
 body details.codeblock * {

@@ -52,17 +52,15 @@ export default function (props) {
                 <Files></Files>
 
                 <div
-                    className="fullwidth"
-                    style={{
-                        display: "flex",
-                        flexDirection: "row",
-                    }}
+                    className="fullwidth side-bar"
                 >
                     <div
                         id="_content"
                         className="blogwidth"
                         style={{
                             scrollMarginTop: "48px",
+                            overflow: "hidden",
+                            overflowWrap: "break-word",
                         }}
                     >
                         {props.children}

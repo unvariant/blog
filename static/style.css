@@ -32,7 +32,7 @@ body .file,
 }
 .blogwidth {
     max-width: var(--max-blog-width);
-    min-width: var(--max-blog-width);
+    min-width: min(100vw - var(--left-padding) - var(--right-padding), var(--max-blog-width));
 }
 
 body details.codeblock,
@@ -66,6 +66,20 @@ body details.codeblock * {
     align-items: center;
     justify-content: space-between;
 }
+
+.side-bar {
+    display: flex;
+    flex-direction: row;
+}
+
+/* 80ch magic number is derived from --max-blog-width */
+/* TODO: fix sidebar on mobile */
+/* @media screen and (max-width:calc(80ch + 30ch)) {
+    .side-bar {
+        flex-direction: column;
+    }
+} */
+
 
 .top-bar-group {
     display: flex;

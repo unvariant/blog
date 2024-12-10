@@ -70,7 +70,7 @@ export default function (props) {
                     <div style={{
                         textAlign: "right"
                     }}>
-                        <h4>posts</h4>
+                        <h4>recent posts</h4>
                         {recent}
                     </div>
                 </div>

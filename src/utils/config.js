@@ -3,8 +3,9 @@ import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 
+const developmentMode = /(--dev)/.test(process.execArgv.join(' '));
 export function isDevelopmentMode() {
-    return /(--dev)/.test(process.execArgv.join(' '));
+    return developmentMode;
 }
 
 export function getAbsolutePath(file) {
@@ -19,7 +20,7 @@ export async function getCachedDates() {
     if (existsSync(cachedDateFile)) {
         console.log(`[+] using cached dates ${cachedDateFile}`);
         const dates = JSON.parse(await fs.readFile(cachedDateFile, { encoding: "utf-8" }));
-        return dates;
+        return Object.fromEntries(Object.entries(dates).map(([key, val]) => [key, new Date(val)]));
     } else {
         console.log(`[+] regenerating cached dates`);
         const dates = {};
@@ -65,4 +66,7 @@ export default {
     cacheRoot,
     files,
     dates,
+    hostname: "https://unvariant.pages.dev",
+    author: "unvariant",
+    email: "unvariant.winter@gmail.com",
 };

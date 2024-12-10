@@ -1,17 +1,17 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { getInfo } from "./src/utils/info.js";
-import config from "./src/utils/config.js";
+import { getInfo } from "./utils/info.js";
+import config from "./utils/config.js";
 import { register, process } from "./processor.js";
 import { fileTypeFromBuffer } from "file-type";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { execSync } from "node:child_process";
 import NodeBuffer from "node:buffer";
-import componentMap from "./src/components.js";
-import Highlight from "./src/components/Highlight.js";
-import Page from "./src/components/Page.js";
-import { InfoContext, PageContext } from "./src/components/Context.js";
+import componentMap from "./components.js";
+import Highlight from "./components/Highlight.js";
+import Page from "./components/Page.js";
+import { InfoContext, PageContext } from "./components/Context.js";
 
 async function unknownProcessor(info) {
     switch (info.basename.toLowerCase()) {
@@ -70,16 +70,18 @@ export async function mdxToHtml(info, options) {
     return element;
 }
 
-export async function render(info) {
+export async function render(info, hooks) {
     let element = undefined;
     let layout = Page;
+
+    for (const hook of hooks["preprocess"]) { hook(info); }
 
     if (info.stats.isFile()) {
         const extname = info.extname.toLowerCase();
         element = await process(extname, info, unknownProcessor);
     } else if (info.stats.isDirectory()) {
         let readme = <div></div>;
-        const children = await Promise.all(info.children.map(render));
+        const children = await Promise.all(info.children.map((i) => render(i, hooks)));
         for (const child of children) {
             if (
                 child.stats.isFile() &&
@@ -126,6 +128,8 @@ export async function render(info) {
             </div>
         );
     }
+
+    for (const hook of hooks["prerender"]) { hook(info, element); }
 
     // capture layout before the element gets wrapped up
     const requestedLayout = element.props.layout;

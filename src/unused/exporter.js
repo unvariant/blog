@@ -2,8 +2,8 @@ import playwright from "playwright-core";
 import path from "node:path";
 import { readdir } from "node:fs/promises";
 import { exit } from "node:process";
-import config from "./src/utils/config.js";
-import { importPSD } from "./src/blog/random/gallery/Optimize.js";
+import config from "#utils/config.js";
+import { importPSD } from "#blog/random/gallery/Optimize.js";
 
 const target = "."
 const psds = (await readdir(path.join(config.cwd, target))).filter(file => file.endsWith(".psd"));

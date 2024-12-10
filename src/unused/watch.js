@@ -2,8 +2,8 @@ import nodemon from "nodemon";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Builder } from "./build.js";
-import { getInfo, removeInfo } from "./src/utils/info.js";
-import config from "./src/utils/config.js";
+import { getInfo, removeInfo } from "#utils/info.js";
+import config from "#utils/config.js";
 
 const builder = new Builder();
 

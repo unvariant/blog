@@ -9,5 +9,5 @@
     "verbose": true,
     "exec": "npm run build",
     "ext": "*",
-    "watch": ["./src", "./static", "build.js"]
+    "watch": ["src", "static", "build.js", "render.js"]
 }

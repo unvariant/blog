@@ -67,7 +67,12 @@ export default function (props) {
                     >
                         {props.children}
                     </div>
-                    <div>
+                    <div style={{
+                        overflowWrap: "break-word",
+                        maxWidth: "calc(var(--max-file-width) - var(--max-blog-width))",
+                        textAlign: "right",
+                        paddingLeft: "1vw",
+                    }}>
                         <h4>recent posts</h4>
                         {recent}
                     </div>

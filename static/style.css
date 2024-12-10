@@ -32,6 +32,7 @@ body .file,
 }
 .blogwidth {
     max-width: var(--max-blog-width);
+    min-width: var(--max-blog-width);
 }
 
 body details.codeblock,

@@ -39,7 +39,6 @@ function grabIcon(stats) {
 
 export default function(info, options) {
     const wantsMeta = options.hasOwnProperty("meta") ? options.meta : true;
-
     const meta = wantsMeta ? (
         <div className="file-meta">
             <span>{ formatSize(info.size) }</span>

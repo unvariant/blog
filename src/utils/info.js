@@ -43,7 +43,7 @@ class Info {
         if (relativePath.startsWith("..")) {
             lastModifiedDate = new Date(-1);
         } else {
-            lastModifiedDate = new Date(config.dates[absolutePath]);
+            lastModifiedDate = new Date(config.dates[absolutePath].modified);
         }
         
         this.absolutePath = absolutePath;

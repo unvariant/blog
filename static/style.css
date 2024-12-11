@@ -28,11 +28,17 @@ body details.codeblock,
 body .file,
 .fullwidth {
     max-width: var(--max-file-width);
-    width: min(calc(100vw - var(--left-padding) - var(--right-padding)), var(--max-file-width));
+    width: min(
+        calc(100vw - var(--left-padding) - var(--right-padding)),
+        var(--max-file-width)
+    );
 }
 .blogwidth {
     max-width: var(--max-blog-width);
-    min-width: min(100vw - var(--left-padding) - var(--right-padding), var(--max-blog-width));
+    min-width: min(
+        100vw - var(--left-padding) - var(--right-padding),
+        var(--max-blog-width)
+    );
 }
 
 body details.codeblock,
@@ -82,16 +88,18 @@ body details.codeblock * {
 
 /* 80ch magic number is derived from --max-blog-width */
 /* TODO: fix sidebar on mobile */
-@media screen and (max-width:calc(80ch + 40ch)) {
+@media screen and (max-width: calc(80ch + 40ch)) {
     .side-bar {
         flex-direction: column;
     }
 
     #posts {
-        max-width: min(calc(100vw - var(--left-padding) - var(--right-padding) * 2), var(--max-file-width));
+        max-width: min(
+            calc(100vw - var(--left-padding) - var(--right-padding) * 2),
+            var(--max-file-width)
+        );
     }
 }
-
 
 .top-bar-group {
     display: flex;
@@ -148,12 +156,12 @@ h6 a:hover {
     text-decoration: none;
 }
 
-h1>a .hash,
-h2>a .hash,
-h3>a .hash,
-h4>a .hash,
-h5>a .hash,
-h6>a .hash {
+h1 > a .hash,
+h2 > a .hash,
+h3 > a .hash,
+h4 > a .hash,
+h5 > a .hash,
+h6 > a .hash {
     margin-right: 1rem;
 }
 
@@ -203,7 +211,7 @@ h6>a .hash {
 }
 
 /* normally mobile is 480px */
-@media screen and (max-width:520px) {
+@media screen and (max-width: 520px) {
     .file-meta {
         display: none;
     }
@@ -227,15 +235,15 @@ h6>a .hash {
   margin-bottom: 0.5rem;
 } */
 
-details.codeblock>summary {
+details.codeblock > summary {
     list-style: none;
 }
 
-details.codeblack>summary::-webkit-details-marker {
+details.codeblack > summary::-webkit-details-marker {
     display: none;
 }
 
-details.codeblock>summary {
+details.codeblock > summary {
     display: -webkit-inline-flex;
     display: -ms-inline-flexbox;
     display: inline-flex;
@@ -282,7 +290,7 @@ details.codeblock .code-block-lines pre {
     margin-right: 1rem;
 }
 
-.code-block-lines>pre {
+.code-block-lines > pre {
     border-right: solid black 1px;
     margin-top: 0;
     user-select: none;
@@ -290,20 +298,20 @@ details.codeblock .code-block-lines pre {
     width: 3rem;
 }
 
-.code-block-lines>pre a,
-.code-block-lines>pre a:link,
-.code-block-lines>pre a:visited,
-.code-block-lines>pre a:hover {
+.code-block-lines > pre a,
+.code-block-lines > pre a:link,
+.code-block-lines > pre a:visited,
+.code-block-lines > pre a:hover {
     color: black;
     text-decoration: none;
     scroll-margin-top: 50vh;
 }
 
-.code-block-lines>pre a .highlight {
+.code-block-lines > pre a .highlight {
     display: none;
 }
 
-.code-block-lines>pre a:target .highlight {
+.code-block-lines > pre a:target .highlight {
     background-color: rgba(255, 255, 170, 0.3);
     position: relative;
     width: 100vw;

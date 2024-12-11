@@ -3,7 +3,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 
-const developmentMode = /(--dev)/.test(process.execArgv.join(' '));
+const developmentMode = /(--dev)/.test(process.execArgv.join(" "));
 export function isDevelopmentMode() {
     return developmentMode;
 }
@@ -19,11 +19,18 @@ export async function getCachedDates() {
 
     if (existsSync(cachedDateFile)) {
         console.log(`[+] using cached dates ${cachedDateFile}`);
-        const dates = JSON.parse(await fs.readFile(cachedDateFile, { encoding: "utf-8" }));
-        return Object.fromEntries(Object.entries(dates).map(([key, { modified, created }]) => [key, {
-            modified: new Date(modified),
-            created: new Date(created),
-        }]));
+        const dates = JSON.parse(
+            await fs.readFile(cachedDateFile, { encoding: "utf-8" })
+        );
+        return Object.fromEntries(
+            Object.entries(dates).map(([key, { modified, created }]) => [
+                key,
+                {
+                    modified: new Date(modified),
+                    created: new Date(created),
+                },
+            ])
+        );
     } else {
         console.log(`[+] regenerating cached dates`);
         const dates = {};
@@ -38,7 +45,10 @@ export async function getCachedDates() {
                 lastModifiedDate = new Date(0);
             }
             let creationDate = new Date(
-                execSync(`git log --pretty="format:%cD" ${absolutePath} | tail -n 1`, { encoding: "utf-8"})
+                execSync(
+                    `git log --pretty="format:%cD" ${absolutePath} | tail -n 1`,
+                    { encoding: "utf-8" }
+                )
             );
             if (isNaN(creationDate)) {
                 creationDate = new Date(0);
@@ -60,16 +70,27 @@ export async function setCachedDates(dates) {
 const cwd = path.resolve("");
 const blogRoot = path.resolve(cwd, "src/blog");
 const buildRoot = path.resolve(cwd, "_build");
-const cacheRoot = path.resolve("_cache"); 
+const cacheRoot = path.resolve("_cache");
 const cachedDateFile = path.join(cacheRoot, "cached_dates.json");
 await fs.mkdir(path.dirname(cachedDateFile), { recursive: true });
-const files = execSync(`fd --hidden . '${blogRoot}'`, { encoding: "utf-8", maxBuffer: 1024 * 1024 * 4 })
+const files = execSync(`fd --hidden . '${blogRoot}'`, {
+    encoding: "utf-8",
+    maxBuffer: 1024 * 1024 * 4,
+})
     .trim()
     .split("\n")
     .filter((s) => s.length > 0)
     .concat([blogRoot])
     .map((file) => path.parse(file));
 export const dates = await getCachedDates();
+const postWhitelist = ["writeups", "posts", "notes"];
+export const posts = files
+    .filter(
+        (p) =>
+            postWhitelist.find((w) => path.format(p).startsWith(w)) &&
+            p.base.toLowerCase() == "readme"
+    )
+    .map((p) => p.dir);
 
 export default {
     cwd,

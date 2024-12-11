@@ -1,7 +1,7 @@
 import "react";
 import fs from "node:fs/promises";
 import { getInfo } from "./utils/info.js";
-import config, { isDevelopmentMode, getCachedDates } from "./utils/config.js";
+import config, { isDevelopmentMode, dates, posts } from "./utils/config.js";
 import { register } from "./processor.js";
 import { execSync } from "node:child_process";
 import Highlight from "./components/Highlight.js";
@@ -130,16 +130,8 @@ const feed = new Feed({
         email: config.email,
     },
 });
-const dates = await getCachedDates();
-const blacklistedRssPaths = [path.join("random", "gallery")];
 function rssHook(info, elem) {
-    if (info.basename.toLowerCase() == "readme") {
-        for (const item of blacklistedRssPaths) {
-            if (info.relativePath.startsWith(item)) {
-                return;
-            }
-        }
-
+    if (posts.indexOf(info.parent.absolutePath) != -1) {
         const title = elem.props.title || `/${info.parent.relativePath}`;
         // TODO get default image here
         const image = elem.props.image || undefined;

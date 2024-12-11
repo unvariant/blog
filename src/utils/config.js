@@ -68,7 +68,7 @@ export async function setCachedDates(dates) {
 }
 
 const cwd = path.resolve("");
-const blogRoot = path.resolve(cwd, "src/blog");
+const blogRoot = path.resolve(cwd, "src", "blog");
 const buildRoot = path.resolve(cwd, "_build");
 const cacheRoot = path.resolve("_cache");
 const cachedDateFile = path.join(cacheRoot, "cached_dates.json");
@@ -83,14 +83,16 @@ const files = execSync(`fd --hidden . '${blogRoot}'`, {
     .concat([blogRoot])
     .map((file) => path.parse(file));
 export const dates = await getCachedDates();
-const postWhitelist = ["writeups", "posts", "notes"];
+const postWhitelist = ["writeups", "posts", "notes"].map((p) =>
+    path.resolve(`src/blog/${p}`)
+);
 export const posts = files
     .filter(
         (p) =>
             postWhitelist.find((w) => path.format(p).startsWith(w)) &&
-            p.base.toLowerCase() == "readme"
+            p.name.toLowerCase() == "readme"
     )
-    .map((p) => p.dir);
+    .map((p) => path.resolve(p.dir));
 
 export default {
     cwd,

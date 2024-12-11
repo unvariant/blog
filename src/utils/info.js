@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { lstatSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import config from "./config.js";
+import config, { dates } from "./config.js";
 
 export const infoMemo = new Map();
 
@@ -33,6 +33,10 @@ class Info {
      * @param {string} absolutePath
      */
     constructor(absolutePath) {
+        if (typeof absolutePath !== "string") {
+            console.warn(`${absolutePath} is not a string`);
+        }
+
         const relativePath = path.relative(config.blogRoot, absolutePath);
         const extname = path.extname(absolutePath);
         const basename = path.basename(absolutePath, extname);
@@ -43,7 +47,7 @@ class Info {
         if (relativePath.startsWith("..")) {
             lastModifiedDate = new Date(-1);
         } else {
-            lastModifiedDate = new Date(config.dates[absolutePath].modified);
+            lastModifiedDate = new Date(dates[absolutePath].modified);
         }
 
         this.absolutePath = absolutePath;

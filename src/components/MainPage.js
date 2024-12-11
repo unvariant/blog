@@ -2,21 +2,12 @@ import Footer from "./Footer.mdx";
 import TopBar from "./TopBar.js";
 import Meta from "./Meta.js";
 import Files from "./Files.js";
-import config, { dates } from "#utils/config.js";
+import config, { dates, posts } from "#utils/config.js";
 import { getInfo } from "#utils/info.js";
 
 export default function (props) {
-    const postWhitelist = ["writeups", "notes"];
-    const recent = Object.entries(dates)
-        .map(([p, date]) => [getInfo(p), date.created])
-        .filter(
-            ([info, date]) =>
-                info.basename.toLowerCase() == "readme" &&
-                postWhitelist.find((entry) =>
-                    info.parent.relativePath.startsWith(entry)
-                ) &&
-                info.stats.isFile()
-        )
+    const recent = posts
+        .map((p) => [getInfo(p), dates[p].created])
         .sort(([i1, a], [i2, b]) => {
             // reverse sort
             if (a == b) {
@@ -34,8 +25,8 @@ export default function (props) {
                     {date.toDateString()}
                     <br></br>
                     <a
-                        href={`${config.hostname}/${info.parent.relativePath}`}
-                    >{`${info.parent.filename}`}</a>
+                        href={`${config.hostname}/${info.relativePath}`}
+                    >{`${info.filename}`}</a>
                 </p>
             );
         });
@@ -51,9 +42,7 @@ export default function (props) {
 
                 <Files></Files>
 
-                <div
-                    className="fullwidth side-bar"
-                >
+                <div className="fullwidth side-bar">
                     <div
                         id="_content"
                         className="blogwidth"

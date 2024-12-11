@@ -1,27 +1,27 @@
-import * as path from "node:path"
-import { execSync } from "node:child_process"
-import fs from "node:fs/promises"
-import { existsSync } from "node:fs"
+import * as path from "node:path";
+import { execSync } from "node:child_process";
+import fs from "node:fs/promises";
+import { existsSync } from "node:fs";
 
-const developmentMode = /(--dev)/.test(process.execArgv.join(" "))
+const developmentMode = /(--dev)/.test(process.execArgv.join(" "));
 export function isDevelopmentMode() {
-    return developmentMode
+    return developmentMode;
 }
 
 export function getAbsolutePath(file) {
-    return path.join(file.dir, file.base)
+    return path.join(file.dir, file.base);
 }
 
 export async function getCachedDates() {
     if (isDevelopmentMode()) {
-        return {}
+        return {};
     }
 
     if (existsSync(cachedDateFile)) {
-        console.log(`[+] using cached dates ${cachedDateFile}`)
+        console.log(`[+] using cached dates ${cachedDateFile}`);
         const dates = JSON.parse(
             await fs.readFile(cachedDateFile, { encoding: "utf-8" })
-        )
+        );
         return Object.fromEntries(
             Object.entries(dates).map(([key, { modified, created }]) => [
                 key,
@@ -30,49 +30,49 @@ export async function getCachedDates() {
                     created: new Date(created),
                 },
             ])
-        )
+        );
     } else {
-        console.log(`[+] regenerating cached dates`)
-        const dates = {}
+        console.log(`[+] regenerating cached dates`);
+        const dates = {};
         for (const file of files) {
-            const absolutePath = getAbsolutePath(file)
+            const absolutePath = getAbsolutePath(file);
             let lastModifiedDate = new Date(
                 execSync(`git log -1 --pretty="format:%cD" ${absolutePath}`, {
                     encoding: "utf-8",
                 })
-            )
+            );
             if (isNaN(lastModifiedDate)) {
-                lastModifiedDate = new Date(0)
+                lastModifiedDate = new Date(0);
             }
             let creationDate = new Date(
                 execSync(
                     `git log --pretty="format:%cD" ${absolutePath} | tail -n 1`,
                     { encoding: "utf-8" }
                 )
-            )
+            );
             if (isNaN(creationDate)) {
-                creationDate = new Date(0)
+                creationDate = new Date(0);
             }
             dates[absolutePath] = {
                 modified: lastModifiedDate,
                 created: creationDate,
-            }
+            };
         }
-        await setCachedDates(dates)
-        return dates
+        await setCachedDates(dates);
+        return dates;
     }
 }
 
 export async function setCachedDates(dates) {
-    await fs.writeFile(cachedDateFile, JSON.stringify(dates))
+    await fs.writeFile(cachedDateFile, JSON.stringify(dates));
 }
 
-const cwd = path.resolve("")
-const blogRoot = path.resolve(cwd, "src/blog")
-const buildRoot = path.resolve(cwd, "_build")
-const cacheRoot = path.resolve("_cache")
-const cachedDateFile = path.join(cacheRoot, "cached_dates.json")
-await fs.mkdir(path.dirname(cachedDateFile), { recursive: true })
+const cwd = path.resolve("");
+const blogRoot = path.resolve(cwd, "src/blog");
+const buildRoot = path.resolve(cwd, "_build");
+const cacheRoot = path.resolve("_cache");
+const cachedDateFile = path.join(cacheRoot, "cached_dates.json");
+await fs.mkdir(path.dirname(cachedDateFile), { recursive: true });
 const files = execSync(`fd --hidden . '${blogRoot}'`, {
     encoding: "utf-8",
     maxBuffer: 1024 * 1024 * 4,
@@ -81,16 +81,16 @@ const files = execSync(`fd --hidden . '${blogRoot}'`, {
     .split("\n")
     .filter((s) => s.length > 0)
     .concat([blogRoot])
-    .map((file) => path.parse(file))
-export const dates = await getCachedDates()
-const postWhitelist = ["writeups", "posts", "notes"]
+    .map((file) => path.parse(file));
+export const dates = await getCachedDates();
+const postWhitelist = ["writeups", "posts", "notes"];
 export const posts = files
     .filter(
         (p) =>
             postWhitelist.find((w) => path.format(p).startsWith(w)) &&
             p.base.toLowerCase() == "readme"
     )
-    .map((p) => p.dir)
+    .map((p) => p.dir);
 
 export default {
     cwd,
@@ -102,4 +102,4 @@ export default {
     hostname: "https://unvariant.pages.dev",
     author: "unvariant",
     email: "unvariant.winter@gmail.com",
-}
+};

@@ -1,14 +1,14 @@
-import { visit } from "unist-util-visit"
-import slugify from "slugify"
+import { visit } from "unist-util-visit";
+import slugify from "slugify";
 
 export default function () {
     return function (tree) {
-        visit(tree, "heading", visitor)
+        visit(tree, "heading", visitor);
 
         function visitor(node) {
-            const data = node.data || (node.data = {})
-            const props = data.hProperties || (data.hProperties = {})
-            const slug = slugify(collect(node)).toLowerCase()
+            const data = node.data || (node.data = {});
+            const props = data.hProperties || (data.hProperties = {});
+            const slug = slugify(collect(node)).toLowerCase();
 
             const children = [
                 {
@@ -20,10 +20,10 @@ export default function () {
                         },
                     },
                 },
-            ].concat(node.children)
+            ].concat(node.children);
 
-            data.id = slug
-            props.id = slug
+            data.id = slug;
+            props.id = slug;
 
             node.children = [
                 {
@@ -31,19 +31,19 @@ export default function () {
                     url: `#${slug}`,
                     children: children,
                 },
-            ]
+            ];
 
-            node.data.hProperties.className = ["scroll-target"]
+            node.data.hProperties.className = ["scroll-target"];
         }
 
         function collect(node) {
             if (node.hasOwnProperty("children")) {
-                return node.children.map(collect).join("")
+                return node.children.map(collect).join("");
             } else if (node.hasOwnProperty("value")) {
-                return node.value
+                return node.value;
             } else {
-                throw new Error("cannot determine node value")
+                throw new Error("cannot determine node value");
             }
         }
-    }
+    };
 }

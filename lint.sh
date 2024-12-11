@@ -1,13 +1,13 @@
-#!/bin/sh
+#!/bin/bash
 
-FILES="./src/**/*.mdx package.json src/utils src/plugins src/loaders src/bun-loaders src/build.js src/components.js src/highlight.js src/languages.js src/processor.js src/render.js"
+FILES=("package.json" "src/utils" "src/plugins" "src/loaders" "src/bun-loaders" "src/build.js" "src/components.js" "src/highlight.js" "src/languages.js" "src/processor.js" "src/render.js")
 
 if [[ "check" == "${1}" ]]; then
     echo "checking"
-    npx prettier --check ${FILES}
+    npx prettier --check ${FILES[*]}
 elif [[ "write" == "${1}" ]]; then
     echo "formatting"
-    npx prettier --write ${FILES}
+    npx prettier --write ${FILES[*]}
 else
     echo "usage - lint.sh [check|write]"
     exit 1

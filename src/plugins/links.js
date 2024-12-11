@@ -1,37 +1,37 @@
-import { visit } from "unist-util-visit"
+import { visit } from "unist-util-visit";
 
 export default function () {
     return function (tree) {
-        visit(tree, "link", visitor)
+        visit(tree, "link", visitor);
 
         function visitor(node) {
-            const data = node.data || (node.data = {})
-            const props = data.hProperties || (data.hProperties = {})
-            const url = node.url
+            const data = node.data || (node.data = {});
+            const props = data.hProperties || (data.hProperties = {});
+            const url = node.url;
 
             function getLinkType(url) {
                 // any string that starts with #
                 if (/^#(.*)/.exec(url)) {
-                    return "hash"
+                    return "hash";
                     // any string that starts with /
                 } else if (/^\/(.*)/.exec(url)) {
-                    return "relative"
+                    return "relative";
                     // any string with ://
                 } else if (url.indexOf("://") == -1) {
-                    return "relative"
+                    return "relative";
                 } else {
-                    return "external"
+                    return "external";
                 }
             }
 
-            const linkType = getLinkType(url)
+            const linkType = getLinkType(url);
 
-            props.title = node.url
+            props.title = node.url;
 
             if (linkType === "external") {
-                props.target = "_blank"
-                props.rel = "noopener"
+                props.target = "_blank";
+                props.rel = "noopener";
             }
         }
-    }
+    };
 }

@@ -44,7 +44,10 @@ class Info {
         const dirname = path.dirname(absolutePath);
         const stats = lstatSync(absolutePath);
         let lastModifiedDate = undefined;
-        if (relativePath.startsWith("..") || dates[absolutePath] === undefined) {
+        if (
+            relativePath.startsWith("..") ||
+            dates[absolutePath] === undefined
+        ) {
             lastModifiedDate = new Date(-1);
         } else {
             lastModifiedDate = new Date(dates[absolutePath].modified);

@@ -1,2 +1,4 @@
 _cache/
 glibc/
+libc.dump
+*.debug

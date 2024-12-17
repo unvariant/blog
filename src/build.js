@@ -150,7 +150,7 @@ function rssHook(info, elem) {
             description: elem.props.description,
             image,
             author: authors,
-            date: dates[info.absolutePath].modified,
+            date: dates[info.absolutePath]?.modified,
         });
     }
 }

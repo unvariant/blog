@@ -87,20 +87,20 @@ export async function render(info, hooks) {
             info.children.map((i) => render(i, hooks))
         );
         for (const child of children) {
-            if (
-                child.stats.isFile() &&
-                child.basename.toLowerCase().startsWith("readme")
-            ) {
-                readme = child.element;
-                if (child.requestedLayout) {
-                    let layoutLink = `file:///${config.cwd}/${child.requestedLayout}`;
-                    if (child.requestedLayout.startsWith("#")) {
-                        layoutLink = child.requestedLayout;
+            if (child.stats.isFile()) {
+                if (child.basename.toLowerCase().startsWith("readme")) {
+                    readme = child.element;
+
+                    if (child.requestedLayout) {
+                        let layoutLink = `file:///${config.cwd}/${child.requestedLayout}`;
+                        if (child.requestedLayout.startsWith("#")) {
+                            layoutLink = child.requestedLayout;
+                        }
+                        const { default: Content, ...props } = await import(
+                            layoutLink
+                        );
+                        layout = Content;
                     }
-                    const { default: Content, ...props } = await import(
-                        layoutLink
-                    );
-                    layout = Content;
                 }
             }
         }

@@ -47,9 +47,9 @@ parentPort.on('message', async (data) => {
             for (const format of formats) {
                 const img = `${width}x${height}.${format.toLowerCase()}`;
                 const cached = path.join(cache, img);
-
+                const meta = `${basename}.${format} ${width}.${height}`;
                 if (!existsSync(cached)) {
-                    console.log(`generating ${basename}.${format} ${width}.${height}`);
+                    console.log(`generating ${meta}`);
                     const psd = await importPSD(file);
                     const options = {
                         format,

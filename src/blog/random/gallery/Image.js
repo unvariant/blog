@@ -2,6 +2,7 @@ import { useInfo } from "#components/Context.js";
 import path from "node:path";
 import { optimizer } from "./handle.js";
 import sizeOf from "image-size";
+import { execSync } from "node:child_process";
 
 export default function (props) {
     const info = useInfo();
@@ -15,7 +16,38 @@ export default function (props) {
     let webps = [];
     let jpegs = [];
     if (optimize) {
-        const dimensions = sizeOf(src);
+        let dimensions = undefined;
+        try {
+            dimensions = sizeOf(src);
+        } catch (e) {
+            console.log(`error reading dimensions with image-size: ${e}`);
+        }
+        if (dimensions === undefined) {
+            try {
+                console.log(`slow path using file...`);
+                const output = execSync(`file ${src}`);
+                const parts = /([0-9]+)x([0-9]+)/.exec(output);
+                const dims = [parseInt(parts[1]), parseInt(parts[2])];
+                if (
+                    typeof dims[0] === "number" &&
+                    typeof dims[1] === "number"
+                ) {
+                    dimensions = {
+                        width: dims[0],
+                        height: dims[1],
+                    };
+                } else {
+                    console.log(
+                        `failed to parse image size from file output: ${output}`
+                    );
+                }
+            } catch (e) {
+                console.log(`error reading dimensions with file: ${e}`);
+            }
+        }
+        if (dimensions === undefined) {
+            throw new Error("failed to find image size");
+        }
         const sizes = [400, 800, 1440].map((width) => [
             width,
             Math.round((dimensions.height * width) / dimensions.width),

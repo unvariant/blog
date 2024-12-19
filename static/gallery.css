@@ -14,8 +14,8 @@ div.hide {
 }
 
 input[type="radio"].gallery:checked + * img {
-    height: 80vh;
-    max-width: 80vw;
+    height: 90vh;
+    max-width: 90vw;
     position: fixed;
     left: 50%;
     top: calc(50vh + var(--top-bar-height) / 2);

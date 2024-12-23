@@ -4,6 +4,8 @@ Organized in order of relevancy.
 
 ### one_gadget
 
+### ret2dlresolve
+
 ### stack pivot
 
 ### environ leak + ROP
@@ -14,7 +16,11 @@ Organized in order of relevancy.
 
 ### stdout wide vtable
 
+### binary GOT overwrite
+
 ### pthread async
+
+### house of muney
 
 ### custom printf functions
 

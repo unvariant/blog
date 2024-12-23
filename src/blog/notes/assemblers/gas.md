@@ -4,7 +4,7 @@ Pass the `-M intel` cli argument, or use `.intel_syntax noprefix` and switch bac
 
 ## macro varargs
 GAS supports varidic macro arguments, which is quite useful.
-```x86asm
+```x86asm open
 .macro array head, tail:vararg
     .8byte \head
     

@@ -20,6 +20,8 @@ Organized in order of relevancy.
 
 ### link_map->l_addr
 
+### linker stack mprotect
+
 ## older techniques
 
 ### libc GOT overwrite

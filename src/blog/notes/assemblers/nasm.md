@@ -2,12 +2,12 @@
 See [https://nasm.us/doc/nasmdoc4.html](https://nasm.us/doc/nasmdoc4.html) for the chapter on NASM preprocessor.
 
 ### singleline macros
-```x86asm open
+```x86asm noheader
 %define calc(a,b) a+b
 ```
 
 ### multiline macros
-```x86asm open
+```x86asm noheader
 %macro [name] [number of arguments]
     ; %0 is the number of arguments passed
     ; %1 is first argument
@@ -18,7 +18,7 @@ See [https://nasm.us/doc/nasmdoc4.html](https://nasm.us/doc/nasmdoc4.html) for t
 
 ## custom bytecode
 NASM supports overriding existing instructions with macros.
-```x86asm open
+```x86asm noheader
 %macro mov 0
     db 0xee, 0xcc
 %endmacro

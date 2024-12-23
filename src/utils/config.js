@@ -104,4 +104,5 @@ export default {
     hostname: "https://unvariant.pages.dev",
     author: "unvariant",
     email: "unvariant.winter@gmail.com",
+    fileSizeLimit: 25 * 1024 * 1024,
 };

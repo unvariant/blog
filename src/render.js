@@ -172,7 +172,7 @@ export async function render(info, hooks) {
     await fs.writeFile(outfile, rendered);
     if (info.stats.isFile()) {
         const outraw = path.join(config.buildRoot, info.relativePath, "raw");
-        if (info.stats.size < 20 * 1024 * 1024) {
+        if (info.stats.size < config.fileSizeLimit) {
             await fs.copyFile(info.absolutePath, outraw);
         } else {
             const repoRelativePath = path.relative(
@@ -193,7 +193,7 @@ export async function render(info, hooks) {
                     <body>
                         <p>
                             {
-                                "sorry this file too large for cloudflare pages, redirecting to github instead."
+                                "sorry this file too large for this hosting provider, redirecting to github instead."
                             }
                         </p>
                     </body>

@@ -44,8 +44,10 @@ export default function (props) {
 
         let lang = props.lang || "TEXT";
         if (code.props.hasOwnProperty("className")) {
-            lang = /.*language\-([^\s]*)/.exec(code.props.className)[1].toUpperCase();
+            lang = /.*language\-([^\s]*)/.exec(code.props.className)[1];
         }
+        lang = lang.toUpperCase();
+        
         const filename = props.filename || props.path || "";
         const wantsHeader = !props.hasOwnProperty("noheader");
         const wantsOpen = props.hasOwnProperty("open");

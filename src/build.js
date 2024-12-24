@@ -60,6 +60,7 @@ async function cachedModInfo(info) {
 }
 
 register([".md", ".mdx"], mdxToHtml);
+register([".asm"], handleLanguage("asm"));
 register([".h", ".c"], handleLanguage("c"));
 register([".hpp", ".cpp"], handleLanguage("cpp"));
 register([".txt"], handleLanguage("text"));

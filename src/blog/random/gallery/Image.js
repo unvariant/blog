@@ -3,6 +3,7 @@ import path from "node:path";
 import { optimizer } from "./handle.js";
 import sizeOf from "image-size";
 import { execSync } from "node:child_process";
+import { isDevelopmentMode } from "#utils/config.js";
 
 export default function (props) {
     const info = useInfo();
@@ -11,7 +12,7 @@ export default function (props) {
     const basename = path.basename(src, path.extname(src));
     const altText = props.alt || "oops";
     const target = `${props.target}-gallery`;
-    const optimize = props.optimize || false;
+    const optimize = !isDevelopmentMode() && (props.optimize || false);
 
     let webps = [];
     let jpegs = [];

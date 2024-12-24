@@ -15,7 +15,7 @@ export default function ({ lang, ...props }) {
         throw new Error("unable to determine what to highlight");
     }
 
-    lang = lang || "text";
+    lang = lang || "TEXT";
 
     return (
         <CodeBlock { ...props } lang={ lang } filename={ filename }>

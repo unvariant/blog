@@ -30,7 +30,7 @@ async function unknownProcessor(info) {
             //     }
             // }
 
-            if (NodeBuffer.isUtf8(info.source.subarray(0, 100))) {
+            if (NodeBuffer.isUtf8(info.source)) {
                 return (
                     <div>
                         <Highlight

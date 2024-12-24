@@ -7,7 +7,7 @@
         "testing"
     ],
     "verbose": true,
-    "exec": "npm run build",
+    "exec": "npm run devbuild",
     "ext": "*",
     "watch": ["src", "static", "build.js", "render.js"]
 }

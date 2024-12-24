@@ -36,18 +36,19 @@ export const languages = {
     js,
 };
 
-
 for (const [langname, langdef] of Object.entries(languages)) {
     hljs.registerLanguage(langname, langdef);
 }
 
 /**
- * @param {string} code 
- * @param {string} language 
+ * @param {string} code
+ * @param {string} language
  * @returns {string}
  */
 export function highlight(code, language) {
-    const html = hljs.getLanguage(language) ? hljs.highlight(code, { language }).value : code;
+    const html = hljs.getLanguage(language)
+        ? hljs.highlight(code, { language }).value
+        : code;
     return html;
 }
 

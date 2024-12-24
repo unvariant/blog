@@ -18,8 +18,8 @@ import js from "shiki/langs/javascript.mjs";
 import zig from "shiki/langs/zig.mjs";
 import { highlight as hljs } from "./highlight.js";
 
-import theme from 'shiki/themes/github-light.mjs';
-import { transformerColorizedBrackets } from '@shikijs/colorized-brackets';
+import theme from "shiki/themes/github-light.mjs";
+import { transformerColorizedBrackets } from "@shikijs/colorized-brackets";
 
 const languages = {
     c,
@@ -67,14 +67,19 @@ const shiki = createHighlighterCoreSync({
  * @returns {string}
  */
 export function highlight(code, language) {
-    const lines = code.split('\n').length;
+    const lines = code.split("\n").length;
     // shiki is really bad with big files
     if (lines > 1000) {
         return hljs(code, language);
     }
     const lang = language.toLowerCase();
     const html = mapping.hasOwnProperty(lang)
-        ? shiki.codeToHtml(code, { lang: mapping[lang], theme: "github-light", transformers: [transformerColorizedBrackets()], structure: "inline" })
+        ? shiki.codeToHtml(code, {
+              lang: mapping[lang],
+              theme: "github-light",
+              transformers: [transformerColorizedBrackets()],
+              structure: "inline",
+          })
         : code;
     return html;
 }

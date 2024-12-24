@@ -33,7 +33,6 @@
         "prettier": "^3.4.2",
         "react": "npm:@preact/compat",
         "react-dom": "npm:@preact/compat",
-        "rehype-highlight": "^7.0.0",
         "rehype-mdx-code-props": "^2.0.0",
         "remark-gfm": "^4.0.0",
         "shiki": "^1.24.4",

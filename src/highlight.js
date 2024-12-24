@@ -10,7 +10,7 @@ const providers = {
     hljs,
 };
 const highlightCache = path.join(config.cacheRoot, "highlight-cache");
-fs.mkdir(highlightCache, { recursive: true });
+fs.mkdirSync(highlightCache, { recursive: true });
 
 /**
  * @param {string} provider 

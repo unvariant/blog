@@ -1,10 +1,10 @@
 {
     "scripts": {
-        "build": "PATH=\"./dist:$PATH\" node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js",
-        "devbuild": "BUILD=\"DEV\"  npm run build",
+        "build": "node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js",
+        "devbuild": "BUILD=\"DEV\"  npm run devbuild",
         "dev": "nodemon npm run devbuild",
         "postinstall": "node src/utils/download.js && patch-package",
-        "profile": "PATH=\"./dist:$PATH\" npx 0x -- node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js"
+        "profile": "npx 0x -- node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js"
     },
     "imports": {
         "#components/*": "./src/components/*",

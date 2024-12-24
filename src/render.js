@@ -1,12 +1,9 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { getInfo } from "./utils/info.js";
 import config from "./utils/config.js";
-import { register, process } from "./processor.js";
-import { fileTypeFromBuffer } from "file-type";
+import { process } from "./processor.js";
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { execSync } from "node:child_process";
+import { renderToStringAsync } from "preact-render-to-string";
 import NodeBuffer from "node:buffer";
 import componentMap from "./components.js";
 import Highlight from "./components/Highlight.js";
@@ -155,7 +152,7 @@ export async function render(info, hooks) {
             })
         )
     );
-    const rendered = renderToStaticMarkup(page);
+    const rendered = await renderToStringAsync(page);
     const outfile = path.join(
         config.buildRoot,
         info.relativePath,
@@ -199,7 +196,7 @@ export async function render(info, hooks) {
                     </body>
                 </html>
             );
-            const html = renderToStaticMarkup(redirect);
+            const html = await renderToStringAsync(redirect);
             await fs.writeFile(outraw, html);
         }
     }

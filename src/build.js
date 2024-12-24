@@ -160,6 +160,7 @@ export class Builder {
         this.rootInfo = getInfo(config.blogRoot);
         this.hooks = {
             prerender: [],
+            preprocess: [],
         };
     }
 

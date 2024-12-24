@@ -3,7 +3,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 
-const developmentMode = /(--dev)/.test(process.execArgv.join(" "));
+const developmentMode = process.env.BUILD?.toLowerCase() === "dev";
 export function isDevelopmentMode() {
     return developmentMode;
 }

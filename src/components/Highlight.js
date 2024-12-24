@@ -15,17 +15,11 @@ export default function ({ lang, ...props }) {
         throw new Error("unable to determine what to highlight");
     }
 
-    let html;
-    if (hljs.getLanguage(lang)) {
-        html = hljs.highlight(source, { language: lang }).value;
-    } else {
-        html = source;
-        lang = "text";
-    }
+    lang = lang || "text";
 
     return (
         <CodeBlock { ...props } lang={ lang } filename={ filename }>
-            <code className={ `hljs language-${lang}` } dangerouslySetInnerHTML={{ __html: html }}>
+            <code source={ source }>
             </code>
         </CodeBlock>
     );

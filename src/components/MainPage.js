@@ -7,6 +7,7 @@ import { getInfo } from "#utils/info.js";
 
 export default function (props) {
     const recent = posts
+        .filter((p) => dates.hasOwnProperty(p))
         .map((p) => [getInfo(p), dates[p].created])
         .sort(([i1, a], [i2, b]) => {
             // reverse sort

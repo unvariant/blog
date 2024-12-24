@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
-import hljs from "../highlight.js";
+// import { highlight } from "../highlight.js";
+import { highlight } from "../shiki.js";
 import { useInfo } from "./Context.js";
 import { getInfo } from "../utils/info.js";
 import config from "../utils/config.js";
@@ -41,7 +42,7 @@ export default function (props) {
         let endLine;
         let code = props.children;
 
-        let lang = "TEXT";
+        let lang = props.lang || "TEXT";
         if (code.props.hasOwnProperty("className")) {
             lang = /.*language\-([^\s]*)/.exec(code.props.className)[1].toUpperCase();
         }
@@ -67,18 +68,19 @@ export default function (props) {
                 startLine = start;
                 endLine = end;
             }
-            const html = hljs.getLanguage(lang) ? hljs.highlight(rawcode, { language: lang }).value : rawcode;
-            code = (
-                <code className={ code.className } dangerouslySetInnerHTML={{ __html: html }}>
-                </code>
-            );
         } else if (code.props.hasOwnProperty("children")) {
             rawcode = collect(code);
-        } else if (code.props.hasOwnProperty("dangerouslySetInnerHTML")) {
-            rawcode = code.props.dangerouslySetInnerHTML.__html;
+        } else if (code.props.hasOwnProperty("source")) {
+            rawcode = code.props.source;
         } else {
             throw new Error("cannot determine code source");
         }
+
+        const html = highlight(rawcode, lang);
+        code = (
+            <code className={ code.className } dangerouslySetInnerHTML={{ __html: html }}>
+            </code>
+        );
 
         const maxLines = count(rawcode, "\n");
         startLine = startLine || 1;
@@ -146,5 +148,6 @@ export default function (props) {
 
         return codeBlock;
     }
-    return props;
+
+    throw Error("what to do");
 }

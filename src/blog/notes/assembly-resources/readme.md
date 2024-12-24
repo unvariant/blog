@@ -8,7 +8,7 @@
 - [http://ref.x86asm.net/coder64.html](http://ref.x86asm.net/coder64.html)
 
 ## intel software developers manual
-- [./325462-sdm-vol-1-2abcd-3abcd-4.pdf](325462-sdm-vol-1-2abcd-3abcd-4.pdf)
+- [325462-sdm-vol-1-2abcd-3abcd-4.pdf](./325462-sdm-vol-1-2abcd-3abcd-4.pdf)
 
 ## compiler explorer
 - [https://godbolt.org/](https://godbolt.org/)

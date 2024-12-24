@@ -222,3 +222,8 @@ Sitemap: ${config.hostname}/sitemap.xml
 }
 
 console.log(`done with everything`);
+
+// import.meta.hot?.accept("./utils/info.js");
+// while (true) {
+//     await new Promise((resolve, reject) => setTimeout(resolve, 1000));
+// }

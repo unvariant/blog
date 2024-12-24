@@ -1,9 +1,10 @@
 {
     "scripts": {
-        "build": "PATH=\"./dist:$PATH\" CACHE_DIR=./_cache node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js",
+        "build": "PATH=\"./dist:$PATH\" node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js",
         "devbuild": "BUILD=\"DEV\"  npm run build",
         "dev": "nodemon npm run devbuild",
-        "postinstall": "node src/utils/download.js && patch-package"
+        "postinstall": "node src/utils/download.js && patch-package",
+        "profile": "PATH=\"./dist:$PATH\" npx 0x -- node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js"
     },
     "imports": {
         "#components/*": "./src/components/*",
@@ -19,6 +20,7 @@
         "@shikijs/rehype": "^1.24.4",
         "@types/node": "^20.10.7",
         "0x": "^5.7.0",
+        "dynohot": "^1.2.1",
         "feed": "^4.2.2",
         "file-type": "^19.0.0",
         "highlight.js": "^11.9.0",

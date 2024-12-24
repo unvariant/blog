@@ -16,7 +16,7 @@ import ini from "shiki/langs/ini.mjs";
 import toml from "shiki/langs/toml.mjs";
 import js from "shiki/langs/javascript.mjs";
 import zig from "shiki/langs/zig.mjs";
-import { highlight as hljs } from "./highlight.js";
+import { highlight as hljs } from "./hljs.js";
 
 import theme from "shiki/themes/github-light.mjs";
 import { transformerColorizedBrackets } from "@shikijs/colorized-brackets";

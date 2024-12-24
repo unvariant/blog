@@ -1,5 +1,4 @@
 import CodeBlock from './CodeBlock.js';
-import hljs from '../highlight.js';
 
 export default function ({ lang, ...props }) {
     let source;

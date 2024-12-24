@@ -1,55 +1,36 @@
-import c from "highlight.js/lib/languages/c";
-import rs from "highlight.js/lib/languages/rust";
-import makefile from "highlight.js/lib/languages/makefile";
-import armasm from "highlight.js/lib/languages/armasm";
-import x86asm from "highlight.js/lib/languages/x86asm";
-import mipsasm from "highlight.js/lib/languages/mipsasm";
-import shell from "highlight.js/lib/languages/shell";
-import python from "highlight.js/lib/languages/python";
-import json from "highlight.js/lib/languages/json";
-import diff from "highlight.js/lib/languages/diff";
-import bash from "highlight.js/lib/languages/bash";
-import cpp from "highlight.js/lib/languages/cpp";
-import dockerfile from "highlight.js/lib/languages/dockerfile";
-import yaml from "highlight.js/lib/languages/yaml";
-import ini from "highlight.js/lib/languages/ini";
-import js from "highlight.js/lib/languages/javascript";
+import * as shiki from "./shiki.js";
+import * as hljs from "./hljs.js";
+import fs from "node:fs";
+import path from"node:path";
+import config from "#utils/config.js";
+import crypto from "node:crypto";
 
-import hljs from "highlight.js/lib/core";
-
-export const languages = {
-    c,
-    cpp,
-    rs,
-    makefile,
-    armasm,
-    x86asm,
-    mipsasm,
-    shell,
-    bash,
-    python,
-    diff,
-    dockerfile,
-    json,
-    yaml,
-    ini,
-    js,
+const providers = {
+    shiki,
+    hljs,
 };
-
-for (const [langname, langdef] of Object.entries(languages)) {
-    hljs.registerLanguage(langname, langdef);
-}
+const highlightCache = path.join(config.cacheRoot, "highlight-cache");
+fs.mkdir(highlightCache, { recursive: true });
 
 /**
- * @param {string} code
- * @param {string} language
+ * @param {string} provider 
+ * @param {string} code 
+ * @param {string} language 
  * @returns {string}
  */
-export function highlight(code, language) {
-    const html = hljs.getLanguage(language)
-        ? hljs.highlight(code, { language }).value
-        : code;
-    return html;
-}
+export function highlight(provider, code, language) {
+    if (providers.hasOwnProperty(provider)) {
+        const key = crypto.createHash("md5").update(code).update(language).digest("hex");
+        const cached = path.join(highlightCache, key);
+    
+        try {
+            return fs.readFileSync(cached, { encoding: "utf-8" });
+        } catch (e) {
+            const html = providers[provider].highlight(code, language);
+            fs.writeFileSync(cached, html);
+            return html;
+        }
+    }
 
-export default hljs;
+    throw Error(`unknown highlighting provider: ${provider}`);
+}

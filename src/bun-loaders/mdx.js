@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import links from "../plugins/links.js";
 import headers from "../plugins/headers.js";
 import inlineCode from "../plugins/inlineCode.js";
-import { languages } from "../highlight.js";
+import { languages } from "../hljs.js";
 import { createFormatAwareProcessors } from "@mdx-js/mdx/internal-create-format-aware-processors";
 import { extnamesToRegex } from "@mdx-js/mdx/internal-extnames-to-regex";
 import { VFile } from "vfile";

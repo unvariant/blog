@@ -1,7 +1,6 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
-// import { highlight } from "../highlight.js";
-import { highlight } from "../shiki.js";
+import { highlight } from "../highlight.js";
 import { useInfo } from "./Context.js";
 import { getInfo } from "../utils/info.js";
 import config from "../utils/config.js";
@@ -78,7 +77,7 @@ export default function (props) {
             throw new Error("cannot determine code source");
         }
 
-        const html = highlight(rawcode, lang);
+        const html = highlight("shiki", rawcode, lang);
         code = (
             <code className={ code.className } dangerouslySetInnerHTML={{ __html: html }}>
             </code>

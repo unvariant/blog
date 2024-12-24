@@ -1,7 +1,5 @@
 import path from "node:path";
-import fs from "node:fs/promises";
 import { lstatSync, readFileSync } from "node:fs";
-import { execSync } from "node:child_process";
 import config, { dates } from "./config.js";
 
 export const infoMemo = new Map();

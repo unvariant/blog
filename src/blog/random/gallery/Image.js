@@ -49,7 +49,7 @@ export default function (props) {
         if (dimensions === undefined) {
             throw new Error("failed to find image size");
         }
-        const sizes = [400, 800, 1440].map((width) => [
+        const sizes = [1440].map((width) => [
             width,
             Math.round((dimensions.height * width) / dimensions.width),
         ]);

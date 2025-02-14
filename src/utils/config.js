@@ -35,6 +35,7 @@ export async function getCachedDates() {
         console.log(`[+] regenerating cached dates`);
         const dates = {};
         for (const file of files) {
+            console.log(file);
             const absolutePath = getAbsolutePath(file);
             let lastModifiedDate = new Date(
                 execSync(`git log -1 --pretty="format:%cD" ${absolutePath}`, {

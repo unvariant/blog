@@ -9,7 +9,7 @@ The program interpreter[^1] is declared in its own program header of type `PT_IN
 
 The ELF spec states that programs that use dynamic linking must have a `PT_DYNAMIC`[^3] segment that corresponds to the `.dynamic` section (but the section doesn't _have_ to point to the same place[^4]). Any good ELF parser should completely ignore the `.dynamic` section and only trust the `PT_DYNAMIC` segment. The dynamic segment contains a list of dynamic tags that start at `p_vaddr`[^5] into the binary:
 
-```c
+```c always
 typedef struct {
 	Elf32_Sword	d_tag;
    	union {

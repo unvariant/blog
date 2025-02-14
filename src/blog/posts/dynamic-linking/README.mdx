@@ -1,0 +1,44 @@
+export const title = 'Dynamic Linking on Linux';
+export const description = 'Understanding how Linux loads dynamic libraries through program interpreters, dynamic segments, and dependency resolution.';
+
+## Program Interpreter
+
+The program interpreter[^1] is declared in its own program header of type `PT_INTERP`. The then kernel[^2] uses the `p_offset` and `p_filesz` fields to extract the path of the program interpreter. Linux also enforces that the last byte of the program interpreter is null, otherwise it will refuse to load the binary.
+
+## Dynamic Dependencies
+
+The ELF spec states that programs that use dynamic linking must have a `PT_DYNAMIC`[^3] segment that corresponds to the `.dynamic` section (but the section doesn't _have_ to point to the same place[^4]). Any good ELF parser should completely ignore the `.dynamic` section and only trust the `PT_DYNAMIC` segment. The dynamic segment contains a list of dynamic tags that start at `p_vaddr`[^5] into the binary:
+
+```c
+typedef struct {
+	Elf32_Sword	d_tag;
+   	union {
+   		Elf32_Word	d_val;
+   		Elf32_Addr	d_ptr;
+	} d_un;
+} Elf32_Dyn;
+
+typedef struct {
+	Elf64_Sxword	d_tag;
+   	union {
+   		Elf64_Xword	d_val;
+   		Elf64_Addr	d_ptr;
+	} d_un;
+} Elf64_Dyn;
+```
+
+The list of dynamic tags are terminated by a `DT_NULL` entry, e.g. a dynamic tag with the tag set to `DT_NULL`. The dynamic segment is completely ignored by the kernel and only matters to the program linker. Each dynamic dependency that the binary needs are stored as `DT_NEEDED`[^6] entries and the dynamic tag value is used to lookup the name of the dependency in the binary. The dynamic segment also stores other important information for loading the binary: string table address, relocation table address, string table address, etc. You should always trust the values in the dynamic segment instead of section addresses when parsing a binary, because this is what the linker[^7] does as well.
+
+[^1]: https://www.sco.com/developers/gabi/2003-12-17/ch5.dynamic.html#interpreter
+
+[^2]: https://elixir.bootlin.com/linux/v6.11.6/source/fs/binfmt_elf.c#L884
+
+[^3]: https://www.sco.com/developers/gabi/2003-12-17/ch5.dynamic.html#dynamic_section
+
+[^4]: https://youtu.be/adYOSO0tn9M?si=MfELHg9tYRzBtFyl&t=904
+
+[^5]: https://elixir.bootlin.com/glibc/glibc-2.40/source/elf/rtld.c#L1155
+
+[^6]: https://elixir.bootlin.com/glibc/glibc-2.40/source/elf/dl-deps.c#L222
+
+[^7]: _linker_ means the [glibc linker](https://elixir.bootlin.com/glibc/glibc-2.40/source

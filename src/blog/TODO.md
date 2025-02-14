@@ -12,5 +12,6 @@
 - [x] gallery image optimizations
 - [ ] merge the concept of a "post" in build.js and MainPage.js
 - [ ] add single-line codeblock highlighting
+- [ ] FIX FOOTNOTES
 
 If you have any suggestions feel free to message me on discord `@unvariant.winter`.

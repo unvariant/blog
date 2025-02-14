@@ -49,6 +49,7 @@ const mapping = Object.fromEntries(
         .map((lang) => [lang, lang])
         .concat(overrides)
 );
+mapping["ansi"] = "ansi";
 
 // Load this somewhere beforehand
 const engine = await createOnigurumaEngine(import("shiki/wasm"));
@@ -73,13 +74,15 @@ export function highlight(code, language) {
         return hljs(code, language);
     }
     const lang = language.toLowerCase();
-    const html = mapping.hasOwnProperty(lang)
-        ? shiki.codeToHtml(code, {
-              lang: mapping[lang],
-              theme: "github-light",
-              transformers: [transformerColorizedBrackets()],
-              structure: "inline",
-          })
-        : code;
-    return html;
+    if (mapping.hasOwnProperty(lang)) {
+        console.log(lang);
+        return shiki.codeToHtml(code, {
+            lang: mapping[lang],
+            theme: "github-light",
+            transformers: [transformerColorizedBrackets()],
+            structure: "inline",
+        });
+    }
+
+    return code;
 }

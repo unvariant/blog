@@ -1,0 +1,3 @@
+# libc indirect calls
+
+Indirect calls, `jmp reg`, `jmp qword [reg]`, `call reg`, `call qword [reg]`, etc are possibly points for exploitation in the libc. I ran some tests with Codeql to search for indirect calls. While Codeql was able to detect indirect function calls, it was unable to find all of them. Instead I switched to objdump + regex + addr2line based searching.

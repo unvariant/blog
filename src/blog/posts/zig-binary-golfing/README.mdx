@@ -1,0 +1,463 @@
+export const title = "Golfing Zig ELF Binaries";
+export const description = "How small of a binary can we make zig generate?"
+
+How much can we feasibly strip from a zig binary? Starting from a normal zig program that does absolutely nothing:
+
+```rs title="main.zig" always
+pub fn main() void {}
+```
+
+```sh always
+zig build-exe main.zig -target x86_64-linux-gnu
+du -hk main
+# 2180    main
+```
+
+2180K for a binary that does nothing. Given that the smallest possible executable ELF file is around 80 bytes, 2180K is quite a bit of bloat. What happens when we strip out debug info?
+
+```sh always
+zig build-exe main.zig -target x86_64-linux-gnu -fstrip
+du -hk main
+# 192     main
+```
+
+Saved 1988K just by stripping out debugging information. However 192K is still quite far from our 80 byte goal. We are still compiling in Debug mode, so let's switch to ReleaseSmall (equivalent to -Os for gcc/clang as far as I can tell).
+
+```sh always
+zig build-exe main.zig -target x86_64-linux-gnu -fstrip -OReleaseSmall
+du -hk main
+# 12      main
+```
+
+Now we're at 12K! Saved 180K just by switching from Debug to ReleaseSmall. Next step is to enable function and data sections to allow the linker to strip away unreferenced functions or data.
+
+```sh always
+zig build-exe main.zig -target x86_64-linux-gnu -fstrip -OReleaseSmall -ffunction-sections -fdata-sections --gc-sections
+du -hk main
+# 12      main
+```
+
+...and that did nothing. I guess ReleaseSmall already handles this optimization.
+Taking a peek at the ELF sections shows quite a few unnecessary sections:
+
+```ansi always
+There are 9 section headers, starting at offset [33m0x2068[0m:
+
+[1mSection Headers:[0m
+  [Nr] Name              Type             Address           Offset
+       Size              EntSize          Flags  Link  Info  Align
+  [ 0]                   [36mNULL[0m             [33m0000000000000000[0m  [33m00000000[0m
+       [33m0000000000000000[0m  [33m0000000000000000[0m           0     0     0
+  [ 1] [32m.rodata[0m           [36mPROGBITS[0m         [33m00000000010001c8[0m  [33m000001c8[0m
+       [33m0000000000000954[0m  [33m0000000000000000[0m [35mAMS[0m       0     0     8
+  [ 2] [32m.eh_frame_hdr[0m     [36mPROGBITS[0m         [33m0000000001000b1c[0m  [33m00000b1c[0m
+       [33m00000000000000bc[0m  [33m0000000000000000[0m   [35mA[0m       0     0     4
+  [ 3] [32m.eh_frame[0m         [36mPROGBITS[0m         [33m0000000001000bd8[0m  [33m00000bd8[0m
+       [33m00000000000003d4[0m  [33m0000000000000000[0m   [35mA[0m       0     0     8
+  [ 4] [32m.text[0m             [36mPROGBITS[0m         [33m0000000001001fac[0m  [33m00000fac[0m
+       [33m0000000000001041[0m  [33m0000000000000000[0m  [35mAX[0m       0     0     4
+  [ 5] [32m.tbss[0m             [36mNOBITS[0m           [33m0000000001002ff0[0m  [33m00001ff0[0m
+       [33m000000000000000d[0m  [33m0000000000000000[0m [35mWAT[0m       0     0     8
+  [ 6] [32m.bss[0m              [36mNOBITS[0m           [33m0000000001004000[0m  [33m00002000[0m
+       [33m0000000000003108[0m  [33m0000000000000000[0m  [35mWA[0m       0     0     4096
+  [ 7] [32m.comment[0m          [36mPROGBITS[0m         [33m0000000000000000[0m  [33m00002000[0m
+       [33m000000000000001c[0m  [33m0000000000000001[0m  [35mMS[0m       0     0     1
+  [ 8] [32m.shstrtab[0m         [36mSTRTAB[0m           [33m0000000000000000[0m  [33m0000201c[0m
+       [33m0000000000000045[0m  [33m0000000000000000[0m           0     0     1
+
+[1mKey to Flags:[0m
+  [35mW[0m (write), [35mA[0m (alloc), [35mX[0m (execute), [35mM[0m (merge), [35mS[0m (strings), [35mI[0m (info),
+  [35mL[0m (link order), [35mO[0m (extra OS processing required), [35mG[0m (group), [35mT[0m (TLS),
+  [35mC[0m (compressed), [35mx[0m (unknown), [35mo[0m (OS specific), [35mE[0m (exclude),
+  [35mD[0m (mbind), [35ml[0m (large), [35mp[0m (processor specific)
+```
+
+`.eh_frame` and `.eh_frame_hdr` are generated to provide unwinding information, and is not strictly necessary for the the binary to run. The `.comment` section holds useless metadata. `.tbss` is a section for thread local storage, which is also unnecessary since the program does not do any threading.
+
+```sh always
+zig build-exe main.zig -target x86_64-freestanding-none -fstrip -OReleaseSmall
+# warning(link): unexpected LLD stderr:
+# ld.lld: warning: cannot find entry symbol _start; not setting start address
+wc -c main
+#      472 main
+```
+
+Switching from `x86_64-linux-gnu` to `x86_64-freestanding-none` cuts most of the extra cruft from the binary, down to 472 bytes. Looking at the sections now reveals that all but 2 sections have been removed:
+
+```ansi always
+There are 3 section headers, starting at offset [33m0x118[0m:
+
+[1mSection Headers:[0m
+  [Nr] Name              Type             Address           Offset
+       Size              EntSize          Flags  Link  Info  Align
+  [ 0]                   [36mNULL[0m             [33m0000000000000000[0m  [33m00000000[0m
+       [33m0000000000000000[0m  [33m0000000000000000[0m           0     0     0
+  [ 1] [32m.comment[0m          [36mPROGBITS[0m         [33m0000000000000000[0m  [33m000000e8[0m
+       [33m000000000000001c[0m  [33m0000000000000001[0m  [35mMS[0m       0     0     1
+  [ 2] [32m.shstrtab[0m         [36mSTRTAB[0m           [33m0000000000000000[0m  [33m00000104[0m
+       [33m0000000000000014[0m  [33m0000000000000000[0m           0     0     1
+
+[1mKey to Flags:[0m
+  [35mW[0m (write), [35mA[0m (alloc), [35mX[0m (execute), [35mM[0m (merge), [35mS[0m (strings), [35mI[0m (info),
+  [35mL[0m (link order), [35mO[0m (extra OS processing required), [35mG[0m (group), [35mT[0m (TLS),
+  [35mC[0m (compressed), [35mx[0m (unknown), [35mo[0m (OS specific), [35mE[0m (exclude),
+  [35mD[0m (mbind), [35ml[0m (large), [35mp[0m (processor specific)
+```
+
+But something isn't quite right. The binary no longer contains any executable code. This is because we have to change our executable's entrypoint. Now that our platform is freestanding, the entrypoint is `_start` instead of `main`.
+
+```rs always
+const syscall1 = @import("std").os.linux.syscall1;
+
+export fn _start() void {
+    _ = syscall1(.exit, 0);
+}
+```
+
+Our compile command hasn't changed and the binary size is now slightly larger.
+
+```sh always
+zig build-exe main.zig -target x86_64-freestanding-none -fstrip -OReleaseSmall
+wc -c main
+#      616 main
+```
+
+Except now our binary has some executable code this time:
+
+```ansi always
+There are 4 section headers, starting at offset [33m0x168[0m:
+
+[1mSection Headers:[0m
+  [Nr] Name              Type             Address           Offset
+       Size              EntSize          Flags  Link  Info  Align
+  [ 0]                   [36mNULL[0m             [33m0000000000000000[0m  [33m00000000[0m
+       [33m0000000000000000[0m  [33m0000000000000000[0m           0     0     0
+  [ 1] [32m.text[0m             [36mPROGBITS[0m         [33m0000000001001120[0m  [33m00000120[0m
+       [33m000000000000000b[0m  [33m0000000000000000[0m  [35mAX[0m       0     0     4
+  [ 2] [32m.comment[0m          [36mPROGBITS[0m         [33m0000000000000000[0m  [33m0000012b[0m
+       [33m000000000000001c[0m  [33m0000000000000001[0m  [35mMS[0m       0     0     1
+  [ 3] [32m.shstrtab[0m         [36mSTRTAB[0m           [33m0000000000000000[0m  [33m00000147[0m
+       [33m000000000000001a[0m  [33m0000000000000000[0m           0     0     1
+
+[1mKey to Flags:[0m
+  [35mW[0m (write), [35mA[0m (alloc), [35mX[0m (execute), [35mM[0m (merge), [35mS[0m (strings), [35mI[0m (info),
+  [35mL[0m (link order), [35mO[0m (extra OS processing required), [35mG[0m (group), [35mT[0m (TLS),
+  [35mC[0m (compressed), [35mx[0m (unknown), [35mo[0m (OS specific), [35mE[0m (exclude),
+  [35mD[0m (mbind), [35ml[0m (large), [35mp[0m (processor specific)
+```
+
+Looking at the size of the text section, it only contains 11 bytes of code. Where is the 605 extra bytes coming from? Inspecting the ELF further with readelf shows that there are 4 program segments. Each program segments takes up 56 bytes of space, for a total of $56 * 4 = 224$ bytes.
+
+```ansi always
+[1mElf file type is EXEC (Executable file)[0m
+Entry point [33m0x1001120[0m
+There are 4 program headers, starting at offset [33m64[0m
+
+[1mProgram Headers:[0m
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  [36mPHDR[0m           [33m0x0000000000000040[0m [33m0x0000000001000040[0m [33m0x0000000001000040[0m
+                 [33m0x00000000000000e0[0m [33m0x00000000000000e0[0m  [35mR[0m      [33m0x8[0m
+  [36mLOAD[0m           [33m0x0000000000000000[0m [33m0x0000000001000000[0m [33m0x0000000001000000[0m
+                 [33m0x0000000000000120[0m [33m0x0000000000000120[0m  [35mR[0m      [33m0x1000[0m
+  [36mLOAD[0m           [33m0x0000000000000120[0m [33m0x0000000001001120[0m [33m0x0000000001001120[0m
+                 [33m0x000000000000000b[0m [33m0x000000000000000b[0m  [35mR E[0m    [33m0x1000[0m
+  [36mGNU_STACK[0m      [33m0x0000000000000000[0m [33m0x0000000000000000[0m [33m0x0000000000000000[0m
+                 [33m0x0000000000000000[0m [33m0x0000000001000000[0m  [35mRW[0m     [33m0x0[0m
+
+[1m Section to Segment mapping:[0m
+  Segment Sections...
+   [33m00[0m     
+   [33m01[0m     
+   [33m02[0m     [32m.text[0m 
+   [33m03[0m
+```
+
+`GNU_STACK` is completely optional, and only acts as a hint to the linux kernel. `PHDR` is similarly unnecessary and the two `LOAD` segments can be merged into a single large RWX segment. We cannot directly control the program segments from the command line, so it is time to break out a linker script.
+
+This script creates a single RWX segment that spans all of the executable code and data, cutting down the 4 segments to a single segment.
+
+```ansi always
+[35mENTRY[0m([36m_start[0m)
+
+[35mPHDRS[0m {
+    [32mcode[0m [33mPT_LOAD[0m [35mFLAGS[0m([31m7[0m);
+}
+
+[35mSECTIONS[0m {
+    . = [35mSIZEOF_HEADERS[0m;
+    [32m.text[0m   : [35mALIGN[0m([31m1[0m) { [36m*(.text.*)[0m }
+    [32m.rodata[0m : [35mALIGN[0m([31m1[0m) { [36m*(.rodata.*)[0m }
+    [32m.data[0m   : [35mALIGN[0m([31m1[0m) { [36m*(.data.*)[0m }
+    [32m.bss[0m    : [35mALIGN[0m([31m1[0m) { [36m*(.bss.*)[0m }
+}
+```
+
+Recompiling with the linker script brings the binary down to `616 - 56 * 3 = 448` bytes.
+
+```sh always
+zig build-exe main.zig -target x86_64-freestanding-none -fstrip -OReleaseSmall -T linker.ld
+wc -c main
+#      448 main
+```
+
+We return our attention to the section headers in the binary. The linux kernel completely ignores section headers, so they can be safely removed without affecting the binary. The contents of `.comment` and `.shstrtab` can also be stripped since they are not mapped by any program segment.
+
+```ansi always
+There are 4 section headers, starting at offset [33m0xc0[0m:
+
+[1mSection Headers:[0m
+  [Nr] Name              Type             Address           Offset
+       Size              EntSize          Flags  Link  Info  Align
+  [ 0]                   [36mNULL[0m             [33m0000000000000000[0m  [33m00000000[0m
+       [33m0000000000000000[0m  [33m0000000000000000[0m           0     0     0
+  [ 1] [32m.text[0m             [36mPROGBITS[0m         [33m0000000000000078[0m  [33m00000078[0m
+       [33m000000000000000b[0m  [33m0000000000000000[0m  [35mAX[0m       0     0     4
+  [ 2] [32m.comment[0m          [36mPROGBITS[0m         [33m0000000000000000[0m  [33m00000083[0m
+       [33m000000000000001c[0m  [33m0000000000000001[0m  [35mMS[0m       0     0     1
+  [ 3] [32m.shstrtab[0m         [36mSTRTAB[0m           [33m0000000000000000[0m  [33m0000009f[0m
+       [33m000000000000001a[0m  [33m0000000000000000[0m           0     0     1
+
+[1mKey to Flags:[0m
+  [35mW[0m (write), [35mA[0m (alloc), [35mX[0m (execute), [35mM[0m (merge), [35mS[0m (strings), [35mI[0m (info),
+  [35mL[0m (link order), [35mO[0m (extra OS processing required), [35mG[0m (group), [35mT[0m (TLS),
+  [35mC[0m (compressed), [35mx[0m (unknown), [35mo[0m (OS specific), [35mE[0m (exclude),
+  [35mD[0m (mbind), [35ml[0m (large), [35mp[0m (processor specific)
+```
+
+Here we can take advantage of how the compiler lays out the ELF file.
+
+```text always
+ELF Header
+Program segments
+Section data (ALLOC)
+Section data
+Section headers
+```
+
+Sections that are marked as `ALLOC` are sections that are mapped by a program segment and required for program execution. The way the ELF file is created the Section headers and non alloc sections are all in one contiguous block at the end of the file. To strip out the extra metadata we can cut away any data that is after the last `ALLOC` section.
+
+```py always
+from pwnc.minelf import ELF
+
+elf = ELF(open("main", "rb").read())
+
+offset = 0
+for section in elf.sections:
+    if section.flags & elf.Section.Flags.ALLOC != 0:
+        offset = section.offset + section.size
+
+elf.header.section_offset = 0
+elf.header.number_of_sections = 0
+elf.header.section_name_table_index = 0
+elf.raw_elf_bytes = elf.raw_elf_bytes[:offset]
+elf.write("main")
+```
+
+Compiling and patching now yields a 131 byte binary. Much better.
+
+```sh
+zig build-exe main.zig -target x86_64-freestanding-none -fstrip -OReleaseSmall -T linker.ld
+python3 patch.py
+wc -c main
+#      131 main
+```
+
+Now we can apply some optimizations to the code in the binary to save a few bytes. The disassembled code shows that the function still attempts to return even though the program exits before, and a strange extra stub function at the end.
+
+```ansi always
+[1mmain:   file format elf64-x86-64[0m
+
+[1mDisassembly of section PT_LOAD#0:[0m
+
+[33m0000000000000078[0m [36m<PT_LOAD#0>[0m:
+      [33m78[0m: [32m6a 3c[0m                         [37mpush    [0m[35m60[0m
+      [33m7a[0m: [32m58[0m                            [37mpop     [0m[36mrax[0m
+      [33m7b[0m: [32m31 ff[0m                         [37mxor     [0m[36medi[0m[37m, [0m[36medi[0m
+      [33m7d[0m: [32m0f 05[0m                         [37msyscall[0m
+      [33m7f[0m: [32mc3[0m                            [37mret[0m
+      [33m80[0m: [32m31 c0[0m                         [37mxor     [0m[36meax[0m[37m, [0m[36meax[0m
+      [33m82[0m: [32mc3[0m                            [37mret[0m
+```
+
+Marking the function as `noreturn` eliminates one of the extraneous `ret` instructions.
+
+```rs always
+const syscall1 = @import("std").os.linux.syscall1;
+
+export fn _start() noreturn {
+    _ = syscall1(.exit, 0);
+    unreachable;
+}
+```
+
+```ansi always
+[1mmain:   file format elf64-x86-64[0m
+
+[1mDisassembly of section PT_LOAD#0:[0m
+
+[33m0000000000000078[0m [36m<PT_LOAD#0>[0m:
+      [33m78[0m: [32m6a 3c[0m                         [37mpush    [0m[35m60[0m
+      [33m7a[0m: [32m58[0m                            [37mpop     [0m[36mrax[0m
+      [33m7b[0m: [32m31 ff[0m                         [37mxor     [0m[36medi[0m[37m, [0m[36medi[0m
+      [33m7d[0m: [32m0f 05[0m                         [37msyscall[0m
+      [33m7f[0m: [32m31 c0[0m                         [37mxor     [0m[36meax[0m[37m, [0m[36meax[0m
+      [33m81[0m: [32mc3[0m                            [37mret[0m
+```
+
+Switching from `syscall1` to `syscall0` eliminates `xor edi, edi`.
+
+```rs always
+const syscall0 = @import("std").os.linux.syscall0;
+
+export fn _start() noreturn {
+    _ = syscall0(.exit);
+    unreachable;
+}
+```
+
+```ansi always
+[1mmain:   file format elf64-x86-64[0m
+
+[1mDisassembly of section PT_LOAD#0:[0m
+
+[33m0000000000000078[0m [36m<PT_LOAD#0>[0m:
+      [33m78[0m: [32m6a 3c[0m                         [37mpush    [0m[35m60[0m
+      [33m7a[0m: [32m58[0m                            [37mpop     [0m[36mrax[0m
+      [33m7b[0m: [32m0f 05[0m                         [37msyscall[0m
+      [33m7d[0m: [32m31 c0[0m                         [37mxor     [0m[36meax[0m[37m, [0m[36meax[0m
+      [33m7f[0m: [32mc3[0m                            [37mret[0m
+```
+
+`_start` is already marked as `noreturn`, so where is the `xor eax, eax ; ret` coming from? We can temporarily recompile with `-fno-strip` and dump the binary to figure out where the extra instructions are coming from.
+
+```ansi always
+[1mmain:   file format elf64-x86-64[0m
+
+[1mDisassembly of section .text:[0m
+
+[33m0000000000000078[0m [36m<_start>[0m:
+      [33m78[0m: [32m6a 3c[0m                         [37mpush    [0m[35m60[0m
+      [33m7a[0m: [32m58[0m                            [37mpop     [0m[36mrax[0m
+      [33m7b[0m: [32m0f 05[0m                         [37msyscall[0m
+
+[33m000000000000007d[0m [36m<getauxval>[0m:
+      [33m7d[0m: [32m31 c0[0m                         [37mxor     [0m[36meax[0m[37m, [0m[36meax[0m
+      [33m7f[0m: [32mc3[0m                            [37mret[0m
+```
+
+What is `getauxval` doing here??? This is a freestanding environment so auxiliary values shouldn't be used at all. Since the function is not referenced by anything, adding the `-flto` compile option to strip out unused functions and data removes the extra code.
+
+```sh always
+zig build-exe main.zig -target x86_64-freestanding-none -fstrip -OReleaseSmall -T linker.ld -flto
+python3 patch.py
+wc -c main
+#      125 main
+```
+
+```ansi always
+[1mmain:   file format elf64-x86-64[0m
+
+[1mDisassembly of section PT_LOAD#0:[0m
+
+[33m0000000000000078[0m [36m<PT_LOAD#0>[0m:
+      [33m78[0m: [32m6a 3c[0m                         [37mpush    [0m[35m60[0m
+      [33m7a[0m: [32m58[0m                            [37mpop     [0m[36mrax[0m
+      [33m7b[0m: [32m0f 05[0m                         [37msyscall[0m
+```
+
+This is the absolute limit that we can reach without using tricks to overlap the ELF metadata to further shrink the binary.
+
+``` always
+ELF Header        = 64 bytes
+Program Header    = 56 bytes
+Code              = 5 bytes
+                  = 125 bytes
+```
+
+There is one last change that needs to be made before the binary can run on all linux systems. Currently the program header maps the binary at address `0x00000078`, which would require the linux kernel to map a page at address `0x00000000`.
+
+```ansi always
+[1mElf file type is EXEC (Executable file)[0m
+Entry point [33m0x78[0m
+There is 1 program header, starting at offset [33m64[0m
+
+[1mProgram Headers:[0m
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  [36mLOAD[0m           [33m0x0000000000000078[0m [33m0x0000000000000078[0m [33m0x0000000000000078[0m
+                 [33m0x0000000000000005[0m [33m0x0000000000000005[0m  [35mRWE[0m    [33m0x1000[0m
+```
+
+Most linux distros set the sysctl value `vm.mmap_min_addr` to a non zero address to mitigate kernel exploits taking advantage of kernel NULL dereferences. This means that as the binary is right now, it will not run on most modern linux distros. To fix this we can update the python patching script to change the ELF file type from `EXEC` to `DYN`. This will tell the linux kernel to choose a base address for the binary instead of using the program segment addresses directly.
+
+```py always
+from pwnc.minelf import ELF
+
+elf = ELF(open("main", "rb").read())
+elf.header.type = elf.Header.Type.DYN
+
+offset = 0
+for section in elf.sections:
+    if section.flags & elf.Section.Flags.ALLOC != 0:
+        offset = section.offset + section.size
+
+elf.header.section_offset = 0
+elf.header.number_of_sections = 0
+elf.header.section_name_table_index = 0
+elf.raw_elf_bytes = elf.raw_elf_bytes[:offset]
+elf.write("main")
+```
+
+The final ELF file:
+
+```ansi always
+[1mELF Header:[0m
+  Magic:   [32m7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00[0m
+  Class:                             [36mELF64[0m
+  Data:                              [36m2's complement, little endian[0m
+  Version:                           [36m1 (current)[0m
+  OS/ABI:                            [36mUNIX - System V[0m
+  ABI Version:                       [33m0[0m
+  Type:                              [36mDYN (Shared object file)[0m
+  Machine:                           [36mAdvanced Micro Devices X86-64[0m
+  Version:                           [33m0x1[0m
+  Entry point address:               [33m0x78[0m
+  Start of program headers:          [33m64[0m (bytes into file)
+  Start of section headers:          [33m0[0m (bytes into file)
+  Flags:                             [33m0x0[0m
+  Size of this header:               [33m64[0m (bytes)
+  Size of program headers:           [33m56[0m (bytes)
+  Number of program headers:         [33m1[0m
+  Size of section headers:           [33m64[0m (bytes)
+  Number of section headers:         [33m0[0m
+  Section header string table index: [33m0[0m
+
+[1mThere are no sections in this file.[0m
+
+[1mThere are no section groups in this file.[0m
+
+[1mProgram Headers:[0m
+  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align
+  [36mLOAD[0m           [33m0x000078[0m [33m0x0000000000000078[0m [33m0x0000000000000078[0m [33m0x000005[0m [33m0x000005[0m [35mRWE[0m [33m0x1000[0m
+
+[1mThere is no dynamic section in this file.[0m
+
+[1mThere are no relocations in this file.[0m
+[1mNo processor specific unwind information to decode[0m
+
+[1mDynamic symbol information is not available for displaying symbols.[0m
+
+[1mNo version information found in this file.[0m
+```
+
+```ansi always
+[1mmain:   file format elf64-x86-64[0m
+
+[1mDisassembly of section PT_LOAD#0:[0m
+
+[33m0000000000000078[0m [36m<PT_LOAD#0>[0m:
+      [33m78[0m: [32m6a 3c[0m                         [37mpush    [0m[35m60[0m
+      [33m7a[0m: [32m58[0m                            [37mpop     [0m[36mrax[0m
+      [33m7b[0m: [32m0f 05[0m                         [37msyscall[0m
+```

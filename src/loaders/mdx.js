@@ -1,5 +1,6 @@
 import rehypeMdxCodeProps from "rehype-mdx-code-props";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import links from "../plugins/links.js";
 import headers from "../plugins/headers.js";
 import inlineCode from "../plugins/inlineCode.js";
@@ -16,6 +17,7 @@ const options = {
     providerImportSource: "@mdx-js/preact",
     remarkPlugins: [
         remarkGfm,
+        remarkMath,
         links,
         headers,
         inlineCode,

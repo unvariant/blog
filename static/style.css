@@ -235,11 +235,13 @@ h6 > a .hash {
   margin-bottom: 0.5rem;
 } */
 
+details.always-open > summary,
 details.codeblock > summary {
     list-style: none;
 }
 
-details.codeblack > summary::-webkit-details-marker {
+details.always-open > summary::-webkit-details-marker,
+details.codeblock > summary::-webkit-details-marker {
     display: none;
 }
 

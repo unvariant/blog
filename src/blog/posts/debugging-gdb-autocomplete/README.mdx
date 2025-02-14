@@ -1,0 +1,90 @@
+export const title = 'Debugging GDB Autocomplete';
+export const description = 'Figuring out why GDB autocomplete suddenly stopped working.';
+
+One day I noticed that my GDB autocomplete stopped working. I had a hunch my recent update had broken something in GDB, so I decided to investigate the internals of GDB autocomplete.
+
+## Introducing `readline`
+
+Readline ([https://en.wikipedia.org/wiki/GNU_Readline](https://en.wikipedia.org/wiki/GNU_Readline)) is an open source library that provides utilities for interactive terminal programs. Readline provides functionality like history, autocomplete, line editing, vi/emacs modes, etc.
+
+## Readline in GDB
+
+```c title="gdb/completer.c" open
+void _initialize_completer ();
+void
+_initialize_completer ()
+{
+  /* Setup some readline completion globals.  */
+  rl_completion_word_break_hook = gdb_completion_word_break_characters;
+  rl_attempted_completion_function = gdb_rl_attempted_completion_function;
+  set_rl_completer_word_break_characters (default_word_break_characters ());
+
+  /* Setup readline globals relating to filename completion.  */
+  rl_filename_quote_characters = " \t\n\\\"'";
+  rl_filename_dequoting_function = gdb_completer_file_name_dequote;
+  rl_filename_quoting_function = gdb_completer_file_name_quote;
+  rl_directory_rewrite_hook = gdb_completer_directory_rewrite;
+
+  add_setshow_zuinteger_unlimited_cmd ("max-completions", no_class,
+				       &max_completions, _("\
+Set maximum number of completion candidates."), _("\
+Show maximum number of completion candidates."), _("\
+Use this to limit the number of candidates considered\n\
+during completion.  Specifying \"unlimited\" or -1\n\
+disables limiting.  Note that setting either no limit or\n\
+a very large limit can make completion slow."),
+				       NULL, NULL, &setlist, &showlist);
+}
+```
+
+The code shown above (`gdb/completer.c`) is where GDB initializes readline and sets up the completion function. All of the `rl_*` variables are global variables that exist inside the readline shared library. This means that if multiple different systems in the same program try to use readline at the same time, they will override each other.
+
+## Debugging GDB
+
+How do you debug GDB? With another instance GDB of course!
+
+Using `gdb -ex 'set follow-fork-mode parent' -ex 'b _initialize_completer' --args /usr/bin/gdb` to debug GDB with GDB. We can see that `_initialize_completer` is called successfully, so autocomplete is initialized properly. That means somewhere after autocomplete initialization something else is overriding GDB's autocomplete.
+
+Printing out the value of `rl_attempt_completion_function` shows that it has been overriden:
+
+```ansi always
+[1;32mgef>[0m [1;34mp[0m [1;36mrl_attempted_completion_function[0m
+[1;33m$1[0m = ([1;36mrl_completion_func_t[0m *) [1;35m0x7fffc8d8e947[0m <[1;31mflex_complete[0m>
+```
+
+WTF is `flex_complete` and where is it from?
+
+```ansi always
+[1;32mgef>[0m [1;34mxinfo[0m [1;36mflex_complete[0m
+[1;33m-------------------------------------- xinfo: 0x7fffc8d8e947 --------------------------------------[0m
+[1;33m[ Legend: [0m [1;31mCode[0m [1;37m|[0m [1;32mHeap[0m [1;37m|[0m [1;34mStack[0m [1;37m|[0m [1;35mWritable[0m [1;37m|[0m [1;36mReadOnly[0m [1;37m|[0m [1;30mNone[0m [1;37m|[0m [1;31mRWX[0m [1;33m][0m
+[1;33mStart              End                Size               Offset             Perm Path[0m
+[1;33m0x00007fffc8d8e000 0x00007fffc8d90000 0x0000000000002000 0x0000000000003000 r-x /usr/lib/python3.13/lib-dynload/readline.cpython-313-x86_64-linux-gnu.so[0m
+[1;33mOffset (from mapped):  0x7fffc8d8e000 + 0x947[0m
+[1;33mOffset (from base):    0x7fffc8d8b000 + 0x3947[0m
+[1;33mOffset (from segment): 0x7fffc8d8e020 (.text) + 0x927[0m
+[1;33mSymbol:                <flex_complete>[0m
+[1;33mInode:                 24215410[0m
+```
+
+So turns out that it is an issue with python. Some random module is loading the python readline module and overriding the GDB autocomplete. It was at this point that I stumbled across a recent `pwndbg` github issue discussing the exact problem I had been facing.
+
+[https://github.com/pwndbg/pwndbg/issues/2232](https://github.com/pwndbg/pwndbg/issues/2232)
+
+Turns out that GDB already has a mechanism to disable python readline (here: [https://github.com/bminor/binutils-gdb/blob/62e4d4d3ad68fe17113069b99d80a9ee9df87cb1/gdb/python/py-gdb-readline.c#L98-L111](https://github.com/bminor/binutils-gdb/blob/62e4d4d3ad68fe17113069b99d80a9ee9df87cb1/gdb/python/py-gdb-readline.c#L98-L111)), but updating to python 3.13 broke this mechanism and messed up autocomplete.
+
+To restore proper GDB autocomplete I have added a line to the top of my `.gdbinit` that sources a script to disable readline again:
+
+```py always
+import sys
+import importlib.abc
+
+# Fix gdb readline bug: https://github.com/pwndbg/pwndbg/issues/2232#issuecomment-25425645
+class GdbRemoveReadlineFinder(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "readline":
+            raise ImportError("readline module disabled under GDB")
+        return None
+
+sys.meta_path.insert(0, GdbRemoveReadlineFinder())
+```

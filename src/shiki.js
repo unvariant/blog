@@ -41,6 +41,7 @@ const languages = {
 };
 const overrides = Object.entries({
     asm: ["armasm", "x86asm", "mipsasm"],
+    python: ["py"],
 })
     .map(([lang, aliases]) => aliases.map((alias) => [alias, lang]))
     .flat();
@@ -75,7 +76,7 @@ export function highlight(code, language) {
     }
     const lang = language.toLowerCase();
     if (mapping.hasOwnProperty(lang)) {
-        console.log(lang);
+        // console.log(lang);
         return shiki.codeToHtml(code, {
             lang: mapping[lang],
             theme: "github-light",

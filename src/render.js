@@ -87,6 +87,7 @@ export async function render(info, hooks) {
             if (child.stats.isFile()) {
                 if (child.basename.toLowerCase().startsWith("readme")) {
                     readme = child.element;
+                    info.readme = child.rawElement;
 
                     if (child.requestedLayout) {
                         let layoutLink = `file:///${config.cwd}/${child.requestedLayout}`;
@@ -136,7 +137,10 @@ export async function render(info, hooks) {
 
     // capture layout before the element gets wrapped up
     const requestedLayout = element.props.layout;
+    // console.log(info.relativePath, element.props.title);
     const props = { codeBlockId: 0, ...element.props };
+
+    info.rawElement = element;
     element = withInfo(info, element);
 
     info.parent.size += info.size;

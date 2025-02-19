@@ -13,9 +13,9 @@ export function getAbsolutePath(file) {
 }
 
 export async function getCachedDates() {
-    if (isDevelopmentMode()) {
-        return {};
-    }
+    // if (isDevelopmentMode()) {
+    //     return {};
+    // }
 
     if (existsSync(cachedDateFile)) {
         console.log(`[+] using cached dates ${cachedDateFile}`);

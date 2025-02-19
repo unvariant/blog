@@ -6,7 +6,7 @@ import config, { dates, posts } from "#utils/config.js";
 import { getInfo } from "#utils/info.js";
 
 export default function (props) {
-    const recent = posts
+    const recentByDate = posts
         .filter((p) => dates.hasOwnProperty(p))
         .map((p) => [getInfo(p), dates[p].created])
         .sort(([i1, a], [i2, b]) => {
@@ -19,18 +19,28 @@ export default function (props) {
                 return 1;
             }
         })
-        .slice(0, 5)
-        .map(([info, date]) => {
-            return (
-                <p>
-                    {date.toDateString()}
-                    <br></br>
-                    <a
-                        href={`${config.hostname}/${info.relativePath}`}
-                    >{`${info.filename}`}</a>
-                </p>
-            );
-        });
+        .slice(0, 5);
+    const recentPostsList = recentByDate.map(([info, date]) => {
+        return (
+            <p>
+                {date.toDateString()}
+                <br></br>
+                <a
+                    href={`${config.hostname}/${info.relativePath}`}
+                >{`${info.filename}`}</a>
+            </p>
+        );
+    });
+
+    const recent = recentByDate.length > 0 ? recentByDate[0][0] : undefined;
+    const recentPost = recent ? (
+        <div>
+            <h1>{recent.readme.props.title}</h1>
+            {recent.element}
+        </div>
+    ) : (
+        <></>
+    );
 
     return (
         <html id="_top">
@@ -57,9 +67,11 @@ export default function (props) {
                     </div>
                     <div id="posts">
                         <h4>recent posts</h4>
-                        {recent}
+                        {recentPostsList}
                     </div>
                 </div>
+
+                {recentPost}
 
                 <Footer />
             </body>

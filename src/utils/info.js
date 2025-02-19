@@ -59,7 +59,10 @@ class Info {
         this.filename = filename;
         this.dirname = dirname;
         this.lastModifiedDate = lastModifiedDate;
+        this.rawElement = undefined;
         this.element = undefined;
+        this.readme = undefined;
+
         if (stats.isFile()) {
             this.size = stats.size;
         } else {

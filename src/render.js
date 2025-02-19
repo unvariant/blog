@@ -136,7 +136,7 @@ export async function render(info, hooks) {
 
     // capture layout before the element gets wrapped up
     const requestedLayout = element.props.layout;
-    const props = element.props;
+    const props = { codeBlockId: 0, ...element.props };
     element = withInfo(info, element);
 
     info.parent.size += info.size;

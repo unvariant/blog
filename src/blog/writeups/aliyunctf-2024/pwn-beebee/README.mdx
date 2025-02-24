@@ -175,6 +175,8 @@ static bool bpf_map_is_rdonly(const struct bpf_map *map)
 ```
 Something to note is that in order to create a readonly bpf map, the `BPF_F_RDONLY_PROG` flag must be set when creating the map. `BPF_F_RDONLY_PROG` disallows the eBPF program from modifying the map. But the userland program can still modify the map so the kernel can't consider the map to be readonly yet. Once the map is populated with values from userland, it can be frozen using `BPF_MAP_FREEZE` to disallow further modification by the userland program. Now the map can be considered readonly and the verifier can perform constant optimziation.
 
+I probably spent at least 12 hours trying to figure out why the verifier wasn't doing constant optimization only to realize that I hadn't frozen the map.
+
 In manf's writeup, they abuse map ptrs to achieve out bounds read/write and eventually privilege escalation. But from my testing, this no longer works in modern versions of linux. The verifier and JIT compiler seem to treat operations on map ptrs differently. If a register is added to a map ptr that is a known constant number, the compiler will emit sequence of instruction that will directly add that number instead of using the register. This means that if the verifier knows that a register holds the value `X` it will emit assembly that simply adds the constant `X` directly to the map ptr, even though theoretically at runtime if it was using a register instead the value would be different.
 
 The google blog post takes a different approach. When not operating on map ptrs, even though the compiler knows a register holds a constant value it does not optimize it into a direct constant and uses the value of the register. This can be abused in combination with eBPF helpers.

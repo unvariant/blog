@@ -107,7 +107,7 @@ There are two other types of call instructions, based on the value of the src fi
 
 ```x86asm always
 .macro kfunc fn
-    .byte 0x85, 0x10, 0, 0
+    .byte 0x85, 0x20, 0, 0
     .4byte \fn
 .endm
 ```

@@ -199,7 +199,7 @@ r5 = 1
 BPF_FUNC_skb_load_bytes_relative(r1, r2, r3, r4, r5)
 ```
 
-Here we trick the verifier into thinking a value is 0 during verification, but at runtime will be 8 (verif=0, runtime=8). Adding 8 to this value yields (verif=8, runtime=16). This corrupted length can be passed into `skb_load_bytes_relative` which reads data from a network packet, which we have control over. The verifier thinks the bytes at r3+0 to r3+8 are written to by `skb_load_bytes_relative` when it is really writing to r3+0 to r3+16, corrupting the pointer at r3+8. Now the pointer at r3+8 pointers to some arbitrary attacker controlled value and the verifier thinks the pointer is still safe to use. Since KASLR is turned off we simply overwrite `modprobe_path` for privilege escalation and read the flag.
+Here we trick the verifier into thinking a value is 0 during verification, but at runtime will be 8 (verif=0, runtime=8). Adding 8 to this value yields (verif=8, runtime=16). This corrupted length can be passed into `skb_load_bytes_relative` which reads data from a network packet, which we have control over. The verifier thinks the bytes at r3+0 to r3+8 are written to by `skb_load_bytes_relative` when it is really writing to r3+0 to r3+16, corrupting the pointer at r3+8. Now the pointer at r3+8 points to some arbitrary attacker controlled value and the verifier thinks the pointer is still safe to use. Since KASLR is turned off we simply overwrite `modprobe_path` for privilege escalation and read the flag.
 
 # solve scripts
 ```make path="Makefile" open

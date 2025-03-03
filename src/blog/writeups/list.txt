@@ -99,4 +99,3 @@
 - [ ] vsctf-2023/
 - [ ] wacon-quals-2023/
 - [ ] wannagame-2023/
-- [ ] 

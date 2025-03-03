@@ -1,0 +1,102 @@
+- [x] 0ctf-2023/
+- [x] 0ctf-2024/
+- [x] aliyunctf-2025/
+- [ ] allesctf-2023/
+- [x] angstromctf-24/
+- [x] asis-ctf-finals-2023/
+- [ ] asis-ctf-finals-2024/
+- [x] backdoor-ctf-2023/ not sure if I finished empdb
+- [x] balsnctf-quals-2023/
+- [x] bca-ctf-24/
+- [ ] bhmea-2023-finals/
+- [ ] bhmea-2024-finals/
+- [ ] bhmea-2024-quals/
+- [x] bios-ctf-24/
+- [ ] blazctf-2024/
+- [ ] bluehenctf-2023/
+- [ ] buckeyectf-2023/
+- [ ] buckeyectf-2024/
+- [ ] cakectf-2023/
+- [ ] codegate-quals-24/
+- [ ] corctf-24/
+- [ ] cr3-ctf-24/
+- [ ] crewctf-2024/
+- [ ] csaw-finals-2023/
+- [ ] csaw-quals-2023/
+- [ ] csaw-quals-2024/
+- [ ] ctfzone-finals-2023/
+- [ ] cyber-apocalypse-ctf-2024/
+- [ ] defcon-finals-24/
+- [ ] defcon-quals-24/
+- [ ] dice-ctf-2024/
+- [ ] dice-finals-24/
+- [ ] downunderctf-24/
+- [ ] ductf-2023/
+- [x] fcsc-2024/
+- [ ] flareon-2023/
+- [ ] gcc-ctf-24/
+- [ ] glacierctf-2023/
+- [ ] glacierctf-2024/
+- [ ] google-ctf-24/
+- [ ] hack-the-vote-ctf-2024/
+- [x] hacklu-ctf-2024/
+- [ ] hackluctf-2019/
+- [ ] hitcon-2023/
+- [ ] hitcon-finals-2023/
+- [ ] hitcon-finals-2024/
+- [ ] hitcon-quals-2024/
+- [ ] hxp-ctf-2024/
+- [ ] icc-oceania-2025/
+- [ ] ictf-monthly/
+- [ ] idekctf-2022/
+- [ ] imaginaryctf-2024/
+- [ ] insomihack-teaser-ctf-2024/
+- [ ] iris-ctf-2023/
+- [ ] jelly-ctf-24/
+- [ ] just-ctf-24/
+- [ ] kalmar-ctf-24/
+- [ ] la-ctf-24/
+- [ ] lactf-25/
+- [ ] lakectf-2023/
+- [ ] lakectf-2024/
+- [ ] line-ctf-24/
+- [ ] litctf-2024/
+- [ ] midnightsun-quals-24/
+- [ ] mimic-defence-2023/
+- [ ] mimic-defence-2024/
+- [ ] molecon-2023-finals/
+- [ ] neobeo-puzzles/
+- [ ] nitectf-2023/
+- [ ] openecsc-2024/
+- [x] osu-ctf-2024/
+- [ ] patriotctf-2024/
+- [ ] picoctf-gym/
+- [ ] plaid-ctf-24/
+- [ ] potluck-ctf-2023/
+- [ ] programmer-socks-ctf-2023/
+- [ ] pwnmectf-quals-2025/
+- [ ] r3ctf-24/
+- [ ] realword-ctf-2024/
+- [ ] ructf-2023/
+- [ ] secconctf-quals-2024/
+- [ ] sekaictf-2023/
+- [ ] sekaictf-2024/
+- [ ] shit-ctf/
+- [ ] squarectf-2023/
+- [ ] squirrel-ctf-24/
+- [ ] srdnlenctf-2025/
+- [ ] sstf-2023/
+- [ ] suctf-2025/
+- [ ] tfc-ctf-2024/
+- [ ] tjctf-24/
+- [ ] tsgctf-2024/
+- [ ] umd-ctf-24/
+- [ ] uoft-ctf-2024/
+- [ ] uscg-open-24/
+- [ ] uscg-random-2024/
+- [ ] uscg-stuff/
+- [ ] vs-ctf-24/
+- [ ] vsctf-2023/
+- [ ] wacon-quals-2023/
+- [ ] wannagame-2023/
+- [ ] 

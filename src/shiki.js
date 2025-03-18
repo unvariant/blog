@@ -42,6 +42,7 @@ const languages = {
 const overrides = Object.entries({
     asm: ["armasm", "x86asm", "mipsasm"],
     python: ["py"],
+    js: ["javascript"],
 })
     .map(([lang, aliases]) => aliases.map((alias) => [alias, lang]))
     .flat();

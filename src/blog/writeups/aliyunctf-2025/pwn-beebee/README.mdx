@@ -1,0 +1,210 @@
+export const title = "Aliyunctf 2025: Bee Bee";
+export const description = "Kernel eBPF pwn challenge";
+
+This past weekend I played aliyunctf 2025 with the Friendly Maltese Citizens. There was a fun eBPF kernel pwn challenge that I spent far too long stuck on because I failed to realize one small detail (but still managed to get second blood :P).
+
+# background on bpf
+
+NOTE: any references to files or structures in the linux kernel are assumed to be based on linux version [v6.6](https://github.com/torvalds/linux/tree/v6.6).
+
+What is bpf? BPF stands for Berkley Packet Fitler and is a virtual instruction set used to execute small programs in the kernel. There are two flavors of bpf used in the kernel: cBPF and eBPF. Classic Berkley Packet Filter (cBPF) is is a 32 bit instruction set. Each register and all instructions are 32 bits wide, and it is mostly used to write seccomp syscall filters. Extended Berkley Packet Filter (eBPF) is a 64 bit instruction set and more widely used. eBPF is used to write programs that can perform socket filtering, network filtering, kernel probes, etc. The full list of program types can be found here: [https://docs.ebpf.io/linux/program-type/](https://docs.ebpf.io/linux/program-type/).
+
+eBPF is more powerful than cBPF, with persistent program storage, kernel helper functions, the ability to directly call kernel functions, etc. eBPF has the full capability to launch a kernel privilege escalation attack if it had full access to all the provided kernel functionality. For this reason eBPF is quite locked down for unprivileged users. There is a sysctl controlling whether unprivileged users are allowed to load eBPF programs `kernel.unprivileged_bpf_disabled`, which is enabled on most major linux distros. Furthermore unprivileged users without the `CAP_BPF` capability are unable to access the full range of ebpf helpers and are disallowed from accessing kernel functions.
+
+```c always
+static const struct bpf_verifier_ops * const bpf_verifier_ops[] = {
+#define BPF_PROG_TYPE(_id, _name, prog_ctx_type, kern_ctx_type) \
+	[_id] = & _name ## _verifier_ops,
+#define BPF_MAP_TYPE(_id, _ops)
+#define BPF_LINK_TYPE(_id, _name)
+#include <linux/bpf_types.h>
+#undef BPF_PROG_TYPE
+#undef BPF_MAP_TYPE
+#undef BPF_LINK_TYPE
+};
+```
+The eBPF helper resolution is performed based on the type of eBPF program loaded. This snippet of code in `kernel/bpf/verifier.c` generates an array mapping the eBPF program type to a helper resolution function.
+
+```c always
+BPF_PROG_TYPE(BPF_PROG_TYPE_SOCKET_FILTER, sk_filter,
+	      struct __sk_buff, struct sk_buff)
+```
+For example, this line in `bpf_types.h` maps a program of `BPF_PROG_TYPE_SOCKET_FILTER` to `sk_filter_func_proto`.
+```c always
+static const struct bpf_func_proto *
+sk_filter_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+{
+	switch (func_id) {
+	case BPF_FUNC_skb_load_bytes:
+		return &bpf_skb_load_bytes_proto;
+	case BPF_FUNC_skb_load_bytes_relative:
+		return &bpf_skb_load_bytes_relative_proto;
+	case BPF_FUNC_get_socket_cookie:
+		return &bpf_get_socket_cookie_proto;
+	case BPF_FUNC_get_socket_uid:
+		return &bpf_get_socket_uid_proto;
+	case BPF_FUNC_perf_event_output:
+		return &bpf_skb_event_output_proto;
+	default:
+		return bpf_sk_base_func_proto(func_id);
+	}
+}
+```
+
+## eBPF maps
+eBPF maps is a storage method provided by the linux kernel to storage persistent information between runs of the eBPF program, between different programs, and to share data from userspace for the program to access. The full list of eBPF maps types can be found at [https://docs.ebpf.io/linux/map-type/](https://docs.ebpf.io/linux/map-type/).
+
+## compiling eBPF programs
+
+There are 3 ways that I currently know of to generate eBPF programs:
+1. using c macros from [bpf_insn.h](https://github.com/torvalds/linux/blob/v6.6/samples/bpf/bpf_insn.h) to generate bytecode directly
+2. writing eBPF assembly and assembling to bytecode
+3. writing programs in Rust, C, or Zig and compiling to eBPF bytecode
+
+The method I chose to generate my eBPF exploit in this challenge is to write eBPF assembly and assemble to bytecode using zig.
+
+```x86asm always
+#define MAP_LOOKUP_ELEM 1
+
+_start:
+    ld_pseudo r1, 1, 10
+    r2 = fp
+    r2 += -8
+    *(u64 *)(r2 + 0) = 0
+    call MAP_LOOKUP_ELEM
+    if r0 == 0 goto done
+
+    r0 = *(u64 *)(r0 + 0)
+    exit
+
+done:
+    r0 = 0
+    exit
+```
+
+This is an example of a small eBPF program that looks up a value in the map referenced by fd 10 using the key 0. Currently the Zig backend for eBPF uses llvm, which defaults to a style of eBPF known as pseudoc.
+
+```shell always
+zig cc probe.S -target bpfel-freestanding-none -c -o probe.o
+objcopy -O binary probe.o probe.bin
+xxd -i probe.bin > probe.h
+```
+
+The eBPF target is `bpfel-freestanding-none`, and once compiled into an elf object the bytecode can be extracted with objcopy. `xxd -i` converts a binary file into an array of bytes that can be included in a c file using the `#include` directive.
+
+### eBPF map pointers
+Inside of an eBPF program, maps are referenced by special types called map ptrs. Map ptrs are loaded into registers using a variant of the ld64 instruction. Normally ld64 is used to load a 64 bit immediate number into a register, but if the src field of the ld64 instruction is set to 1 the kernel will instead interpret the immediate as a file descriptor and load a reference to the appropriate map ptr. This can be accomplished in assembly with:
+
+```x86asm always
+ld_pseudo [reg], 1, [fd]
+```
+
+### calling eBPF helpers
+By default, call instructions are interpreted as requests for eBPF helpers. The immediate field of the call instruction is used to determine which eBPF helper to call. For example, `call 1` invokes `BPF_FUNC_map_lookup_elem`. The full list of eBPF helpers cal be found in `enum bpf_fund_id` at `<linux/bpf.h>`.
+
+### other call variants
+There are two other types of call instructions, based on the value of the src field. Subprogram calls use `src = 1` and kernel functions use `src = 2`. To my knowledge there is not an assembly variant of the call instruction that allows control of the src field. Instead a macro can be used instead that directly encodes the value of the src field.
+
+```x86asm always
+.macro kfunc fn
+    .byte 0x85, 0x20, 0, 0
+    .4byte \fn
+.endm
+```
+
+The different processing of the call variants can be found at `kernel/bpf/verifier.c:16655`.
+
+## JIT compilation
+eBPF has two modes of execution, interpreted and jit compiled.
+
+```text always
+CONFIG_BPF=y
+CONFIG_HAVE_EBPF_JIT=y
+CONFIG_ARCH_WANT_DEFAULT_BPF_JIT=y
+
+#
+# BPF subsystem
+#
+CONFIG_BPF_SYSCALL=y
+CONFIG_BPF_JIT=y
+CONFIG_BPF_JIT_ALWAYS_ON=y
+CONFIG_BPF_JIT_DEFAULT_ON=y
+```
+JIT compilation is controlled by this set of kernel config options. With `CONFIG_BPF_JIT_ALWAYS_ON` set, eBPF programs are always JIT compiled by the kernel. The program is JIT compiled by the function `bpf_int_jit_compile` at `kernel/bpf/core.c`.
+
+```c always
+void bpf_prog_jit_attempt_done(struct bpf_prog *prog)
+```
+
+It is possible to dump the JIT compiled program by setting a breakpoint at `bpf_prog_jit_attempt_done` and dumping the instructions at `fp->bpf_func` (or `$rdi+0x30` on x86_64).
+
+# challenge exploration
+
+The challenge involves a patch to linux version `v6.6.74` to add a new eBPF helper function:
+```diff path="aliyunctf.patch" open
+```
+
+This patch adds an extra eBPF helper function. The helper itself is simple, it takes an 8 byte long buffer, xors it with 2025, and writes it to a different 8 byte result memory location. The interesting part of this patch is that the result argument is marked with `MEM_RDONLY`, even though the xor function modifies it.
+
+I won't talk about the eBPF verifier too much here. Some good reading to do is:
+- [https://bughunters.google.com/blog/6303226026131456/a-deep-dive-into-cve-2023-2163-how-we-found-and-fixed-an-ebpf-linux-kernel-vulnerability](https://bughunters.google.com/blog/6303226026131456/a-deep-dive-into-cve-2023-2163-how-we-found-and-fixed-an-ebpf-linux-kernel-vulnerability)
+- [https://www.zerodayinitiative.com/blog/2020/4/8/cve-2020-8835-linux-kernel-privilege-escalation-via-improper-ebpf-program-verification](https://www.zerodayinitiative.com/blog/2020/4/8/cve-2020-8835-linux-kernel-privilege-escalation-via-improper-ebpf-program-verification)
+
+Since the value inside of readonly maps can't change, the verifier can assume that registers that loads from readonly maps will hold the exact value in the map. However since the `bpf_aliyunctf_xor` helper is allowed to modify read only memory, we can break the assumption. We can trick the verifier into thinking that a value is some number `X` when it is actually `Y`.
+
+```c open
+static bool bpf_map_is_rdonly(const struct bpf_map *map)
+{
+	/* A map is considered read-only if the following condition are true:
+	 *
+	 * 1) BPF program side cannot change any of the map content. The
+	 *    BPF_F_RDONLY_PROG flag is throughout the lifetime of a map
+	 *    and was set at map creation time.
+	 * 2) The map value(s) have been initialized from user space by a
+	 *    loader and then "frozen", such that no new map update/delete
+	 *    operations from syscall side are possible for the rest of
+	 *    the map's lifetime from that point onwards.
+	 * 3) Any parallel/pending map update/delete operations from syscall
+	 *    side have been completed. Only after that point, it's safe to
+	 *    assume that map value(s) are immutable.
+	 */
+	return (map->map_flags & BPF_F_RDONLY_PROG) &&
+	       READ_ONCE(map->frozen) &&
+	       !bpf_map_write_active(map);
+}
+```
+Something to note is that in order to create a readonly bpf map, the `BPF_F_RDONLY_PROG` flag must be set when creating the map. `BPF_F_RDONLY_PROG` disallows the eBPF program from modifying the map. But the userland program can still modify the map so the kernel can't consider the map to be readonly yet. Once the map is populated with values from userland, it can be frozen using `BPF_MAP_FREEZE` to disallow further modification by the userland program. Now the map can be considered readonly and the verifier can perform constant optimziation.
+
+I probably spent at least 12 hours trying to figure out why the verifier wasn't doing constant optimization only to realize that I hadn't frozen the map.
+
+In manf's writeup, they abuse map ptrs to achieve out bounds read/write and eventually privilege escalation. But from my testing, this no longer works in modern versions of linux. The verifier and JIT compiler seem to treat operations on map ptrs differently. If a register is added to a map ptr that is a known constant number, the compiler will emit sequence of instruction that will directly add that number instead of using the register. This means that if the verifier knows that a register holds the value `X` it will emit assembly that simply adds the constant `X` directly to the map ptr, even though theoretically at runtime if it was using a register instead the value would be different.
+
+The google blog post takes a different approach. When not operating on map ptrs, even though the compiler knows a register holds a constant value it does not optimize it into a direct constant and uses the value of the register. This can be abused in combination with eBPF helpers.
+
+```x86asm open
+// Put a ptr to skb (network packet) in r1
+r1 = ptr_to_packet
+// Set offset = 0
+r2 = 0
+// Set to = stack_ptr - 40
+r3 = r10 - 40
+// Verifier thinks len = 0, in reality len = 8.
+r4 = r6
+// len = len + 8, verifier thinks len = 8 so it deems it safe, in reality len = 16
+r4 += 8
+// Set start_header = 1
+r5 = 1
+// assuming r8 holds a pointer to memory
+*(u64 *)(r3 + 8) = r8
+BPF_FUNC_skb_load_bytes_relative(r1, r2, r3, r4, r5)
+```
+
+Here we trick the verifier into thinking a value is 0 during verification, but at runtime will be 8 (verif=0, runtime=8). Adding 8 to this value yields (verif=8, runtime=16). This corrupted length can be passed into `skb_load_bytes_relative` which reads data from a network packet, which we have control over. The verifier thinks the bytes at r3+0 to r3+8 are written to by `skb_load_bytes_relative` when it is really writing to r3+0 to r3+16, corrupting the pointer at r3+8. Now the pointer at r3+8 points to some arbitrary attacker controlled value and the verifier thinks the pointer is still safe to use. Since KASLR is turned off we simply overwrite `modprobe_path` for privilege escalation and read the flag.
+
+# solve scripts
+```make path="Makefile" open
+```
+```x86asm path="probe.S" open
+```
+```c path="test.c" open
+```

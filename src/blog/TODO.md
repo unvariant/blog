@@ -13,5 +13,6 @@
 - [ ] merge the concept of a "post" in build.js and MainPage.js
 - [ ] add single-line codeblock highlighting
 - [ ] FIX FOOTNOTES
+- [ ] allow pages to disallow themselves from showing up as posts
 
 If you have any suggestions feel free to message me on discord `@unvariant.winter`.

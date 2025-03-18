@@ -91,7 +91,7 @@ From here since most of the port offsets have been reversed, we can figure out w
 
 Now that we have all the ports needed to properly run the cpu, we can start reversing the behavior of `nand_checker`. We know that the program is simulating the behavior of `nand` gates, and that certain inputs/outputs are placed at constant addresses in memory. Using this information and our local cpu implementation we start to slowly reverse the behavior of the instructions.
 
-We could not find the registers by looking for values of contiguous 16 bits, so instead we dumped them with the load instruction. The format of the load instruction is: `p4(0x0b) + p4(dst reg) + p4(src reg) + p4(0x00)`. This will attempt to read from the memory address held in `src reg`, and output the value of `src reg` is leaked into the address port for us to read. To leak the value of a single register we first save the internal state of the processor, execute the load instruction to get a leak, then restore the internal state back to what it was before.
+We could not find the registers by looking for values of contiguous 16 bits, so instead we dumped them with the load instruction. The format of the load instruction is: `p4(0x0b) + p4(dst reg) + p4(src reg) + p4(0x00)`. This will attempt to read from the memory address held in `src reg`, and the value of `src reg` is leaked into the address port for us to read. To leak the value of a single register we first save the internal state of the processor, execute the load instruction to get a leak, then restore the internal state back to what it was before.
 
 First 10 lines of our simulator dump:
 

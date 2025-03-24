@@ -27,7 +27,7 @@ LANDLOCK_ACCESS_NET_CONNECT_TCP
 LANDLOCK_ACCESS_FS_IOCTL_DEV
 ```
 
-You can fairly fine grained control over whether a process can perform certain filesystem actions, which is useful for sandboxing. The source of the challenge is simple: it disables all filesystem access using landlock and then runs user supplied shellcode.
+You have fairly fine grained control over whether a process can perform certain filesystem actions, which is useful for sandboxing. The source of the challenge is simple: it disables all filesystem access using landlock and then runs user supplied shellcode.
 
 ## challenge exploration
 

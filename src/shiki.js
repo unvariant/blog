@@ -10,6 +10,7 @@ import bash from "shiki/langs/bash.mjs";
 import python from "shiki/langs/python.mjs";
 import diff from "shiki/langs/diff.mjs";
 import dockerfile from "shiki/langs/dockerfile.mjs";
+import html from "shiki/langs/html.mjs";
 import json from "shiki/langs/json.mjs";
 import yaml from "shiki/langs/yaml.mjs";
 import ini from "shiki/langs/ini.mjs";
@@ -32,6 +33,7 @@ const languages = {
     python,
     diff,
     dockerfile,
+    html,
     json,
     yaml,
     ini,

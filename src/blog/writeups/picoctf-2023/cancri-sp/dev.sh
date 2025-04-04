@@ -10,8 +10,4 @@ exec ./src/out/Final/chrome \
   --user-data-dir=/does-not-exist \
   --disable-dev-shm-usage \
   --no-sandbox \
-  "http://im.just.memi.ng" 3<&0 4>/dev/null
-
-# http://im.just.memi.ng
-# http://localhost
-# http://cancri-sp.fly.dev
+  "localhost" 3<&0 4>/dev/null

@@ -3,11 +3,18 @@
     "ignore": [
         ".git",
         "node_modules/**/node_modules",
-        "_build", "_cache",
-        "testing"
+        "_build",
+        "_cache",
+        "testing",
+        "src/blog/writeups/cleanup"
     ],
     "verbose": true,
     "exec": "npm run devbuild",
     "ext": "*",
-    "watch": ["src", "static", "build.js", "render.js"]
+    "watch": [
+        "src",
+        "static",
+        "build.js",
+        "render.js"
+    ]
 }

@@ -19,7 +19,7 @@ export default function (props) {
                 return 1;
             }
         })
-        .slice(0, 5);
+        .slice(0, 4);
     const recentPostsList = recentByDate.map(([info, date]) => {
         return (
             <p>
@@ -68,6 +68,9 @@ export default function (props) {
                     <div id="posts">
                         <h4>recent posts</h4>
                         {recentPostsList}
+                        <p>
+                            <a href="/all-posts.mdx/">- all posts -</a>
+                        </p>
                     </div>
                 </div>
 

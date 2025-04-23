@@ -91,7 +91,8 @@ export const posts = files
     .filter(
         (p) =>
             postWhitelist.find((w) => path.format(p).startsWith(w)) &&
-            p.name.toLowerCase() == "readme"
+            p.name.toLowerCase() == "readme" &&
+            p.ext.toLowerCase() == ".mdx"
     )
     .map((p) => path.resolve(p.dir));
 

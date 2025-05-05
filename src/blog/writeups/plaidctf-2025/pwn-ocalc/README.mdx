@@ -1,0 +1,13 @@
+export const title = "PlaidCTF 2025: Ocalc";
+
+This writeup will be quite brief because I don't have time at make a detailed one right now, perhaps I'll revisit it at a later date because it was a pretty cool challenge.
+
+The gist of the challenge was a custom calculator that used libgmp to handle arbitrary precision integers. At first we weren't exactly sure what the bug was, just that it probably had something to do with garbage collection since the challenge was run with parameters that change the gc behavior. We ended up fuzzing the challenge with afl++ and quickly found a uaf bug. While trying to reduce the afl crash inputs to a minimal input that would trigger the bug we realized that the `++` operator or any of the operators that dealt with list operations would cause the uaf vulnerability.
+
+Using the uaf and bata24 gef's `musl-heap-dump` I was able to get a libc leak by overlapping a libc pointer inside of a gmp limb. I was able to get arbitrary write by overlapping a number with the gmp number struct instead of the limb, and setting the limb pointer to the target address to write to. It is then possible to increment the data at the target address by an arbitrary amount using the calculator.
+
+For rce I searched for function pointers and found some inside of libgmp. There were 3 function pointers that libgmp use for free, malloc, and realloc in a writeable section of the library. I incremented the realloc pointer to system, setup a number with a numerical value of `sh`, and finally added a large enough number to the previous number to force reallocation and pop a shell.
+
+```c path="solve.py" open
+
+```

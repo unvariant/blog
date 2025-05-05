@@ -1,0 +1,11 @@
+export const title = "PlaidCTF 2025: Bounty Board";
+
+This writeup will be quite brief because I don't have time at make a detailed one right now. This challenge involved a oob memcpy due to a negative length argument. It was possible to move data around to outside of a chunk using the negative memcpy, and move data down into the tcache metadata struct. First overwriting top chunk for a libc pointer inside of the heap and overwriting the lower 2 bytes to point to stdout (4 bit brute force). From there move data down to set a valid tcache count and move the stdout pointer into a tcache head. Use the stdout pointer to trigger a libc leak, and finally overwrite stdout for rce.
+
+The most time consuming part of this challenge was properly setting up a local environment to match remote. Initially when my exploit failed on remote, I suspected it was due to avx512. Since my laptop doesn't have avx512 the memcpy implementation used will be different from remote if remote has avx512. I made a ticket about this during the ctf and was told that `You have all the information you need` ¯\_(ツ)\_/¯. Oh well. It's not too hard to confirm on remote since the different memcpy implementation's use different offsets. The avx2 version uses -0x80 and avx512 uses -0x100, and you can test this on remote by sending a payload that crashes for avx512 but not for avx2. Using this I was able to confirm that avx512 was enabled on remote.
+
+I ended up patching the libc avx512 memcpy to use normal avx2 instructions so I could debug my exploit locally, and saved me from having to debug my issues on remote.
+
+```c path="solve.py" open
+
+```

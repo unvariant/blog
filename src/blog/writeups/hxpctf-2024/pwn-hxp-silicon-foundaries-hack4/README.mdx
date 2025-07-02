@@ -3,3 +3,175 @@ export const description = "";
 
 # hxp-silicon-foundaries-hack-4
 
+It's been so long since I originally solved this challenge that I forgot some details haha... But I still remember most of it. The challenge involved a patch to qemu adding custom "slice" instructions.
+
+The relevant patch is here if you want to read it:
+
+```diff path="./0001-Add-hack4-ai1337.patch"
+
+```
+
+TLDR; the patch adds a few things.
+
+## slices
+
+The patch adds a concept of "slices". There are a variable amount of slices, configurable with the privileged msr `MSR_HACK4_NUM_SLICES`. The size of each slice is configurable with the privileged msr `MSR_HACK4_SLICE_SIZE`. However they must not exceed `AI1337_SCRATCH_MAX_NUM_SLICES` and `AI1337_SCRATCH_MAX_SLICE_SIZE`.
+
+The slices are memory mapped in virtual and physical memory but are only exposed when the `access_enabled` flag is set by the processor. This flag is enabled temporarily by certain instructions that directly access the slice memory. These instructions are:
+
+1. FSCR
+    - zeros all slices
+2. MTS
+    - writes `rcx` bytes from virtual memory address `rsi` to the slice at index `rbx` at offset `rdi`
+3. STM
+    - reads `rcx` bytes from slice at index `rbx` at offset `rdi` to virtual memory address `rsi`
+4. SCR\{ADD,SUB,MUL\}
+    - performs operations on slices at index `rdi` and `rsi` and stores the result to the slice at index `rdx`
+
+There are also two instructions that deal with the virtual address base of the slices:
+
+1. SCRHLW
+    - set the slice virtual address base
+    - privileged instruction
+2. SCRHLR
+    - get the slice virtual address base
+
+### slice memory initialization
+
+```c open
+    {
+        env->scratch_config.num_active_slices = AI1337_SCRATCH_NUM_SLICES_DEFAULT;
+        env->scratch_config.slice_size = AI1337_SCRATCH_SLICE_SIZE_DEFAULT;
+        env->scratch_config.va_base = AI1337_SCRATCH_VA_BASE;
+        env->scratch_config.phys_base = AI1337_SCRATCH_PHYS_BASE;
+        env->scratch_config.access_enabled = 0;
+
+        uint16_t scratch[AI1337_SCRATCH_SIZE];
+        env->scratch_region = malloc(sizeof(MemoryRegion));
+        memset(env->scratch_region, 0, sizeof(*env->scratch_region));
+        memory_region_init_ram_ptr(env->scratch_region, NULL, "ai1337-scratch", AI1337_SCRATCH_SIZE, scratch);
+        env->scratch_region->ram_block->flags |= RAM_RESIZEABLE;
+        env->scratch_region->ram_block->max_length = AI1337_SCRATCH_MAX_NUM_SLICES * AI1337_SCRATCH_MAX_SLICE_SIZE;
+        memory_region_add_subregion(get_system_memory(), AI1337_SCRATCH_PHYS_BASE, env->scratch_region);
+    }
+```
+
+The backing memory of the slices is registered from an array declared on the stack of `x86_cpu_initfn`.
+
+### slice prctl
+
+There is another patch that adds a custom prctl to the linux kernel that allows unprivileged code to set the scratch base.
+
+```diff path="./0001-Add-PR_SET_SCRATCH_HOLE.patch"
+
+```
+
+## initial exploration
+
+The challenge starts as an unprivileged user inside of linux running inside qemu. The goal of the challenge is to perform whatever steps are necessary to escape qemu and read the flag on the host system.
+
+The first obviously suspicious thing is how the backing memory for the slices is declared. The backing array has a size of `AI1337_SCRATCH_SIZE` but the registered memory region has a maximum size of `AI1337_SCRATCH_MAX_NUM_SLICES * AI1337_SCRATCH_MAX_SLICE_SIZE` and is set with the `RAM_RESIZEABLE` flag. If we can gain ring 0 code execution to write to the slice msrs, the memory region will be resized to reflect the new slice parameters.
+
+```c open
+static bool helper_recalculate_scratch(CPUX86State *env, uint32_t new_num_slices, uint32_t new_slice_size)
+{
+    if (new_num_slices > AI1337_SCRATCH_MAX_NUM_SLICES) {
+        return false;
+    }
+    if (new_slice_size > AI1337_SCRATCH_MAX_SLICE_SIZE) {
+        return false;
+    }
+    uint32_t new_size = new_num_slices * new_slice_size;
+    Error *err = NULL;
+    bql_lock();
+    memory_region_ram_resize(env->scratch_region, new_size, &err);
+    bql_unlock();
+    if (err) {
+        return false;
+    }
+    env->scratch_config.num_active_slices = new_num_slices;
+    env->scratch_config.slice_size = new_slice_size;
+    return true;
+}
+```
+
+The only caveat is that we have to be running in ring 0 and we start as an unprivileged linux user in ring 3. This means that our first step must be to either escalate our privileges to root or get ring 0 code execution directly.
+
+Looking through the rest of the slice handling code, nothing looks suspicious. All the code is performing proper bounds checks to prevent invalid use of the instructions.
+
+## taking a closer look
+
+This is the code for the STM instruction:
+
+```c open
+static void gen_stm_8(DisasContext *s, MemOp ot)
+{
+    const size_t va_base_offset = offsetof(CPUX86State, scratch_config.va_base);
+    const size_t slice_size_offset = offsetof(CPUX86State, scratch_config.slice_size);
+    const size_t access_offset = offsetof(CPUX86State, scratch_config.access_enabled);
+
+    const TCGv slice_index = cpu_regs[R_EBX];
+    const TCGv offset_in_slice = cpu_regs[R_EDI];
+    const TCGv memory_address = cpu_regs[R_ESI];
+    const TCGv dshift = gen_compute_Dshift(s, ot);
+
+    tcg_gen_st_tl(tcg_constant_i64(1), tcg_env, access_offset);
+
+    // Calculate address for scratch
+    // A0 = offset_in_slice + slice_base + (slice_index * slice_size)
+    tcg_gen_ld_tl(s->A0, tcg_env, va_base_offset);
+    gen_lea_v_seg(s, s->A0, R_ES, -1);
+    tcg_gen_add_tl(s->A0, s->A0, offset_in_slice);
+
+    tcg_gen_ld32u_tl(s->tmp0, tcg_env, slice_size_offset);
+    tcg_gen_mul_tl(s->tmp0, s->tmp0, slice_index);
+    tcg_gen_add_tl(s->A0, s->A0, s->tmp0);
+
+    // Load value from scratch
+    gen_op_ld_v(s, MO_8, s->T0, s->A0);
+
+    // Write to memory address
+    gen_lea_v_seg(s, memory_address, R_DS, -1);
+    gen_op_st_v(s, MO_8, s->T0, s->A0);
+
+    gen_op_add_reg(s, s->aflag, R_ESI, dshift);
+    gen_op_add_reg(s, s->aflag, R_EDI, dshift);
+
+    tcg_gen_st_tl(tcg_constant_i64(0), tcg_env, access_offset);
+}
+```
+
+- sets the `access_enabled` flag
+- calculates the necessary virtual address to read the slice at the proper index and offset
+- reads a byte from the address
+- writes the byte to the destination address
+- clears the `access_enabled` flag
+
+The code doesn't perform any bounds checking because it doesn't need to. As soon as an access goes out of bounds of normal slice memory the memory reads/writes will no longer be accessing slice memory and will be accessing normal memory.
+
+There is a subtle flaw in this code. What happens when the instruction faults in the middle of performing an operation? The processor raises a general protection fault and the linux kernel catches this and generates a SIGSEGV signal to userland. But the important part is that since the instruction faulted in the middle of execution the `access_enabled` flag is never cleared.
+
+Now the processor will think that the slice memory is always enabled, effectively overriding whatever memory is at the slice virtual address base. Combined with the prctl that allows unprivileged code to change the slice virtual address base we can abuse this to override kernel memory.
+
+> Small sidenote, this vulnerability is similar to one present in x86 processors that was used to gain SMM code execution AKA ring -2. SMM is implemented very similarly to how slices are managed in this challenge. Attempting to access SMM memory normally from outside of SMM will return all 0xFFs. Once in SMM mode however reading the same memory will return their contents. The issue was that memory mapped io regions had a higher precedence than SMM code and the ACPI region could be remapped to overlap with SMM code.
+> [defcon talk](https://www.youtube.com/watch?v=lR0nh-TdpVg) [black hat paper](https://www.blackhat.com/docs/us-15/materials/us-15-Domas-The-Memory-Sinkhole-Unleashing-An-x86-Design-Flaw-Allowing-Universal-Privilege-Escalation-wp.pdf)
+
+The first thing I tried was overwriting kernel code pages with custom shellcode for ring 0 code execution. This failed and we spent some time trying to debug this. Eventually we gave up and assumed it was some tlb caching thing that was messing us our exploit. I pivoted from attacking kernel code to attacking the kernel interrupt tables. The interrupt tables are always located at a fixed virtual address in x86 which makes them an ideal target for our memory override gadget. In Linux entry 236 of the Interrupt Descriptor Table (IDT) is the APIC timer interrupt vector. By overriding this vector to point to userland shellcode and waiting a bit, the timer interrupt will trigger and transfer control to our shellcode in ring 0.
+
+From here I wrote a qemu escape exploit in assembly. By resizing the slice memory region with the privileged msrs we gain access to a large portion of the host qemu stack. The assembly uses the giant stack window to calculate the libc base and generate a rop chain that will pop a shell when executed.
+
+## solve files
+
+(Sorry its a bit messy because I was in a rush during the ctf).
+
+```c path="./solve.c" open
+
+```
+
+```x86asm path="./ai.asm" open
+
+```
+
+```makefile path="./Makefile" open
+
+```

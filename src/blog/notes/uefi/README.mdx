@@ -23,3 +23,11 @@ readv(0, [{iov_base="~", iov_len=1}], 1) = 1
 This can also be used to capture the sequences for the arrow keys.
 
 One workaround for this cheese is to either patch out the code in OVMF which registers the f keys triggering the boot menu. The easier solution is to redirect serial to a unix socket instead of stdio, sleep long enough to pass the firmware boot, then use ncat to connect to the unix socket and allow communication.
+
+### watchdog timer
+
+Might be possible to simply wait for the watchdog timer to fire and kill the bootloader.
+
+### exiting back to the uefi shell
+
+If the challenge is run through a bootloader, returning from the bootloader or exiting will return back to the uefi shell.

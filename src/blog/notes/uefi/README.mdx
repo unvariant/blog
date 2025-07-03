@@ -1,0 +1,25 @@
+# uefi
+
+## cheeses
+
+### spamming f keys
+
+There is an easy cheese for UEFI challenges that immediately expose console access on boot. By spamming the `f10` key during the boot sequence of the EDK2 OVMF firmware boot sequence it will drop into the boot menu instead of the bootloader.
+
+The byte sequence for the f keys can be found by stracing qemu:
+
+```
+$ sudo strace -e readv -p $(pgrep qemu)
+strace: Process 1744629 attached
+readv(0, [{iov_base="\33", iov_len=1}], 1) = 1
+readv(0, [{iov_base="[", iov_len=1}], 1) = 1
+readv(0, [{iov_base="2", iov_len=1}], 1) = 1
+readv(0, [{iov_base="1", iov_len=1}], 1) = 1
+readv(0, [{iov_base="~", iov_len=1}], 1) = 1
+```
+
+(What qemu reads when you type f10 in `-nographic` mode).
+
+This can also be used to capture the sequences for the arrow keys.
+
+One workaround for this cheese is to either patch out the code in OVMF which registers the f keys triggering the boot menu. The easier solution is to redirect serial to a unix socket instead of stdio, sleep long enough to pass the firmware boot, then use ncat to connect to the unix socket and allow communication.

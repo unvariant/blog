@@ -1,0 +1,10 @@
+# shellcode jails
+
+## tricks
+
+### zero byte decoding
+
+On certain architectures, null bytes are actually valid instructions. For example on x86-64 `\x00\x00` decodes to `add byte [rax], al`.
+
+- l3akctf 2025 pwn/sshellcode
+- lakectf 2025 pwn/mmapro

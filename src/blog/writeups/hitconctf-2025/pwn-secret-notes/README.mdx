@@ -1,0 +1,51 @@
+export const title = "HitconCTF 2025: Secret Notes";
+
+The program assumes that the key value parsed from the note is 8 bytes long. This is enforced by validating the note and checking that the input key is actually 8 bytes long with `strcspn` before parsing with `strtok`. This is the `strtok` source code:
+
+```c open
+char *
+__strtok_r (char *s, const char *delim, char **save_ptr)
+{
+  char *end;
+
+  if (s == NULL)
+    s = *save_ptr;
+
+  if (*s == '\0')
+    {
+      *save_ptr = s;
+      return NULL;
+    }
+
+  /* Scan leading delimiters.  */
+  s += strspn (s, delim);
+  if (*s == '\0')
+    {
+      *save_ptr = s;
+      return NULL;
+    }
+
+  /* Find the end of the token.  */
+  end = s + strcspn (s, delim);
+  if (*end == '\0')
+    {
+      *save_ptr = end;
+      return s;
+    }
+
+  /* Terminate the token and make *SAVE_PTR point past it.  */
+  *end = '\0';
+  *save_ptr = end + 1;
+  return s;
+}
+```
+
+`strtok` always stores a reference to the string, even after it has hit a null byte. By creating a note and then deleting it, the internal `strtok` pointer will be pointing into free'd memory. However the next call to `strtok` with a non-null pointer will overwrite the saved pointer. This can be bypassed by allocating a giant note to make `strdup` return `NULL` so `strtok` will attempt to parse the free'd memory as a note.
+
+First step is to create a setup note that places a fake note with key length less than 8 into the bytes at chunk + 16. Then create a victim note such that after parsing the internal `strtok` points to somewhere between chunk + 8 and chunk + 16. After freeing the victim note glibc will write a tcache key into chunk + 8 to chunk + 16, overwriting the terminating null byte the internal `strtok` pointer is pointing to. Now the memory exhaustion bug can be triggered, causing `strtok` to parse the tcache key as the header, plus the fake key and value from the setup chunk.
+
+A small key gives out of bounds heap write and after this exploitation is simple. Using the out of bounds write to corrupt the size of the next chunk to overlap with a tcache chunk and unsorted bin chunk. This gives a heap leak and libc leak, then use tcache poisoning to write an fsop payload into stderr for rce.
+
+```py path="solve.py" open
+
+```

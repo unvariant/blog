@@ -1,0 +1,32 @@
+export const title = "HitconCTF 2025: Calc";
+
+Trivial UAF type confusion between `Calculator` and `Numbers` array. First step is to get a heap leak. This is done by creating `Numbers` array that overlaps with `Calculator`,
+then adding -0xaaa9. This specific number preserves the value of the `Calculator->ops` pointer while also moving the sum of the `Numbers` array into `Calculator->n`.
+Since the upper 32 bits of the binary base are fixed (0xaaaa), the only value that changes is the lower 32 bit of the binary base. `Calculator->n` is set to
+`-0xaaa9 - 0xaaaa + 0xaaa9 + 1 - (binary_base & 0xffffffff)`.
+The value of `Calculator->n` can be leaked bit by bit through the modulus gadget, which will update `Calculator->status` based on the highest bit of n.
+
+Once a heap leak is obtained one is able to:
+
+SPEND 8 HOURS MANUALLY COMBING THROUGH POSSIBLE GADGETS ONLY TO REALIZE THAT BTI IS ENABLED AND 90% OF THE GADGETS ARE USELESS!!!! HOORAY!!!!
+
+THEN REALIZE THAT THERE EXIST TRIVAL ARBITRARY READ AND ARBITRARY WRITE GADGETS!!!!
+
+```c filename="write gadget" open
+0003ca70    void sub_3ca70(void* arg1)
+0003ca70        SystemHintOp_BTI()
+0003ca88        **(arg1 + 8) = *(arg1 + 0x10)
+```
+
+```c filename="read gadget" open
+__int64 __fastcall sub_3CA94(__int64 a1)
+{
+  return **(unsigned int **)(a1 + 8);
+}
+```
+
+Using the binary base leak and arbitrary read gadget the libc base can be obtained. After that overwriting exit functions is the simplest path to rce, since there doesn't exist any pointer mangling.
+`malloc`/`free`/`realloc` hooks do exist, but since the write gadget is limited to a single 32 bit write at a time the exploit would crash itself in the middle of writing the full hook pointer.
+
+```py path="solve.py" open
+```

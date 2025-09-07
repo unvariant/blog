@@ -1,16 +1,80 @@
 export const title = "HitconCTF 2025: Calc";
 
-Trivial UAF type confusion between `Calculator` and `Numbers` array. First step is to get a heap leak. This is done by creating `Numbers` array that overlaps with `Calculator`,
-then adding -0xaaa9. This specific number preserves the value of the `Calculator->ops` pointer while also moving the sum of the `Numbers` array into `Calculator->n`.
-Since the upper 32 bits of the binary base are fixed (0xaaaa), the only value that changes is the lower 32 bit of the binary base. `Calculator->n` is set to
-`-0xaaa9 - 0xaaaa + 0xaaa9 + 1 - (binary_base & 0xffffffff)`.
-The value of `Calculator->n` can be leaked bit by bit through the modulus gadget, which will update `Calculator->status` based on the highest bit of n.
+The binary itself is fairly simple. It presents an interface to create a calculator and numbers array, and operate on the array with the calculator.
 
-Once a heap leak is obtained one is able to:
+```c open
+puts(str: "1. Create integer array.")
+puts(str: "2. Delete integer array.")
+puts(str: "3. Create calculator.")
+puts(str: "4. Delete calculator.")
+puts(str: "5. Calculate.")
+puts(str: "6. Exit.")
+printf(format: "Choice: ")
+```
 
-SPEND 8 HOURS MANUALLY COMBING THROUGH POSSIBLE GADGETS ONLY TO REALIZE THAT BTI IS ENABLED AND 90% OF THE GADGETS ARE USELESS!!!! HOORAY!!!!
+One of the interesting things about the challenge is that the system is using Android libraries, plus PAC and BTI are enabled (BTI will be relevant later). The other interesting part of the challenge is the format of the calculator vtable. Normally the vtable is just an array of function pointers, but here the format is more like a jump table:
 
-THEN REALIZE THAT THERE EXIST TRIVAL ARBITRARY READ AND ARBITRARY WRITE GADGETS!!!!
+```c open
+struct Ops OPS =
+{
+    int32_t init = 0x10c64
+    int32_t sum = 0x10cb0
+    int32_t eor = 0x10d20
+    int32_t mod = 0x10da4
+    int32_t add = 0x10e58
+    int32_t sub = 0x10ed4
+    int32_t mul = 0x10f50
+}
+```
+
+The address of each function is calculated by taking the address of `OPS` and adding the offset for that function.
+
+## uaf
+
+This is the calculator struct, which has a size of 0x18 bytes.
+
+```c open
+struct Calc __packed
+{
+    struct Ops* ops;
+    uint64_t n;
+    int32_t status;
+    uint32_t padding;
+};
+```
+
+The numbers array is just `uint32_t[6]`, also 0x18 bytes.
+
+There is a single global instance of the calculator and single global instance of the numbers array. When deleting either the calculator or numbers array the pointer is not nulled out, allowing uaf access to the instance or type confusion by reallocating one structure as another. Creating a calculator, freeing it, then creating a numbers array allows full control over the contents of the calculator.
+
+## aslr leak
+
+The first step is to get an aslr leak. In order to supply a fake vtable a binary leak is needed.
+
+Whenever a calculator operation is performed, it starts by summing the contents of the numbers array and stores the result in the first index of the numbers array. While the numbers array is overlapped with the calculator this sum step would overwrite the lower 32 bits of `calc->ops` with garbage, crashing the program. This is where the magic `-0xaaa9` number comes in. The upper 32 bits of the binary base is always `0x0000aaaa` and `-0xaaa9` is interpreted as two uint32_t entries in the numbers array, `-1` and `-0xaaa9` (since the `-0xaaa9` gets signed extended to 64 bits). When the sum operation completes the lower 32 bits of `calc->ops` remain undisturbed since everything cancels out. The important part is after the addition operation completes `calc->n` will be set to the lower 32 bits of `calc->ops` plus some constant value.
+
+Now this value can be leaked by abusing the calculator modulus functionality, which sets `calc->status` based on the highest bit of `calc->n`.
+
+```c open
+uint64_t calc_mod(struct Calc* calc)
+    calc->status = 0
+
+    if (ARR == 0)
+        calc->status = 0xffffffff
+    else if (calc->n s<= 0)
+        calc->status = 1
+    else
+        struct Ops* ops = calc->ops
+        int64_t x8_7 = sx.q((ops + sx.q(ops->sum))())
+        uint64_t n = calc->n
+        calc->n = x8_7 s% n
+
+    return zx.q(calc->status)
+```
+
+## gadgets
+
+This was the step that took the longest, mostly because we didn't realize that BTI was on until 8 hours into our manual gadget search (It was 6am and we were very tired). BTI actually makes the gadget search simpler because it restricts our options to a very small subset of the functions. Most of the functions are cpp exception handling code, but two of the functions stood out as interesting:
 
 ```c filename="write gadget" open
 0003ca70    void sub_3ca70(void* arg1)
@@ -25,8 +89,49 @@ __int64 __fastcall sub_3CA94(__int64 a1)
 }
 ```
 
-Using the binary base leak and arbitrary read gadget the libc base can be obtained. After that overwriting exit functions is the simplest path to rce, since there doesn't exist any pointer mangling.
-`malloc`/`free`/`realloc` hooks do exist, but since the write gadget is limited to a single 32 bit write at a time the exploit would crash itself in the middle of writing the full hook pointer.
+These gadgets allow arbitrary read/write using the calculator/numbers array overlapping.
+
+## rce
+
+I mentioned before that the system is using Android libraries. The libc is no longer glibc, but whatever c standard library that Android ships. The first thing I looked for was free/malloc hooks. Looking at the decompilation of the libc, surprising there were free/malloc hooks present.
+
+```c open
+int64_t malloc(int64_t arg1)
+    void* x8 = data_4f4048
+    uint64_t x0_1
+
+    if (x8 != 0)
+        x0_1 = (*(x8 + 0x18))(arg1)
+```
+
+Only issue was that the arbitrary write gadget was only able to write 32 bits at a time which meant it wasn't possible to write a full pointer into the hook in one write. This make the hooks useless since the arbitrary write involved calling both malloc and free, so leaving the hook partially initialized would crash the exploit.
+
+The other common rce method that I use for glibc is attacking exit functions. I went digging through the exit implementation and found this:
+
+```c open
+void exit(int32_t arg1) __noreturn
+    __cxa_thread_finalize()
+    __cxa_finalize(0)
+    _exit(arg1)
+    noreturn
+
+void __cxa_thread_finalize()
+    void* x20 = *(_ReadMSR(SystemReg: tpidr_el0) + 8)
+
+    for (int64_t* i = *(x20 + 0xe8); i != 0; i = *(x20 + 0xe8))
+        *(x20 + 0xe8) = i[3]
+        (*i)(i[1])
+
+        if (__loader_remove_thread_local_dtor != 0)
+            __loader_remove_thread_local_dtor(i[2])
+
+        operator delete[](i)
+```
+
+`TPIDR_EL0` is the register that holds the address of the TLS base. While directly reading this register is impossible with the available gadgets, the TLS address is also present in the linker and can be leaked using the arbitrary read gadget. Once the TLS address is known setting up a call to `system("/bin/sh")` is trivial.
+
+## solve script
 
 ```py path="solve.py" open
+
 ```

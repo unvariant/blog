@@ -6,11 +6,17 @@ import util from "node:util";
 import { exec, spawnSync } from "node:child_process";
 const exec_promise = util.promisify(exec);
 
+const arch = os.arch();
 const platform = os.platform();
 
 const platformFiles = {
-    linux: "x86_64-unknown-linux-gnu",
-    darwin: "apple-darwin",
+    linux: {
+        "arm64": "aarch64-unknown-linux-gnu",
+        "x86_64": "x86_64-unknown-linux-gnu",
+    },
+    darwin: {
+        "arm64": "apple-darwin",
+    },
 };
 
 const commandExists = async (cmd) => {
@@ -25,10 +31,18 @@ const commandExists = async (cmd) => {
 };
 
 const chooseAsset = (assets) => {
-    const asset = assets.find((_) => _.name.includes(platformFiles[platform]));
+    const archMap = platformFiles[platform];
+    if (!archMap) {
+        throw new Error(`Unsupported platform ${platform}`);
+    }
+    const pattern = archMap[arch];
+    if (!pattern) {
+        throw new Error(`Unsupported arch ${arch} for ${platform}`);
+    }
+    const asset = assets.find((_) => _.name.includes(pattern));
 
     if (!asset) {
-        throw new Error(`Couldn't find any asset for platform '${platform}'`);
+        throw new Error(`Couldn't find any asset for platform '${platform}' and arch '${arch}'`);
     }
 
     return asset;
@@ -42,7 +56,7 @@ function runCommand(cmd, args, options) {
 }
 
 const downloadAsset = (asset) => {
-    const distFolder = path.resolve(path.resolve("."), `dist`);
+    const distFolder = path.resolve(path.resolve("."), "node_modules", ".bin");
     const untarFolder = path.join(
         distFolder,
         asset.name.replace(".tar.gz", "")

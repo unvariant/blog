@@ -13,6 +13,7 @@ testing/
 /blob-report/
 /playwright/.cache/
 restore/
+dist/
 
 src/blog/friends/
 src/blog/writeups/corctf-2024

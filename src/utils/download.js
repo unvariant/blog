@@ -12,7 +12,7 @@ const platform = os.platform();
 const platformFiles = {
     linux: {
         "arm64": "aarch64-unknown-linux-gnu",
-        "x86_64": "x86_64-unknown-linux-gnu",
+        "x64": "x86_64-unknown-linux-gnu",
     },
     darwin: {
         "arm64": "apple-darwin",

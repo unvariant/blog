@@ -1,4 +1,4 @@
-export function ChallengeInfo (props) {
+export function ChallengeInfo(props) {
     let table = [];
     let maxWidth = 0;
     const temp = props.items || {};
@@ -44,6 +44,7 @@ export function ChallengeInfo (props) {
                         display: "flex",
                         flexDirection: "column",
                         textAlign: "right",
+                        minWidth: "20vw",
                     }}
                 >
                     {table}

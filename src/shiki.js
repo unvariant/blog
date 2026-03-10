@@ -17,6 +17,7 @@ import ini from "shiki/langs/ini.mjs";
 import toml from "shiki/langs/toml.mjs";
 import js from "shiki/langs/javascript.mjs";
 import zig from "shiki/langs/zig.mjs";
+import lua from "shiki/langs/lua.mjs";
 import { highlight as hljs } from "./hljs.js";
 
 import theme from "shiki/themes/github-light.mjs";
@@ -40,6 +41,7 @@ const languages = {
     toml,
     js,
     zig,
+    lua,
 };
 const overrides = Object.entries({
     asm: ["armasm", "x86asm", "mipsasm"],
@@ -79,7 +81,6 @@ export function highlight(code, language) {
     }
     const lang = language.toLowerCase();
     if (mapping.hasOwnProperty(lang)) {
-        // console.log(lang);
         return shiki.codeToHtml(code, {
             lang: mapping[lang],
             theme: "github-light",

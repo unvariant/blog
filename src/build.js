@@ -8,7 +8,6 @@ import Highlight from "./components/Highlight.js";
 import { render, mdxToHtml } from "./render.js";
 import path from "node:path";
 import crypto from "node:crypto";
-import { optimizer } from "./blog/random/gallery/handle.js";
 import { SitemapStream, streamToPromise } from "sitemap";
 import { Readable } from "node:stream";
 import { Feed } from "feed";
@@ -187,11 +186,6 @@ if (!isDevelopmentMode()) {
 
 await fs.cp("static", config.buildRoot, { recursive: true });
 await builder.renderAll();
-try {
-    optimizer.postMessage("done");
-} catch (e) {
-    console.log(`postMessage failed`);
-}
 
 if (isDevelopmentMode()) {
     console.log(`skip generating sitemap in development mode`);

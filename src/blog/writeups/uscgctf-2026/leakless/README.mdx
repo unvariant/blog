@@ -1,0 +1,309 @@
+import { ChallengeInfo } from "#components/ChallengeInfo.js";
+
+export const title = "USCG Open CTF 2026";
+export const description = "Leakless and Tcacheless Heap in Glibc 2.43";
+
+<ChallengeInfo items={{
+    author: "LMS",
+    solves: 2,
+    points: 500,
+    difficulty: "hard"
+}}>
+
+No description.
+
+</ChallengeInfo>
+
+Classic heap challenge on `glibc 2.43`, with alloc, free, edit, and view. There are a few caveats:
+
+- view is completely disabled, the "leakless" part of this challenge
+- alloc will ignore any allocations below 0x420 bytes if `tcache != &__tcache_dummy`
+- io is done with read/write directly, bypassing libc FILE io
+
+## changes to malloc
+
+The last part is checking part of how 2.43 handles tcache. In 2.43 the tcache is lazily allocated under a few conditions:
+
+- chunk smaller than `mp_.tcache_max_bytes` is freed
+    - [https://elixir.bootlin.com/glibc/glibc-2.43/source/malloc/malloc.c#L3383](https://elixir.bootlin.com/glibc/glibc-2.43/source/malloc/malloc.c#L3383)
+- chunk is allocated from smallbin and smaller than `mp_.tcache_max_bytes`
+    - [https://elixir.bootlin.com/glibc/glibc-2.43/source/malloc/malloc.c#L3891](https://elixir.bootlin.com/glibc/glibc-2.43/source/malloc/malloc.c#L3891)
+- chunk is allocated from unsorted with the same exact size `nb == size`
+    - [https://elixir.bootlin.com/glibc/glibc-2.43/source/malloc/malloc.c#L4017](https://elixir.bootlin.com/glibc/glibc-2.43/source/malloc/malloc.c#L4017)
+
+Before lazy allocation the perthread tcache will point to the read only [\_\_tcache_dummy](https://elixir.bootlin.com/glibc/glibc-2.43/source/malloc/malloc.c#L2930) structure in the libc, which has bin counts of 0 and effectively causes the malloc code to ignore the tcache during normal execution.
+
+Once any of the 3 conditions above are triggered it is no longer possible to perform allocations smaller than `0x420`, effectively disabling allocating from the tcache.
+
+In 2.43 a few important things have also changed. Fastbins have been completely removed, tcache has been restructured such that overwriting `mp_.tcache_max_bytes` no longer indexes arbitrarily out of bounds of tcache, and all the large bin attack vectors have new security checks.
+
+## what still works
+
+Faking chunks still works, e.g. [poison null byte with fake chunks for overlapping chunks](https://github.com/shellphish/how2heap/blob/master/glibc_2.43/poison_null_byte.c). [Chunk unlink attack](https://github.com/shellphish/how2heap/blob/master/glibc_2.43/unsafe_unlink.c) still works. Top chunk overwrite still works, but it's pretty finicky.
+
+Some less direct techniques still exist and are not blocked by mitigations. [Large bin skip list behavior](https://elixir.bootlin.com/glibc/glibc-2.43.9000/source/malloc/malloc.c#L4159) allows for calling [unlink_chunk](https://elixir.bootlin.com/glibc/glibc-2.43.9000/source/malloc/malloc.c#L1592) on any chunk with the same size.
+
+## new "largebin" attack
+
+The root cause of the largebin attack was that malloc has two ways of removing chunks from linked lists. The checked safe path is to use `unlink_chunk`, but some of the code will manipulate the `fd`/`bk`/`fd_nextsize`/`bk_nextsize` pointers directly, leading to potentially exploitable behavior. Anywhere that malloc would dereference linked list pointers twice was exploitable and this was most prevalent and triggerable in the large bin handling code. For example:
+
+```c filename="2.41 largebin attack" open
+	if ((unsigned long) (size) < (unsigned long) chunksize_nomask (bck->bk)){
+		fwd = bck;
+		bck = bck->bk;
+		victim->fd_nextsize = fwd->fd;
+		victim->bk_nextsize = fwd->fd->bk_nextsize;
+		fwd->fd->bk_nextsize = victim->bk_nextsize->fd_nextsize = victim;
+	}
+```
+
+Now in 2.43 all those code paths have checks. But largebin isn't the only place where this sort of manual linked list manipulation occurs. While working on this challenge I found one other place where this sort of unchecked manipulation happens:
+
+```c filename="vulnerable malloc code" open
+  if (in_smallbin_range (nb))
+    {
+      idx = smallbin_index (nb);
+      bin = bin_at (av, idx);
+
+      if ((victim = last (bin)) != bin)
+        {
+          bck = victim->bk;
+	  if (__glibc_unlikely (bck->fd != victim))
+	    malloc_printerr ("malloc(): smallbin double linked list corrupted");
+          set_inuse_bit_at_offset (victim, nb);
+          bin->bk = bck;
+          bck->fd = bin;
+
+          if (av != &main_arena)
+	    set_non_main_arena (victim);
+          check_malloced_chunk (av, victim, nb);
+#if USE_TCACHE
+	  /* While we're here, if we see other chunks of the same size,
+	     stash them in the tcache.  */
+	  size_t tc_idx = csize2tidx (nb);
+	  if (tc_idx < mp_.tcache_small_bins)
+	    {
+	      mchunkptr tc_victim;
+
+	      if (__glibc_unlikely (tcache_inactive ()))
+		tcache_init (av);
+
+	      /* While bin not empty and tcache not full, copy chunks over.  */
+	      while (tcache->num_slots[tc_idx] != 0
+		     && (tc_victim = last (bin)) != bin)
+		{
+		  if (tc_victim != NULL)
+		    {
+		      bck = tc_victim->bk;
+		      set_inuse_bit_at_offset (tc_victim, nb);
+		      if (av != &main_arena)
+			set_non_main_arena (tc_victim);
+		      bin->bk = bck;
+		      bck->fd = bin;
+
+		      tcache_put (tc_victim, tc_idx);
+	            }
+		}
+	    }
+#endif
+          void *p = chunk2mem (victim);
+          alloc_perturb (p, bytes);
+          return p;
+        }
+    }
+```
+
+Do you see the issue? Checks are _only_ performed on the first smallbin chunk, and are completely skipped later in the code when malloc iterates over the rest of the chunks in the smallbin to move them into the tcache. Again it's the same issue: manual unchecked linked list manipulation. In this case its smallbin instead of largebin and the line we care about is this one:
+
+```c filename="smallbin attack" open
+	      /* While bin not empty and tcache not full, copy chunks over.  */
+	      while (tcache->num_slots[tc_idx] != 0
+		     && (tc_victim = last (bin)) != bin)
+		{
+		  if (tc_victim != NULL)
+		    {
+
+// [1] attacker controlled !!!
+		      bck = tc_victim->bk;
+		      set_inuse_bit_at_offset (tc_victim, nb);
+		      if (av != &main_arena)
+			set_non_main_arena (tc_victim);
+		      bin->bk = bck;
+
+// [2] libc address written to attacker controlled address !!!
+		      bck->fd = bin;
+
+		      tcache_put (tc_victim, tc_idx);
+	            }
+		}
+```
+
+Instead of writing a heap address into an attacker controlled address, triggering this will write a libc address into an attacker controlled address.
+
+## building primitives
+
+There is a single vulnerability in the challenge. When populating the initial contents of the allocated chunk the challenge does this:
+
+```c filename="oob null byte" open
+void *buf = malloc(size);
+size_t nbytes = read(0, buf, size);
+buf[nbytes] = 0;
+```
+
+### overlapping chunks
+
+Since `read` can return exactly size bytes, the `buf[bytes] = 0` can index past the end of the malloced buffer, a classic poison null byte vulnerability. With this it is possible to build overlapping chunks in the heap (see this [guide](https://github.com/shellphish/how2heap/blob/master/glibc_2.43/poison_null_byte.c) on how2heap). Most importantly it is possible to do this without triggering the tcache allocation code at all. This technique is also stable and can be reused multiple times to build multiple overlapping chunks.
+
+### arbitrary unlink
+
+Now with overlapping chunks it is possible to perform partial overwrites over the `prevsize`, `size`, `fd`, and `bk` fields of freed chunks. Our goal is to call `unlink_chunk` to overwrite `main_arena.top` with a libc address (see this [guide](https://github.com/shellphish/how2heap/blob/master/glibc_2.43/unsafe_unlink.c) on how2heap). The basic idea is that if there is a pointer to a heap chunk at a known address, it is possible to overwrite that pointer with `&pointer - 0x18` by calling `unlink_chunk` on a crafted heap chunk. The pointer can then be used to overwrite itself to any address.
+
+Normally the malloc code will never call `unlink_chunk` on top chunk. It will detect that a chunk is merging with top chunk and skip calling `unlink_chunk`. So instead we abuse large bin skip list behavior to force malloc to call `unlink_chunk` on an arbitrary address, in this case top chunk.
+
+```c filename="largebin skip list" open
+              /* Avoid removing the first entry for a size so that the skip
+                 list does not have to be rerouted.  */
+              if (victim != last (bin)
+		  && chunksize_nomask (victim)
+		    == chunksize_nomask (victim->fd))
+                victim = victim->fd;
+
+              remainder_size = size - nb;
+              unlink_chunk (av, victim);
+```
+
+### top chunk overwrite
+
+Top chunk now points to right below itself at `&main_arena.top - 0x18`, should be easy now right? Not quite. In order for allocations to be served from top chunk two checks must be passed:
+
+```c filename="top chunk checks" open
+    use_top:
+      /*
+         If large enough, split off the chunk bordering the end of memory
+         (held in av->top). Note that this is in accord with the best-fit
+         search rule.  In effect, av->top is treated as larger (and thus
+         less well fitting) than any other available chunk since it can
+         be extended to be as large as necessary (up to system
+         limitations).
+
+         We require that av->top always exists (i.e., has size >=
+         MINSIZE) after initialization, so if it would otherwise be
+         exhausted by current request, it is replenished. (The main
+         reason for ensuring it exists is that we may need MINSIZE space
+         to put in fenceposts in sysmalloc.)
+       */
+
+      victim = av->top;
+      size = chunksize (victim);
+
+      if (__glibc_unlikely (size > av->system_mem))
+        malloc_printerr ("malloc(): corrupted top size");
+
+      if ((unsigned long) (size) >= (unsigned long) (nb + MINSIZE))
+        {
+          remainder_size = size - nb;
+          remainder = chunk_at_offset (victim, nb);
+          av->top = remainder;
+          set_head (victim, nb | PREV_INUSE |
+                    (av != &main_arena ? NON_MAIN_ARENA : 0));
+          set_head (remainder, remainder_size | PREV_INUSE);
+
+          check_malloced_chunk (av, victim, nb);
+          void *p = chunk2mem (victim);
+          alloc_perturb (p, bytes);
+          return p;
+        }
+
+      /*
+         Otherwise, relay to handle system-dependent cases
+       */
+      else
+        {
+          void *p = sysmalloc (nb, av);
+          if (p != NULL)
+            alloc_perturb (p, bytes);
+          return p;
+        }
+```
+
+Unfortunately pointing top chunk to `&main_arena.top - 0x18` ends up giving it a size of zero. We skip the happy path of allocating from top chunk and hit `sysmalloc` where malloc will subsequently freak out, panic, and abort the process.
+
+This is where our newly discovered smallbin attack comes in. All of the primitives described above can be carefully performed to avoid initializing the tcache, to preserve the malloc state so that we are able to trigger the vulnerable smallbin code. Since the code doesn't validate chunk alignment we can write the libc address in such a way that it overlaps with the memory that top chunk is interpreting as a size field, giving our fake libc top chunk a valid size.
+
+### semi arbitrary write
+
+Top chunk overwrite is pretty powerful. Even better in this scenario is that top chunk initially points to itself, so the first allocation will return a persistent point to `&main_arena.top`. Combined with the edit feature top chunk can be changed to point anywhere in the libc that has a valid size field. This isn't very difficult because the alignment of top chunk is never verified and malloc will happily interpret the upper 4 bytes of some random pointer as the size.
+
+## exploitation
+
+At this point we have semi arbitrary write, but still no leaks. To fully exploit this for RCE we'll take advantage of only partial writes and build a self container FSOP payload that triggers on libc `exit` during `_IO_flush_all`.
+
+The classic FSOP technique for leakless heap challenges is to overwrite `_IO_2_1_stdout_._flags` and partially overwrite the last few bytes of `_IO_2_1_stdout_._IO_write_base`. However, in order to trigger the leak something needs to interact with `_IO_2_1_stdout_`. Typically this would just be `puts` or `printf` that is called during normal execution of the challenge, except in this case `_IO_2_1_stdout_` is bypassed by directly calling `write`. The leak payload would still trigger when libc `exit` is called, but at that point it's too late to use the leak right?
+
+Well... not exactly. `_IO_flush_all` iterates over the open libc FILE structs one by one, starting with `_IO_2_1_stderr_`, then `_IO_2_1_stdout_`, and finally `_IO_2_1_stdin_`. This ordering is dynamic, starting with whatever FILE `_IO_list_all` points to and each FILE's `_chain` pointer to the next file.
+
+```c filename="_IO_list_all ordering" open
+/* defaults to this */
+FILE *_IO_list_all = &_IO_2_1_stderr_;
+_IO_2_1_stderr_._chain = &_IO_2_1_stdout_;
+_IO_2_1_stdout_._chain = &_IO_2_1_stdin_;
+_IO_2_1_stdin_._chain = NULL;
+```
+
+By partially overwriting `_IO_2_1_stdin_._IO_write_base` and `_IO_2_1_stdin_.vtable` a call to `read` is triggered during `_IO_flush_all`. The read starts from our partially overwritten `_IO_write_base` and ends at `&_IO_2_1_stdin_._shortbuf[1]`.
+
+As shown in this gdb dump of `struct _IO_FILE` the `_shortbuf` field comes after the `_chain` field in the structure.
+
+```c filename="struct FILE" open
+type = struct _IO_FILE {
+/* 0x0000      |  0x0004 */    int _flags;
+/* XXX  4-byte hole      */
+/* 0x0008      |  0x0008 */    char *_IO_read_ptr;
+/* 0x0010      |  0x0008 */    char *_IO_read_end;
+/* 0x0018      |  0x0008 */    char *_IO_read_base;
+/* 0x0020      |  0x0008 */    char *_IO_write_base;
+/* 0x0028      |  0x0008 */    char *_IO_write_ptr;
+/* 0x0030      |  0x0008 */    char *_IO_write_end;
+/* 0x0038      |  0x0008 */    char *_IO_buf_base;
+/* 0x0040      |  0x0008 */    char *_IO_buf_end;
+/* 0x0048      |  0x0008 */    char *_IO_save_base;
+/* 0x0050      |  0x0008 */    char *_IO_backup_base;
+/* 0x0058      |  0x0008 */    char *_IO_save_end;
+/* 0x0060      |  0x0008 */    struct _IO_marker *_markers;
+/* 0x0068      |  0x0008 */    struct _IO_FILE *_chain;
+/* 0x0070      |  0x0004 */    int _fileno;
+/* 0x0074: 0x0 |  0x0004 */    int _flags2 : 24;
+/* 0x0077      |  0x0001 */    char _short_backupbuf[1];
+/* 0x0078      |  0x0008 */    __off_t _old_offset;
+/* 0x0080      |  0x0002 */    unsigned short _cur_column;
+/* 0x0082      |  0x0001 */    signed char _vtable_offset;
+/* 0x0083      |  0x0001 */    char _shortbuf[1];
+/* XXX  4-byte hole      */
+/* 0x0088      |  0x0008 */    _IO_lock_t *_lock;
+/* 0x0090      |  0x0008 */    __off64_t _offset;
+/* 0x0098      |  0x0008 */    struct _IO_codecvt *_codecvt;
+/* 0x00a0      |  0x0008 */    struct _IO_wide_data *_wide_data;
+/* 0x00a8      |  0x0008 */    struct _IO_FILE *_freeres_list;
+/* 0x00b0      |  0x0008 */    void *_freeres_buf;
+/* 0x00b8      |  0x0008 */    struct _IO_FILE **_prevchain;
+/* 0x00c0      |  0x0004 */    int _mode;
+/* 0x00c4      |  0x0004 */    int _unused3;
+/* 0x00c8      |  0x0008 */    __uint64_t _total_written;
+/* 0x00d0      |  0x0008 */    char _unused2[8];
+
+                               /* total size (bytes):  216 */
+                             }
+```
+
+So when we trigger the read we can overwrite the `_chain` pointer of `_IO_2_1_stdin_` to further extend the FILE processing loop in `_IO_flush_all`. Combined with the leak that triggered on `_IO_2_1_stdout_` in the previous iteration of `_IO_flush_all` we can write a fake file struct to trigger `system("/bin/sh")` and set `_IO_2_1_stdin_._chain` to point to this fake file.
+
+## files
+
+NOTE: requires 1/256 brute force.
+
+(sorry image handling is a bit broken right now)
+![brute forcing remote with 32 instances](./brute.png/raw)
+
+```py path="./solve.py" open
+
+```

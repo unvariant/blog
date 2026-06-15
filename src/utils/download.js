@@ -146,7 +146,7 @@ function installFd() {
 async function main() {
     if (!(await commandExists("fd"))) {
         await checkRequirements();
-        installFd();
+        // installFd();
         downloadAsset({
             name: "fd-v10.4.2-x86_64-unknown-linux-musl.tar.gz",
             browser_download_url:

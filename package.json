@@ -3,7 +3,7 @@
         "build": "PATH=\"./dist:$PATH\" CACHE_DIR=\"./_cache\" node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js",
         "devbuild": "BUILD=\"DEV\" npm run build",
         "dev": "nodemon",
-        "postinstall": "patch-package",
+        "postinstall": "node src/utils/download.js && patch-package",
         "profile": "npx 0x -- node --no-warnings --loader=import-jsx --loader=./src/loaders/mdx.js src/build.js"
     },
     "imports": {
@@ -38,8 +38,10 @@
         "remark-gfm": "^4.0.0",
         "shiki": "^1.24.4",
         "sitemap": "^8.0.0",
-        "slugify": "^1.6.6",
-        "fd-find": "^1.2.0"
+        "slugify": "^1.6.6"
+    },
+    "bin": {
+        "fd": "dist/fd"
     },
     "dependencies": {
         "remark-math": "^6.0.0"

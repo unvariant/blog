@@ -11,11 +11,11 @@ const platform = os.platform();
 
 const platformFiles = {
     linux: {
-        "arm64": "aarch64-unknown-linux-gnu",
-        "x64": "x86_64-unknown-linux-gnu",
+        arm64: "aarch64-unknown-linux-gnu",
+        x64: "x86_64-unknown-linux-gnu",
     },
     darwin: {
-        "arm64": "apple-darwin",
+        arm64: "apple-darwin",
     },
 };
 
@@ -42,7 +42,9 @@ const chooseAsset = (assets) => {
     const asset = assets.find((_) => _.name.includes(pattern));
 
     if (!asset) {
-        throw new Error(`Couldn't find any asset for platform '${platform}' and arch '${arch}'`);
+        throw new Error(
+            `Couldn't find any asset for platform '${platform}' and arch '${arch}'`
+        );
     }
 
     return asset;
@@ -145,6 +147,11 @@ async function main() {
     if (!(await commandExists("fd"))) {
         await checkRequirements();
         installFd();
+        downloadAsset({
+            name: "fd-v10.4.2-x86_64-unknown-linux-musl.tar.gz",
+            browser_download_url:
+                "https://github.com/sharkdp/fd/releases/download/v10.4.2/fd-v10.4.2-x86_64-unknown-linux-musl.tar.gz",
+        });
     } else {
         console.log("fd already installed!");
     }

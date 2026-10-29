@@ -6,6 +6,12 @@ path=$(dirname "$(readlink -f "$0")")
 name=$(basename "$0")
 work="/root"
 cmd="$1"
+
+if [ -z "$cmd" ]; then
+    echo "usage: $name [setup|build]"
+    exit 1
+fi
+
 shift
 
 function sandbox() {
@@ -20,11 +26,6 @@ function sandbox() {
     -it blog \
     "$@"
 }
-
-if [ -z "$cmd" ]; then
-    echo "usage: $name [setup|build]"
-    exit 1
-fi
 
 cd "$path"
 
@@ -49,5 +50,9 @@ case "$cmd" in
 
     shell)
     sandbox bash
+    ;;
+
+    *)
+    echo "unrecognized command: $cmd"
     ;;
 esac
